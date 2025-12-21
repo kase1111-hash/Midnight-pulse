@@ -29,6 +29,9 @@ namespace Nightflow.Components
 
         /// <summary>Highest combo/multiplier reached this run.</summary>
         public float HighestMultiplier;
+
+        /// <summary>Internal accumulator for persistence calibration.</summary>
+        public double _k0;
     }
 
     /// <summary>
