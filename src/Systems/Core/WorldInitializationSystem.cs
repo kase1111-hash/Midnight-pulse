@@ -229,6 +229,29 @@ namespace Nightflow.Systems
 #if UNITY_EDITOR
             state.EntityManager.SetName(gameStateEntity, "GameState");
 #endif
+
+            // =============================================================
+            // Create Replay System State Singleton
+            // Manages input recording and ghost playback
+            // =============================================================
+
+            var replayEntity = state.EntityManager.CreateEntity();
+            state.EntityManager.AddComponentData(replayEntity, new ReplaySystemState
+            {
+                IsRecording = false,
+                RecordingTime = 0f,
+                RecordingInterval = 1f / 60f,        // 60 Hz fixed timestep
+                TimeSinceLastRecord = 0f,
+                InputsRecorded = 0,
+                MaxInputs = 1024,
+                GhostVehicle = Entity.Null,
+                GhostActive = false,
+                CurrentSeed = (uint)System.DateTime.Now.Ticks
+            });
+
+#if UNITY_EDITOR
+            state.EntityManager.SetName(replayEntity, "ReplaySystemState");
+#endif
         }
     }
 }
