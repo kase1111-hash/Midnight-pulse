@@ -29,10 +29,10 @@ namespace Nightflow.Systems
             var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
 
             foreach (var (crashState, damage, crashable, velocity, driftState,
-                         autopilot, scoreSession, entity) in
+                         autopilot, scoreSession, summary, entity) in
                 SystemAPI.Query<RefRW<CrashState>, RefRO<DamageState>, RefRO<Crashable>,
                                RefRO<Velocity>, RefRO<DriftState>, RefRW<Autopilot>,
-                               RefRW<ScoreSession>>()
+                               RefRW<ScoreSession>, RefRW<ScoreSummary>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithEntityAccess())
             {
@@ -110,6 +110,10 @@ namespace Nightflow.Systems
 
                     // End scoring
                     scoreSession.ValueRW.Active = false;
+
+                    // Finalize score summary
+                    summary.ValueRW.FinalScore = scoreSession.ValueRO.Score;
+                    summary.ValueRW.EndReason = reason;
 
                     // Add crashed tag
                     ecb.AddComponent<CrashedTag>(entity);

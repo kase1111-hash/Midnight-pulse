@@ -6,6 +6,7 @@
 using Unity.Entities;
 using Unity.Burst;
 using Unity.Mathematics;
+using Unity.Collections;
 using Nightflow.Components;
 using Nightflow.Tags;
 
@@ -27,7 +28,7 @@ namespace Nightflow.Systems
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(AutopilotSystem))]
+    [UpdateAfter(typeof(LaneBlockingSystem))]
     public partial struct SteeringSystem : ISystem
     {
         // Lane change parameters (from spec)
@@ -39,22 +40,60 @@ namespace Nightflow.Systems
         private const float ReferenceSpeed = 40f;         // m/s
         private const int NumLanes = 4;
 
+        // Blocking check parameters
+        private const float BlockCheckAhead = 20f;
+        private const float BlockCheckBehind = 10f;
+        private const float LaneWidth = 3.6f;
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             float deltaTime = SystemAPI.Time.DeltaTime;
 
             // =============================================================
+            // Build blocker list for lane change safety check
+            // =============================================================
+
+            var blockers = new NativeList<BlockerInfo>(Allocator.Temp);
+
+            foreach (var (transform, laneFollower, velocity) in
+                SystemAPI.Query<RefRO<WorldTransform>, RefRO<LaneFollower>, RefRO<Velocity>>()
+                    .WithAll<TrafficVehicleTag>())
+            {
+                blockers.Add(new BlockerInfo
+                {
+                    Z = transform.ValueRO.Position.z,
+                    Lane = laneFollower.ValueRO.CurrentLane,
+                    Speed = velocity.ValueRO.Forward
+                });
+            }
+
+            foreach (var (transform, hazard) in
+                SystemAPI.Query<RefRO<WorldTransform>, RefRO<Hazard>>()
+                    .WithAll<HazardTag>())
+            {
+                int lane = (int)math.round((transform.ValueRO.Position.x / LaneWidth) + 1.5f);
+                blockers.Add(new BlockerInfo
+                {
+                    Z = transform.ValueRO.Position.z,
+                    Lane = math.clamp(lane, 0, 3),
+                    Speed = 0f
+                });
+            }
+
+            // =============================================================
             // Process Player Steering
             // =============================================================
 
-            foreach (var (input, steeringState, laneFollower, velocity) in
+            foreach (var (input, steeringState, laneFollower, velocity, transform) in
                 SystemAPI.Query<RefRO<PlayerInput>, RefRW<SteeringState>,
-                               RefRW<LaneFollower>, RefRO<Velocity>>()
+                               RefRW<LaneFollower>, RefRO<Velocity>, RefRO<WorldTransform>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithNone<CrashedTag, AutopilotActiveTag>())
             {
                 float steerInput = input.ValueRO.Steer;
+                float myZ = transform.ValueRO.Position.z;
+                float mySpeed = velocity.ValueRO.Forward;
 
                 // =============================================================
                 // Steering Smoothing
@@ -122,18 +161,26 @@ namespace Nightflow.Systems
                         // Check lane bounds
                         if (targetLane >= 0 && targetLane < NumLanes)
                         {
-                            // Calculate speed-aware duration
-                            float speed = velocity.ValueRO.Forward;
-                            float duration = BaseDuration * (ReferenceSpeed / math.max(speed, 10f));
-                            duration = math.clamp(duration, MinDuration, MaxDuration);
+                            // Check if lane is blocked
+                            bool isBlocked = IsLaneBlocked(myZ, mySpeed, targetLane, ref blockers);
 
-                            // Start lane change
-                            steeringState.ValueRW.ChangingLanes = true;
-                            steeringState.ValueRW.LaneChangeTimer = 0f;
-                            steeringState.ValueRW.LaneChangeDuration = duration;
-                            steeringState.ValueRW.LaneChangeDir = direction;
+                            if (!isBlocked)
+                            {
+                                // Calculate speed-aware duration
+                                float speed = velocity.ValueRO.Forward;
+                                float duration = BaseDuration * (ReferenceSpeed / math.max(speed, 10f));
+                                duration = math.clamp(duration, MinDuration, MaxDuration);
 
-                            laneFollower.ValueRW.TargetLane = targetLane;
+                                // Start lane change
+                                steeringState.ValueRW.ChangingLanes = true;
+                                steeringState.ValueRW.LaneChangeTimer = 0f;
+                                steeringState.ValueRW.LaneChangeDuration = duration;
+                                steeringState.ValueRW.LaneChangeDir = direction;
+
+                                laneFollower.ValueRW.TargetLane = targetLane;
+                            }
+                            // If blocked, steering input is ignored for lane change
+                            // Player can still steer within current lane
                         }
                     }
                 }
@@ -166,6 +213,8 @@ namespace Nightflow.Systems
                 if (!steeringState.ValueRO.ChangingLanes)
                     continue;
 
+                steeringState.ValueRW.LaneChangeTimer += deltaTime;
+
                 float duration = steeringState.ValueRO.LaneChangeDuration;
                 if (duration <= 0) duration = 0.8f;
 
@@ -179,6 +228,38 @@ namespace Nightflow.Systems
                     laneFollower.ValueRW.CurrentLane = laneFollower.ValueRO.TargetLane;
                 }
             }
+
+            blockers.Dispose();
+        }
+
+        private bool IsLaneBlocked(float myZ, float mySpeed, int targetLane,
+                                   ref NativeList<BlockerInfo> blockers)
+        {
+            for (int i = 0; i < blockers.Length; i++)
+            {
+                var b = blockers[i];
+                if (b.Lane != targetLane) continue;
+
+                float dz = b.Z - myZ;
+
+                // Adjust blocking distance based on relative speed
+                float relSpeed = mySpeed - b.Speed;
+                float ahead = BlockCheckAhead + math.max(0, relSpeed * 1.5f);
+                float behind = BlockCheckBehind + math.max(0, -relSpeed * 2f);
+
+                if (dz > -behind && dz < ahead)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private struct BlockerInfo
+        {
+            public float Z;
+            public int Lane;
+            public float Speed;
         }
     }
 }
