@@ -62,6 +62,8 @@ namespace Nightflow.Archetypes
                 // Signaling
                 typeof(EmergencyDetection),
                 typeof(CameraState),
+                // Environment (tunnel/overpass/fork state)
+                typeof(EnvironmentState),
                 // Replay Recording
                 typeof(InputLogEntry)
             );
@@ -136,6 +138,8 @@ namespace Nightflow.Archetypes
                 typeof(SpeedTier),
                 // Lane Following
                 typeof(LaneFollower),
+                // Environment (for tunnel/overpass compatibility)
+                typeof(EnvironmentState),
                 // Replay
                 typeof(ReplayState),
                 typeof(GhostRenderState),

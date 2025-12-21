@@ -162,6 +162,26 @@ namespace Nightflow.Systems
 #endif
 
             // =============================================================
+            // Create Tunnel Lighting Singleton
+            // Manages tunnel environment lighting state
+            // =============================================================
+
+            var tunnelEntity = state.EntityManager.CreateEntity();
+            state.EntityManager.AddComponentData(tunnelEntity, new TunnelLighting
+            {
+                AmbientColor = new float3(0.2f, 0.15f, 0.1f),
+                AmbientIntensity = 1f,
+                LightSpacing = 20f,
+                LightIntensity = 0.8f,
+                IsInTunnel = false,
+                TunnelBlend = 0f
+            });
+
+#if UNITY_EDITOR
+            state.EntityManager.SetName(tunnelEntity, "TunnelLighting");
+#endif
+
+            // =============================================================
             // Create UI State Singleton
             // Bridges ECS data to MonoBehaviour HUD
             // =============================================================
