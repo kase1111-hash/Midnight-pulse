@@ -1,51 +1,74 @@
-# Midnight Pulse — Technical Specification Sheet
+# Nightflow — Master Technical Specification
 
-**Version:** 1.0
+**Version:** 1.1
+**Date:** December 2025
 **Copyright:** © 2025 Kase Branham. All rights reserved.
+
+---
+
+> **Tagline:** *Infinite neon freeway. One life. Flow or crash.*
+
+**Genre:** Endless procedural night-time freeway driving (flow runner)
+**Core Inspiration:** Subway Surfers × BeamNG × OutRun × high-speed night aesthetics
+**Target Platforms:** PC (primary), Console (stretch)
+**Engine:** Unity DOTS 1.0+ (HDRP/Entities.Graphics) or Unreal Mass Entity (UE5)
 
 ---
 
 ## Table of Contents
 
-1. [Project Overview](#1-project-overview)
-2. [Core Design Pillars](#2-core-design-pillars)
+1. [Game Overview & Pillars](#1-game-overview--pillars)
+2. [Controls](#2-controls)
 3. [Technical Architecture](#3-technical-architecture)
 4. [Vehicle Systems](#4-vehicle-systems)
 5. [Lane & Track Systems](#5-lane--track-systems)
 6. [Traffic & AI Systems](#6-traffic--ai-systems)
 7. [Hazard & Damage Systems](#7-hazard--damage-systems)
-8. [Rendering & Visual Systems](#8-rendering--visual-systems)
-9. [Audio System](#9-audio-system)
-10. [Scoring System](#10-scoring-system)
-11. [UI/UX System](#11-uiux-system)
-12. [Implementation Parameters](#12-implementation-parameters)
+8. [Camera System](#8-camera-system)
+9. [Rendering & Visual Systems](#9-rendering--visual-systems)
+10. [Audio System](#10-audio-system)
+11. [Off-Screen Threat Signaling](#11-off-screen-threat-signaling)
+12. [Scoring System](#12-scoring-system)
+13. [Replay & Ghost System](#13-replay--ghost-system)
+14. [UI/UX System](#14-uiux-system)
+15. [Difficulty Progression](#15-difficulty-progression)
+16. [Implementation Parameters](#16-implementation-parameters)
+17. [MVP Development Roadmap](#17-mvp-development-roadmap)
 
 ---
 
-## 1. Project Overview
+## 1. Game Overview & Pillars
 
-**Midnight Pulse** is a procedural, endless, night-time freeway driving game focused on flow, speed, and visual rhythm. The game features a wireframe aesthetic with dynamic lighting, emphasizing continuous gameplay without hard restarts.
+### Core Gameplay Loop
 
-### Target Platforms
-- Unity DOTS (Entities 1.0+)
-- Unreal Engine 5 Mass Framework
+1. Player drives endlessly on procedurally generated freeway
+2. Steer smoothly between lanes, speed up/down, handbrake drift
+3. Avoid/pass traffic, hazards, emergency vehicles
+4. Small hits damage vehicle → handling degradation
+5. Large hit or total failure → crash → fade → score summary → autopilot reset → resume or save
 
-### Core Experience
-- Endless procedural freeway generation
-- High-speed gameplay (200+ km/h viable)
-- Flow-based driving with lane magnetism
-- Crash → Autopilot → Resume loop (no loading screens)
+### Win Condition
+Highest score/distance before debilitating crash.
 
----
-
-## 2. Core Design Pillars
+### Core Design Pillars
 
 | Pillar | Description |
 |--------|-------------|
-| **Flow Over Precision** | Smooth steering, magnetic lanes, forgiving controls unless impact is severe |
-| **Speed = Score** | Faster driving multiplies score; stopping/slowing removes multiplier |
-| **Visual Rhythm** | City lights, emergency flashes, tunnels, bridges, stacked overpasses |
-| **One Continuous Loop** | No hard restarts; crashes fade → autopilot → resume or save |
+| **Flow Over Precision** | Smooth, forgiving controls with lane magnetism and autopilot respite |
+| **Speed = Score** | Faster driving multiplies score; braking/stopping kills multiplier |
+| **Visual Rhythm** | Wireframe world, dynamic night lighting, emergency strobes, tunnels/overpasses |
+| **One Continuous Loop** | Crash → instant reset → autopilot → resume; no loading, no hard restarts |
+
+---
+
+## 2. Controls
+
+| Input | Function |
+|-------|----------|
+| **Analog Steer** | Smoothed, lane-based steering |
+| **Throttle** | Speed up |
+| **Brake** | Slow down (ends scoring) |
+| **Handbrake** | Drift/spin (must maintain forward velocity) |
 
 ---
 
@@ -59,7 +82,7 @@
 | Components | Pure data (no logic) |
 | Systems | Logic operating over component queries |
 
-### 3.2 Entity Categories
+### 3.2 Entity Archetypes
 
 | Entity Type | Description |
 |-------------|-------------|
@@ -67,12 +90,13 @@
 | `TrafficVehicle` | AI-driven lane-following vehicles |
 | `EmergencyVehicle` | Ambulance/police with siren and overtake behavior |
 | `Hazard` | Road debris, barriers, construction |
-| `TrackSegment` | Procedural road segment |
+| `TrackSegment` | Procedural road segment (with DynamicBuffer<LaneSplinePoint>) |
 | `Lane` | Individual lane spline |
 | `LightSource` | Dynamic/static light emitters |
 | `CameraRig` | Chase camera system |
 | `UIOverlay` | HUD elements |
 | `ScoreSession` | Active scoring state |
+| `GhostVehicle` | For replays |
 
 ### 3.3 Core Components
 
@@ -87,6 +111,7 @@ Velocity { Forward: float, Lateral: float, Angular: float }
 PlayerInput { Steer: float[-1,1], Throttle: float[0,1], Brake: float[0,1], Handbrake: bool }
 Autopilot { Enabled: bool, TargetSpeed: float, LanePreference: int }
 SteeringState { CurrentAngle: float, TargetAngle: float, Smoothness: float }
+LaneTransition { Active: bool, FromLane: Entity, ToLane: Entity, Progress: float }
 ```
 
 #### Lane & Track
@@ -96,28 +121,43 @@ LaneSpline { ControlPoints: float3[], Width: float }
 TrackSegment { Type: enum, Length: float, Difficulty: float }
 ```
 
-#### Damage
+#### Damage & Scoring
 ```
 DamageState { Front: float, Rear: float, Left: float, Right: float, Total: float }
 Crashable { CrashThreshold: float }
+ScoreSession { Distance: float, Multiplier: float, RiskMultiplier: float, Active: bool }
 ```
 
-### 3.4 System Execution Order (Per Frame)
+#### Signaling
+```
+LightEmitter { Color: float3, Intensity: float, Strobe: bool, StrobeRate: float }
+OffscreenSignal { Direction: float2, Urgency: float, Type: enum }
+ReplayPlayer { InputLog: buffer, Timestamp: float }
+```
 
-1. Input
+### 3.4 System Execution Order
+
+**Simulation Group:**
+1. Input / Replay Playback
 2. Autopilot
-3. Steering
+3. Steering & Lane Transition
 4. Lane Magnetism
-5. Movement
-6. Collision
-7. Damage
-8. Crash
-9. Track Generation
-10. Traffic AI
-11. Scoring
-12. Camera
-13. Rendering
-14. UI
+5. Vehicle Movement & Drift/Yaw
+6. Collision & Impulse
+7. Damage Evaluation
+8. Crash Handling
+9. Procedural Track Generation & Fork Resolution
+10. Traffic / Emergency AI
+11. Hazard Spawning
+12. Scoring
+13. Off-Screen Signaling
+
+**Presentation Group:**
+14. Camera
+15. Wireframe Render
+16. Lighting
+17. Audio
+18. UI
 
 ### 3.5 Critical Event Flow
 
@@ -138,22 +178,19 @@ VehicleMovement → LaneMagnetism → Collision → Damage → Crash → Fade �
 - Curvature eased with cubic interpolation
 
 #### Speed Tiers
-| Tier | Effect |
-|------|--------|
-| Cruise | Base multiplier |
-| Fast | Enhanced multiplier, increased lighting |
-| Boosted | Maximum multiplier, maximum effects |
 
-### 4.2 Lane Magnetism System
+| Tier | Multiplier | Effect |
+|------|------------|--------|
+| Cruise | 1.0× | Base speed, standard effects |
+| Fast | 1.5× | Enhanced lighting, increased FOV |
+| Boosted | 2.5× | Maximum effects, highest risk/reward |
+
+### 4.2 Lane Magnetism System (Critically Damped Spring)
 
 #### Core Spring-Damper Equation
 ```
-a_mag = -k·x - c·ẋ
-
-Where:
-  k = ω² (stiffness)
-  c = 2ω (critical damping)
-  ω ≈ 6-12 (natural frequency)
+x_error = current_lateral - target_lateral
+a_lat = m × (-ω² × x_error - 2ω × lateral_vel)
 ```
 
 #### Magnetism Modulation
@@ -167,18 +204,15 @@ Where:
   m_handbrake = 0.25 if engaged else 1.0
 ```
 
-#### Final Lateral Acceleration
-```
-a_lat = m × (-ω²x - 2ωẋ)
-```
-
 #### Edge Force (Soft Constraint)
 ```
 If |x| > w_soft (85% lane width):
   a_edge = -sign(x) × k_edge × x_edge²
 ```
 
-### 4.3 Lane Change System
+### 4.3 Lane Change & Merge System
+
+Blended virtual spline via smoothstep on lateral offset. Same math used for player, traffic, autopilot, and geometric merges.
 
 #### Trigger Conditions
 - Steering exceeds threshold: `|s| > 0.35`
@@ -211,18 +245,18 @@ s_effective = s × (1 - λ)
 - Counter-steer > 0.7 in opposite direction triggers reversal
 - Progress resets using: `Progress = Duration × (1-t)`
 
-### 4.4 Drift & Yaw System
+### 4.4 Drift, Yaw & Forward Constraint
 
 #### Forward-Velocity Constraint (Critical)
 ```
-v_f ≥ v_min (6-10 m/s)
+v_f ≥ v_min (~8 m/s)
 
 If v_f < v_min:
   v_f ← v_min
   V ← v_f·F + v_l·R
 ```
 
-#### Yaw Dynamics
+#### Yaw Dynamics (Explicit Torque Model)
 ```
 ψ̈ = τ_steer + τ_drift - c_ψ·ψ̇
 
@@ -256,6 +290,8 @@ During handbrake:
 
 ### 5.1 Procedural Spline Generation
 
+Piecewise Cubic Hermite splines (easy tangent control, stable curvature, deterministic, cheap evaluation).
+
 #### Hermite Spline Definition
 ```
 S(t) = (2t³-3t²+1)P₀ + (t³-2t²+t)T₀ + (-2t³+3t²)P₁ + (t³-t²)T₁
@@ -281,6 +317,7 @@ Up': U'(t) = R(t) × F(t)
 | Max Length | 120m |
 | Tangent Alpha | 0.4-0.6 |
 | Max Curvature | 1/R_min |
+| Arc-length Samples | 16 |
 
 #### Curvature Constraint
 ```
@@ -318,6 +355,8 @@ Gradual separation:
   S_fork(t) += R(t) × (d_fork × t²)
 ```
 
+Forks gradually diverge; unchosen path despawns after commit.
+
 #### Fork Magnetism Reduction
 ```
 m_fork(s) = smoothstep(1, 0.7, s/L_fork)
@@ -332,14 +371,18 @@ S(t).y += h(t)
 
 ### 5.7 Deterministic Generation
 ```
-seed = hash(globalSeed, segmentIndex)
+segmentSeed = hash(globalSeed, segmentIndex)
 ```
+
+Guarantees: Replayable runs, ghost driving, network determinism.
 
 ---
 
 ## 6. Traffic & AI Systems
 
 ### 6.1 Traffic AI Lane-Change Decision
+
+Continuous lane desirability scoring — cars "slide downhill" in a desirability landscape.
 
 #### Lane Score Function
 ```
@@ -402,12 +445,14 @@ If u > 0.6 AND time > 1.5s AND no lane change:
   - Score multiplier decays: M ← M × (1 - 0.1 × u × Δt)
 ```
 
-#### Light Signaling (Off-Screen)
+### 6.3 Traffic Yielding Behavior
 ```
-Intensity: I = I₀(1 + 2u)
-Strobe rate: f = f₀ + 4u
-Light radius: r = r₀(1 + u)
+If emergency urgency u > 0.7:
+  v_f ← v_f × (1 - 0.3u)
+  Prefer outermost lane
 ```
+
+Traffic yields and clears wave naturally — emergent behavior with no extra AI logic.
 
 ---
 
@@ -498,31 +543,50 @@ A crash occurs ONLY if one of the following is true:
 
 ---
 
-## 8. Rendering & Visual Systems
+## 8. Camera System
 
-### 8.1 Visual Style
-
-- Entire world rendered in wireframe
-- Solid light volumes
-- No textures (initially)
-- High lighting contrast
-
-### 8.2 Camera System
+### 8.1 Base Configuration
 
 | Property | Specification |
 |----------|---------------|
-| Type | Third-person chase camera |
-| Angle | Low, slightly offset downward |
-| FOV | Increases with speed |
-| Lag | Subtle camera lag for motion feel |
+| Type | Third-person chase (low angle, slight lead look-at) |
+| Base FOV | 55° |
+| Max FOV | 90° |
+| FOV Coupling | Speed-driven |
 
-#### Dynamic Effects
-- Speed-based motion blur
-- Headlight bloom
-- Light streaks at high velocity
-- Camera shake (minor: rough road, major: impacts)
+### 8.2 Dynamic Behaviors
 
-### 8.3 Lighting Types
+| Behavior | Description |
+|----------|-------------|
+| Speed FOV | FOV scales from 55° to 90° with speed |
+| Pull-back | Camera offset increases at high speed |
+| Yaw Follow | Camera follows vehicle yaw with damping |
+| Drift Whip | Extra rotational follow during drift |
+| Motion Blur | Speed² intensity scaling |
+
+### 8.3 Impact & Feedback
+
+| Effect | Trigger |
+|--------|---------|
+| Impact Recoil | Collision impulse |
+| Procedural Shake | Rough road, construction |
+| Damage Wobble | Accumulated damage |
+| Tunnel Squeeze | Entering tunnel segments |
+
+All motion critically damped per axis.
+
+---
+
+## 9. Rendering & Visual Systems
+
+### 9.1 Visual Style
+
+- Entire world rendered in wireframe (initial MVP)
+- Solid light volumes, bloom, and additive glows
+- Night-time city suggested via distant light grids and silhouettes (no full geometry)
+- Dynamic raytracing when available; fallback screen-space
+
+### 9.2 Lighting Types
 
 | Light Type | Description |
 |------------|-------------|
@@ -532,7 +596,7 @@ A crash occurs ONLY if one of the following is true:
 | Emergency strobes | Red/blue or red/white flashing |
 | Tunnel lights | Interior focused |
 
-### 8.4 Raytracing (If Available)
+### 9.3 Raytracing (If Available)
 
 - Headlight reflections
 - Emergency light reflections
@@ -540,7 +604,7 @@ A crash occurs ONLY if one of the following is true:
 
 **Fallback:** Screen-space lighting approximations
 
-### 8.5 World Boundaries
+### 9.4 World Boundaries
 
 - Only just-off-road geometry rendered
 - City suggested via light grids and distant silhouettes
@@ -548,46 +612,103 @@ A crash occurs ONLY if one of the following is true:
 
 ---
 
-## 9. Audio System
+## 10. Audio System
 
-### 9.1 Core Audio Layers
+### 10.1 Core Audio Layers
 
 | Layer | Description |
 |-------|-------------|
-| Engine | Pitch-based on speed |
-| Tires | Surface-dependent noise |
-| Wind | Velocity-scaled ambience |
-| City | Distant urban soundscape |
+| Engine | Pitch/load blend based on speed |
+| Tires | Slip/skid layer |
+| Wind | Rush intensity ∝ speed² |
+| Environment | Reverb zones (tunnel boomy, overpass ringing, open dry) |
 
-### 9.2 Event Audio
+### 10.2 Spatial Audio
+
+| Feature | Implementation |
+|---------|----------------|
+| Doppler | Exaggerated for sirens and passing traffic |
+| Directional | Emergency sirens positioned in 3D space |
+| Distance Attenuation | Realistic falloff for all sources |
+
+### 10.3 Event Audio
 
 | Event | Effect |
 |-------|--------|
-| Emergency sirens | Directional, doppler |
-| Crashes | Impact-scaled |
-| Construction | Zone-based |
+| Emergency sirens | Directional, doppler, off-screen intensification |
+| Crashes | Impact thuds, scrape sounds |
+| Damage | Engine detune, handling audio feedback |
+| Construction | Zone-based ambient |
 | Tunnels | Reverb increase |
 
 ---
 
-## 10. Scoring System
+## 11. Off-Screen Threat Signaling
 
-### 10.1 Score Accumulation
+### 11.1 Visual Indicators
+
+| Threat | Signal |
+|--------|--------|
+| Crashed vehicles ahead | Red/blue strobe leak at screen edges |
+| Emergencies behind | Red/white strobe at screen edges |
+
+### 11.2 Implementation
 
 ```
-Score = Distance × Speed_Multiplier
+Screen-space flare quads positioned by projected edge direction
+Intensity ∝ urgency (inverse distance) × strobe pulse
+Fade as threat enters view
 ```
 
-### 10.2 Multiplier Modifiers
+### 11.3 Light Signaling Math
+```
+Intensity: I = I₀ × (1 + 2u)
+Strobe rate: f = f₀ + 4u
+Light radius: r = r₀ × (1 + u)
+```
 
-| Modifier | Effect |
-|----------|--------|
-| Close calls | Bonus multiplier |
-| High-speed passes | Bonus multiplier |
-| Drift usage | Bonus multiplier |
-| Emergency avoidance | Bonus multiplier |
+Where `u` = urgency scalar (0-1)
 
-### 10.3 Scoring Rules
+---
+
+## 12. Scoring System
+
+### 12.1 Base Formula
+
+```
+Score = Distance × Speed_Tier_Multiplier × (1 + RiskMultiplier)
+```
+
+### 12.2 Speed Tier Multipliers
+
+| Tier | Multiplier |
+|------|------------|
+| Cruise | 1.0× |
+| Fast | 1.5× |
+| Boosted | 2.5× |
+
+### 12.3 Risk Events
+
+Risk events spike temporary `riskMultiplier`:
+
+| Event | Effect |
+|-------|--------|
+| Close passes | Spike risk multiplier |
+| Hazard dodges | Spike risk multiplier |
+| Emergency clears | Spike risk multiplier |
+| Drift recoveries | Spike risk multiplier |
+| Perfect segments | One-time bonus |
+| Full spins | One-time bonus |
+
+### 12.4 Risk Multiplier Dynamics
+
+```
+Decay: ~0.8/s
+Braking: Instantly halves riskMultiplier + 2s rebuild delay
+Damage: Reduces cap and rebuild rate
+```
+
+### 12.5 Scoring Rules
 
 - Braking stops score accumulation
 - Crashing ends score run
@@ -595,30 +716,62 @@ Score = Distance × Speed_Multiplier
 
 ---
 
-## 11. UI/UX System
+## 13. Replay & Ghost System
 
-### 11.1 HUD Elements
+### 13.1 Recording
+
+```
+Record: globalSeed + fixed-timestep input log
+```
+
+### 13.2 Playback
+
+```
+Second PlayerVehicle entity driven by log (identical sim)
+Deterministic via seeded PRNG and pure math
+```
+
+### 13.3 Ghost Rendering
+
+- Semi-transparent, non-colliding
+- Optional trail effect
+- Leaderboard validation via server re-simulation
+
+---
+
+## 14. UI/UX System
+
+### 14.1 HUD Elements
 
 | Element | Description |
 |---------|-------------|
 | Speed | Current velocity |
 | Multiplier | Active score modifier |
 | Score | Running total |
-| Damage | Zone indicators |
+| Damage | Zone indicators (bars) |
 
-### 11.2 Design Principles
+### 14.2 Design Principles
 
-- Transparent overlay
+- Transparent overlay (visible during autopilot)
 - Minimal HUD
 - No full-screen interruptions
 
-### 11.3 Pause System
+### 14.3 Pause System
 
 - Pausing allowed
 - 5-second cooldown before next pause
 - Cooldown visible to player
 
-### 11.4 Autopilot System
+### 14.4 Crash Flow
+
+1. Impact
+2. Screen shake
+3. Quick fade to black
+4. Score summary (breakdown + save option)
+5. Vehicle reset
+6. Autopilot resumes instantly
+
+### 14.5 Autopilot System
 
 **Activation:**
 - After crash
@@ -634,9 +787,23 @@ Score = Distance × Speed_Multiplier
 
 ---
 
-## 12. Implementation Parameters
+## 15. Difficulty Progression
 
-### 12.1 Lane Magnetism Defaults
+Natural scaling via endurance (no discrete levels):
+
+| Factor | Progression |
+|--------|-------------|
+| Base Speed | Increases over time |
+| Traffic Density | Increases with distance |
+| Hazard Frequency | Increases with distance |
+| Fork Complexity | More complex choices appear |
+| Risk Reward | Higher multipliers available |
+
+---
+
+## 16. Implementation Parameters
+
+### 16.1 Lane Magnetism Defaults
 
 | Parameter | Value |
 |-----------|-------|
@@ -646,7 +813,7 @@ Score = Distance × Speed_Multiplier
 | Edge stiffness | 20 |
 | Soft zone | 85% lane width |
 
-### 12.2 Lane Change Defaults
+### 16.2 Lane Change Defaults
 
 | Parameter | Value |
 |-----------|-------|
@@ -656,7 +823,7 @@ Score = Distance × Speed_Multiplier
 | Lane width | 3.6 m |
 | Fork magnetism | 70% |
 
-### 12.3 Drift/Yaw Defaults
+### 16.3 Drift/Yaw Defaults
 
 | Parameter | Value |
 |-----------|-------|
@@ -668,7 +835,15 @@ Score = Distance × Speed_Multiplier
 | Slip gain | 1.1 |
 | Drift magnetism | 0.3 |
 
-### 12.4 Emergency Vehicle Defaults
+### 16.4 Camera Defaults
+
+| Parameter | Value |
+|-----------|-------|
+| Base FOV | 55° |
+| Max FOV | 90° |
+| Damping | Critical per axis |
+
+### 16.5 Emergency Vehicle Defaults
 
 | Parameter | Value |
 |-----------|-------|
@@ -679,7 +854,7 @@ Score = Distance × Speed_Multiplier
 | Player min override | 0.3 |
 | Light intensity boost | ×3 |
 
-### 12.5 Hazard/Damage Defaults
+### 16.6 Hazard/Damage Defaults
 
 | Parameter | Value |
 |-----------|-------|
@@ -690,7 +865,7 @@ Score = Distance × Speed_Multiplier
 | Max damage | 100 |
 | Min forward speed | 8 m/s |
 
-### 12.6 Traffic AI Defaults
+### 16.7 Traffic AI Defaults
 
 | Weight | Value |
 |--------|-------|
@@ -703,7 +878,14 @@ Score = Distance × Speed_Multiplier
 | Threshold | 0.15 |
 | Lock time | 1.2 s |
 
-### 12.7 Procedural Generation Defaults
+### 16.8 Scoring Defaults
+
+| Parameter | Value |
+|-----------|-------|
+| Risk decay | 0.8/s |
+| Brake penalty | 50% + 2s delay |
+
+### 16.9 Procedural Generation Defaults
 
 | Parameter | Value |
 |-----------|-------|
@@ -714,31 +896,34 @@ Score = Distance × Speed_Multiplier
 
 ---
 
-## Appendix A: MVP Development Order
+## 17. MVP Development Roadmap
 
-1. Vehicle movement + lane magnetism
-2. Procedural freeway generation
-3. Traffic AI
-4. Basic scoring loop
-5. Crash → fade → autopilot loop
-6. Lighting + wireframe rendering
-7. Hazards & emergency vehicles
-8. Polish & performance
+1. Vehicle movement + lane magnetism + basic spline freeway
+2. Procedural generation (straights/curves) + traffic AI
+3. Lane change, handbrake drift, forward constraint
+4. Hazards, impulses, damage, crash loop
+5. Emergency vehicles + avoidance + off-screen signaling
+6. Scoring + risk bonuses
+7. Camera + audio layers
+8. Wireframe rendering + dynamic lighting
+9. Autopilot + UI overlay
+10. Replay/ghost system
+11. Polish (tunnels, overpasses, forks, ghosts)
 
 ---
 
-## Appendix B: Scalability Notes
+## Appendix A: Future Scalability
 
 | Feature | Upgrade Path |
 |---------|--------------|
-| Damage System | Swap to BeamNG-level soft-body deformation |
-| Lighting | Swap to full raytracing |
-| Multiplayer | Replicate ECS state deltas |
-| Replay | Record component diffs |
+| Phase 2 Damage | Swap to soft-body / component failure |
+| Raytracing | Replace lighting system with full RT |
+| Multiplayer | Replicate input logs + seeds |
+| Full City | Populate distant silhouettes with geometry |
 
 ---
 
-## Appendix C: Engine Parity Reference
+## Appendix B: Engine Parity Reference
 
 | Concept | Unity DOTS | Unreal Mass |
 |---------|------------|-------------|
