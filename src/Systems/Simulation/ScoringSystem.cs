@@ -39,9 +39,10 @@ namespace Nightflow.Systems
         {
             float deltaTime = SystemAPI.Time.DeltaTime;
 
-            foreach (var (scoreSession, riskState, velocity, input, speedTier) in
+            foreach (var (scoreSession, riskState, velocity, input, speedTier, summary) in
                 SystemAPI.Query<RefRW<ScoreSession>, RefRW<RiskState>,
-                               RefRO<Velocity>, RefRO<PlayerInput>, RefRW<SpeedTier>>()
+                               RefRO<Velocity>, RefRO<PlayerInput>, RefRW<SpeedTier>,
+                               RefRW<ScoreSummary>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithNone<CrashedTag>())
             {
@@ -109,11 +110,21 @@ namespace Nightflow.Systems
                 riskState.ValueRW.Value = math.min(riskState.ValueRO.Value, riskState.ValueRO.Cap);
 
                 // =============================================================
-                // Accumulate Distance
+                // Accumulate Distance and Track Stats
                 // =============================================================
 
                 float distanceThisFrame = speed * deltaTime;
                 scoreSession.ValueRW.Distance += distanceThisFrame;
+
+                // Track highest speed
+                if (speed > summary.ValueRO.HighestSpeed)
+                {
+                    summary.ValueRW.HighestSpeed = speed;
+                }
+
+                // Track time survived
+                summary.ValueRW.TimeSurvived += deltaTime;
+                summary.ValueRW.TotalDistance = scoreSession.ValueRO.Distance;
 
                 // =============================================================
                 // Calculate Score
