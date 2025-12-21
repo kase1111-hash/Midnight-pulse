@@ -63,20 +63,26 @@ namespace Nightflow.Components
     /// </summary>
     public struct TrackSegment : IComponentData
     {
-        /// <summary>Segment type affects rendering and audio.</summary>
-        public TrackSegmentType Type;
+        /// <summary>Segment index in the procedural sequence.</summary>
+        public int Index;
+
+        /// <summary>Segment type: 0=Straight, 1=Curve, 2=Tunnel, 3=Overpass, 4=Fork.</summary>
+        public int Type;
+
+        /// <summary>World Z at segment start.</summary>
+        public float StartZ;
+
+        /// <summary>World Z at segment end.</summary>
+        public float EndZ;
 
         /// <summary>Length of this segment (m).</summary>
         public float Length;
 
+        /// <summary>Number of lanes in this segment.</summary>
+        public int NumLanes;
+
         /// <summary>Difficulty scalar [0, 1] for hazard/traffic spawning.</summary>
         public float Difficulty;
-
-        /// <summary>Number of lanes in this segment.</summary>
-        public int LaneCount;
-
-        /// <summary>Segment index in the procedural sequence (for deterministic generation).</summary>
-        public int SegmentIndex;
 
         /// <summary>Reference to next segment (null if not yet generated).</summary>
         public Entity NextSegment;
@@ -143,5 +149,76 @@ namespace Nightflow.Components
 
         /// <summary>Position on spline.</summary>
         public float3 Position;
+    }
+
+    /// <summary>
+    /// Tunnel segment data.
+    /// From spec: Spawn tunnel mesh, reduce lighting radius, increase reverb.
+    /// </summary>
+    public struct TunnelData : IComponentData
+    {
+        /// <summary>Tunnel height (meters).</summary>
+        public float Height;
+
+        /// <summary>Tunnel width (meters).</summary>
+        public float Width;
+
+        /// <summary>Interior light spacing (meters).</summary>
+        public float LightSpacing;
+
+        /// <summary>Interior light intensity reduction factor (0-1).</summary>
+        public float LightReduction;
+
+        /// <summary>Whether this is an entry segment (for transition).</summary>
+        public bool IsEntry;
+
+        /// <summary>Whether this is an exit segment (for transition).</summary>
+        public bool IsExit;
+    }
+
+    /// <summary>
+    /// Overpass segment data.
+    /// From spec: h(t) = A × sin(πt) elevation.
+    /// </summary>
+    public struct OverpassData : IComponentData
+    {
+        /// <summary>Maximum elevation gain A (meters).</summary>
+        public float ElevationAmplitude;
+
+        /// <summary>Whether this is the elevated segment (vs the ground-level one).</summary>
+        public bool IsElevated;
+
+        /// <summary>Reference to the other layer segment (stacked).</summary>
+        public Entity OtherLayer;
+
+        /// <summary>Whether player is on this layer.</summary>
+        public bool PlayerOnLayer;
+    }
+
+    /// <summary>
+    /// Player's current environment state for tunnel/overpass transitions.
+    /// </summary>
+    public struct EnvironmentState : IComponentData
+    {
+        /// <summary>Whether currently in a tunnel.</summary>
+        public bool InTunnel;
+
+        /// <summary>Tunnel blend factor (0 = outside, 1 = fully inside).</summary>
+        public float TunnelBlend;
+
+        /// <summary>Whether currently on an overpass.</summary>
+        public bool OnOverpass;
+
+        /// <summary>Current elevation offset from base track.</summary>
+        public float ElevationOffset;
+
+        /// <summary>Whether at a fork decision point.</summary>
+        public bool AtFork;
+
+        /// <summary>Fork progress (0 = fork start, 1 = committed).</summary>
+        public float ForkProgress;
+
+        /// <summary>Current fork entity (if at fork).</summary>
+        public Entity CurrentFork;
     }
 }

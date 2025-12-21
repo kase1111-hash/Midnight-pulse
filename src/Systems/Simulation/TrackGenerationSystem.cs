@@ -42,6 +42,33 @@ namespace Nightflow.Systems
         private const float BaseDifficulty = 0.3f;
         private const float DifficultyPerKm = 0.1f;
 
+        // Special segment spawn chances (increase with difficulty)
+        private const float TunnelBaseChance = 0.05f;
+        private const float TunnelMaxChance = 0.15f;
+        private const float OverpassBaseChance = 0.03f;
+        private const float OverpassMaxChance = 0.12f;
+        private const float ForkBaseChance = 0.02f;
+        private const float ForkMaxChance = 0.08f;
+
+        // Tunnel parameters
+        private const float TunnelHeight = 6f;
+        private const float TunnelWidth = 16f;
+        private const float TunnelLightSpacing = 20f;
+
+        // Overpass parameters
+        private const float OverpassElevation = 8f;
+
+        // Fork parameters
+        private const float ForkAngle = 0.1f;            // radians
+        private const float ForkSeparationDist = 50f;
+
+        // Cooldowns (segments since last special)
+        private int _segmentsSinceTunnel;
+        private int _segmentsSinceOverpass;
+        private int _segmentsSinceFork;
+        private bool _inTunnel;
+        private int _tunnelRemaining;
+
         private uint _globalSeed;
         private int _nextSegmentIndex;
 
@@ -50,6 +77,11 @@ namespace Nightflow.Systems
         {
             _globalSeed = 12345u;
             _nextSegmentIndex = 0;
+            _segmentsSinceTunnel = 10;
+            _segmentsSinceOverpass = 10;
+            _segmentsSinceFork = 10;
+            _inTunnel = false;
+            _tunnelRemaining = 0;
         }
 
         [BurstCompile]
@@ -237,14 +269,61 @@ namespace Nightflow.Systems
             }
 
             // =============================================================
+            // Determine Segment Type
+            // =============================================================
+
+            int segmentType = 0; // Default: Straight
+            if (math.abs(yawChange) > 0.05f) segmentType = 1; // Curve
+
+            // Check for special segment spawns (with cooldowns)
+            float typeRoll = SplineUtilities.HashToFloat(SplineUtilities.Hash(segHash, 10));
+            float tunnelChance = math.lerp(TunnelBaseChance, TunnelMaxChance, difficulty);
+            float overpassChance = math.lerp(OverpassBaseChance, OverpassMaxChance, difficulty);
+            float forkChance = math.lerp(ForkBaseChance, ForkMaxChance, difficulty);
+
+            // Continue tunnel if in progress
+            if (_inTunnel && _tunnelRemaining > 0)
+            {
+                segmentType = 2; // Tunnel
+                _tunnelRemaining--;
+                if (_tunnelRemaining == 0) _inTunnel = false;
+            }
+            // Check for new tunnel (min 5 segments since last)
+            else if (_segmentsSinceTunnel >= 5 && typeRoll < tunnelChance)
+            {
+                segmentType = 2; // Tunnel
+                _inTunnel = true;
+                // Tunnel length: 2-4 segments
+                _tunnelRemaining = 1 + (int)(SplineUtilities.HashToFloat(
+                    SplineUtilities.Hash(segHash, 11)) * 3);
+                _segmentsSinceTunnel = 0;
+            }
+            // Check for overpass (min 8 segments since last, not in tunnel)
+            else if (_segmentsSinceOverpass >= 8 && !_inTunnel &&
+                     typeRoll >= tunnelChance && typeRoll < tunnelChance + overpassChance)
+            {
+                segmentType = 3; // Overpass
+                _segmentsSinceOverpass = 0;
+            }
+            // Check for fork (min 12 segments since last, not in tunnel)
+            else if (_segmentsSinceFork >= 12 && !_inTunnel &&
+                     typeRoll >= tunnelChance + overpassChance &&
+                     typeRoll < tunnelChance + overpassChance + forkChance)
+            {
+                segmentType = 4; // Fork
+                _segmentsSinceFork = 0;
+            }
+
+            // Update cooldowns
+            _segmentsSinceTunnel++;
+            _segmentsSinceOverpass++;
+            _segmentsSinceFork++;
+
+            // =============================================================
             // Create Segment Entity
             // =============================================================
 
             Entity segmentEntity = ecb.CreateEntity();
-
-            // Determine segment type
-            int segmentType = 0; // Straight
-            if (math.abs(yawChange) > 0.05f) segmentType = 1; // Curve
 
             ecb.AddComponent(segmentEntity, new TrackSegment
             {
@@ -296,6 +375,50 @@ namespace Nightflow.Systems
             }
 
             ecb.AddComponent<TrackSegmentTag>(segmentEntity);
+
+            // =============================================================
+            // Add Special Segment Components & Tags
+            // =============================================================
+
+            switch (segmentType)
+            {
+                case 2: // Tunnel
+                    ecb.AddComponent<TunnelTag>(segmentEntity);
+                    ecb.AddComponent(segmentEntity, new TunnelData
+                    {
+                        Height = TunnelHeight,
+                        Width = TunnelWidth,
+                        LightSpacing = TunnelLightSpacing,
+                        LightReduction = 0.3f,
+                        IsEntry = _tunnelRemaining == 2, // First segment of tunnel
+                        IsExit = _tunnelRemaining == 0   // Last segment of tunnel
+                    });
+                    break;
+
+                case 3: // Overpass
+                    ecb.AddComponent<OverpassTag>(segmentEntity);
+                    ecb.AddComponent(segmentEntity, new OverpassData
+                    {
+                        ElevationAmplitude = OverpassElevation,
+                        IsElevated = true,
+                        OtherLayer = Entity.Null,
+                        PlayerOnLayer = true
+                    });
+                    break;
+
+                case 4: // Fork
+                    ecb.AddComponent<ForkSegmentTag>(segmentEntity);
+                    ecb.AddComponent(segmentEntity, new ForkData
+                    {
+                        LeftBranch = Entity.Null,
+                        RightBranch = Entity.Null,
+                        ForkAngle = ForkAngle,
+                        ForkStartDistance = length * 0.3f,
+                        Committed = false,
+                        ChosenBranch = 0
+                    });
+                    break;
+            }
 
             return spline;
         }
