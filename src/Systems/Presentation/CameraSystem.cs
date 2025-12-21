@@ -14,6 +14,14 @@ namespace Nightflow.Systems
     /// <summary>
     /// Controls camera follow behavior, crash zoom, and replay camera.
     /// Smooth follow with speed-dependent FOV and offset.
+    ///
+    /// From spec:
+    /// - Base FOV 55°, Max FOV 90°
+    /// - Speed FOV: scales from 55° to 90° with speed
+    /// - Pull-back: offset increases at high speed
+    /// - Impact Recoil: from collision impulse
+    /// - Damage Wobble: from accumulated damage
+    /// - All motion critically damped per axis
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
@@ -26,19 +34,36 @@ namespace Nightflow.Systems
         private const float FollowSmoothing = 5f;         // position lerp speed
         private const float LookSmoothing = 8f;           // rotation lerp speed
 
-        // FOV parameters
-        private const float BaseFOV = 60f;                // degrees at low speed
-        private const float MaxFOV = 75f;                 // degrees at max speed
+        // FOV parameters (from spec)
+        private const float BaseFOV = 55f;                // degrees at low speed
+        private const float MaxFOV = 90f;                 // degrees at max speed
         private const float SpeedForMaxFOV = 70f;         // m/s
 
         // Drift camera
         private const float DriftOffsetMax = 2f;          // lateral offset when drifting
         private const float DriftTiltMax = 10f;           // degrees of roll
+        private const float DriftWhipMultiplier = 1.3f;   // extra rotational follow
 
         // Crash camera
         private const float CrashZoomSpeed = 2f;          // zoom out speed
         private const float CrashMaxDistance = 20f;       // max zoom distance
         private const float CrashSlowMotion = 0.3f;       // time scale
+
+        // Impact/Shake parameters
+        private const float ImpactRecoilDecay = 8f;       // recoil decay rate
+        private const float ImpactRecoilMax = 0.5f;       // max recoil offset
+        private const float DamageWobbleFreq = 3f;        // wobble frequency
+        private const float DamageWobbleMax = 0.15f;      // max wobble amplitude
+
+        // State
+        private float3 _recoilOffset;
+        private float _wobblePhase;
+
+        public void OnCreate(ref SystemState state)
+        {
+            _recoilOffset = float3.zero;
+            _wobblePhase = 0f;
+        }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -50,8 +75,12 @@ namespace Nightflow.Systems
             quaternion playerRot = quaternion.identity;
             float playerSpeed = 0f;
             float yawOffset = 0f;
+            float yawRate = 0f;
             bool isDrifting = false;
             bool isCrashed = false;
+            float totalDamage = 0f;
+            float impulseMagnitude = 0f;
+            float3 impulseDirection = float3.zero;
 
             foreach (var (transform, velocity, driftState) in
                 SystemAPI.Query<RefRO<WorldTransform>, RefRO<Velocity>, RefRO<DriftState>>()
@@ -61,6 +90,7 @@ namespace Nightflow.Systems
                 playerRot = transform.ValueRO.Rotation;
                 playerSpeed = velocity.ValueRO.Forward;
                 yawOffset = driftState.ValueRO.YawOffset;
+                yawRate = driftState.ValueRO.YawRate;
                 isDrifting = driftState.ValueRO.IsDrifting;
                 break;
             }
@@ -69,6 +99,50 @@ namespace Nightflow.Systems
             {
                 isCrashed = crashState.ValueRO.IsCrashed;
                 break;
+            }
+
+            // Get damage state for wobble
+            foreach (var damage in SystemAPI.Query<RefRO<DamageState>>().WithAll<PlayerVehicleTag>())
+            {
+                totalDamage = damage.ValueRO.Total;
+                break;
+            }
+
+            // Get impulse for recoil
+            foreach (var impulse in SystemAPI.Query<RefRO<ImpulseData>>().WithAll<PlayerVehicleTag>())
+            {
+                if (impulse.ValueRO.Magnitude > 0.1f)
+                {
+                    impulseMagnitude = impulse.ValueRO.Magnitude;
+                    impulseDirection = impulse.ValueRO.Direction;
+                }
+                break;
+            }
+
+            // =============================================================
+            // Impact Recoil
+            // =============================================================
+
+            if (impulseMagnitude > 0.1f)
+            {
+                // Add recoil in direction of impact
+                float recoilAmount = math.min(impulseMagnitude * 0.1f, ImpactRecoilMax);
+                _recoilOffset += impulseDirection * recoilAmount;
+            }
+
+            // Decay recoil (critically damped)
+            _recoilOffset *= math.exp(-ImpactRecoilDecay * deltaTime);
+
+            // =============================================================
+            // Damage Wobble
+            // =============================================================
+
+            float wobbleAmount = 0f;
+            if (totalDamage > 10f)
+            {
+                _wobblePhase += DamageWobbleFreq * deltaTime * math.PI * 2f;
+                float damageNorm = math.saturate(totalDamage / 100f);
+                wobbleAmount = math.sin(_wobblePhase) * DamageWobbleMax * damageNorm;
             }
 
             // =============================================================
@@ -165,13 +239,20 @@ namespace Nightflow.Systems
 
                 float3 forward = math.mul(playerRot, new float3(0, 0, 1));
                 float3 right = math.mul(playerRot, new float3(1, 0, 0));
+                float3 up = new float3(0, 1, 0);
 
                 float3 targetPos = playerPos
                     - forward * camera.ValueRO.FollowDistance
-                    + new float3(0, camera.ValueRO.FollowHeight, 0)
+                    + up * camera.ValueRO.FollowHeight
                     + right * camera.ValueRO.LateralOffset;
 
-                // Smooth follow
+                // Apply impact recoil offset
+                targetPos += _recoilOffset;
+
+                // Apply damage wobble (horizontal sway)
+                targetPos += right * wobbleAmount;
+
+                // Smooth follow (critically damped)
                 camera.ValueRW.Position = math.lerp(
                     camera.ValueRO.Position,
                     targetPos,
@@ -182,13 +263,22 @@ namespace Nightflow.Systems
                 float3 lookTarget = playerPos + forward * 10f;
                 float3 lookDir = math.normalize(lookTarget - camera.ValueRO.Position);
 
-                quaternion targetRot = quaternion.LookRotation(lookDir, new float3(0, 1, 0));
+                quaternion targetRot = quaternion.LookRotation(lookDir, up);
 
-                // Apply roll
-                if (math.abs(camera.ValueRO.Roll) > 0.001f)
+                // Apply roll from drift + damage wobble
+                float totalRoll = camera.ValueRO.Roll + wobbleAmount * 0.5f;
+                if (math.abs(totalRoll) > 0.001f)
                 {
-                    quaternion rollRot = quaternion.RotateZ(camera.ValueRO.Roll);
+                    quaternion rollRot = quaternion.RotateZ(totalRoll);
                     targetRot = math.mul(targetRot, rollRot);
+                }
+
+                // Drift whip: extra yaw follow during drift
+                if (isDrifting && math.abs(yawRate) > 0.1f)
+                {
+                    float whipYaw = yawRate * DriftWhipMultiplier * 0.1f;
+                    quaternion whipRot = quaternion.RotateY(whipYaw);
+                    targetRot = math.mul(targetRot, whipRot);
                 }
 
                 camera.ValueRW.Rotation = math.slerp(

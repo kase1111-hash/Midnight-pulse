@@ -61,6 +61,40 @@ namespace Nightflow.Systems
 #if UNITY_EDITOR
             state.EntityManager.SetName(atmosphereEntity, "AtmosphereController");
 #endif
+
+            // =============================================================
+            // Create Audio State Singleton
+            // Bridges ECS audio parameters to MonoBehaviour audio system
+            // =============================================================
+
+            var audioEntity = state.EntityManager.CreateEntity();
+            state.EntityManager.AddComponentData(audioEntity, new AudioState
+            {
+                EnginePitch = 1f,
+                EngineVolume = 0.5f,
+                EngineRPM = 1000f,
+                EngineLoad = 0f,
+                TireSquealVolume = 0f,
+                TireSquealPitch = 1f,
+                TireSkidVolume = 0f,
+                WindVolume = 0f,
+                WindPitch = 0.6f,
+                ImpactTriggered = false,
+                ImpactVolume = 0f,
+                ImpactPitch = 1f,
+                SirenVolume = 0f,
+                SirenPitch = 1f,
+                SirenActive = false,
+                CurrentZone = ReverbZone.OpenRoad,
+                ReverbMix = 0.1f,
+                ReverbDecay = 0.3f,
+                MusicIntensity = 0.5f,
+                AmbienceVolume = 0.3f
+            });
+
+#if UNITY_EDITOR
+            state.EntityManager.SetName(audioEntity, "AudioState");
+#endif
         }
     }
 }
