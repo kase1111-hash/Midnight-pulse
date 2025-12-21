@@ -54,10 +54,11 @@ namespace Nightflow.Systems
             // Find the track segment the player is on
             // We'll use this for proper lane frame calculation
 
-            foreach (var (laneFollower, velocity, input, autopilot, driftState, steeringState, transform) in
+            foreach (var (laneFollower, velocity, input, autopilot, driftState, steeringState, transform, detection) in
                 SystemAPI.Query<RefRW<LaneFollower>, RefRW<Velocity>, RefRO<PlayerInput>,
                                RefRO<Autopilot>, RefRO<DriftState>, RefRO<SteeringState>,
-                               RefRW<WorldTransform>>()
+                               RefRW<WorldTransform>, RefRO<EmergencyDetection>>()
+                    .WithAll<PlayerVehicleTag>()
                     .WithNone<CrashedTag>())
             {
                 float playerZ = transform.ValueRO.Position.z;
@@ -125,6 +126,10 @@ namespace Nightflow.Systems
                     float lambda = SplineUtilities.Smoothstep(t);
                     targetLateral = math.lerp(currentLaneOffset, targetLaneOffset, lambda);
                 }
+
+                // Apply emergency vehicle avoidance offset
+                // This nudges the target position to make room for approaching emergencies
+                targetLateral += detection.ValueRO.AvoidanceOffset;
 
                 // =============================================================
                 // Calculate Magnetism Modulation
