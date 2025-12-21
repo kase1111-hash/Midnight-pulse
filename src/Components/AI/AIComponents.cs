@@ -13,20 +13,20 @@ namespace Nightflow.Components
     /// </summary>
     public struct TrafficAI : IComponentData
     {
-        /// <summary>Preferred cruising speed (m/s).</summary>
-        public float PreferredSpeed;
+        /// <summary>Target cruising speed (m/s).</summary>
+        public float TargetSpeed;
 
-        /// <summary>Aggression factor [0, 1]. Higher = more lane changes, closer following.</summary>
-        public float Aggression;
-
-        /// <summary>Reaction time delay (seconds). Time before responding to events.</summary>
-        public float ReactionTime;
-
-        /// <summary>Current target lane index.</summary>
-        public int TargetLane;
+        /// <summary>Timer until next decision evaluation (seconds).</summary>
+        public float DecisionTimer;
 
         /// <summary>Timer for lane change commitment lock (seconds remaining).</summary>
-        public float LaneChangeLockTimer;
+        public float LaneChangeTimer;
+
+        /// <summary>Whether in lane change commitment lock.</summary>
+        public bool LaneChangeLock;
+
+        /// <summary>Preferred lane index (for return behavior).</summary>
+        public int PreferredLane;
 
         /// <summary>Whether currently yielding to emergency vehicle.</summary>
         public bool Yielding;
@@ -34,20 +34,21 @@ namespace Nightflow.Components
 
     /// <summary>
     /// Lane score calculation cache for traffic AI.
+    /// Stores per-lane scores for debugging and visualization.
     /// </summary>
     public struct LaneScoreCache : IComponentData
     {
-        /// <summary>Score for left lane.</summary>
-        public float LeftScore;
+        /// <summary>Score for lane 0 (leftmost).</summary>
+        public float Lane0;
 
-        /// <summary>Score for current lane.</summary>
-        public float CurrentScore;
+        /// <summary>Score for lane 1.</summary>
+        public float Lane1;
 
-        /// <summary>Score for right lane.</summary>
-        public float RightScore;
+        /// <summary>Score for lane 2.</summary>
+        public float Lane2;
 
-        /// <summary>Best lane choice (-1 = left, 0 = current, 1 = right).</summary>
-        public int BestLane;
+        /// <summary>Score for lane 3 (rightmost).</summary>
+        public float Lane3;
     }
 
     /// <summary>
@@ -58,6 +59,9 @@ namespace Nightflow.Components
     {
         /// <summary>Whether siren/lights are active.</summary>
         public bool SirenActive;
+
+        /// <summary>Distance to the nearest vehicle ahead (player or traffic).</summary>
+        public float ApproachDistance;
 
         /// <summary>Overtake bias strength [0, 1]. Higher = more aggressive passing.</summary>
         public float OvertakeBias;
@@ -80,17 +84,20 @@ namespace Nightflow.Components
     /// </summary>
     public struct EmergencyDetection : IComponentData
     {
-        /// <summary>Whether an emergency vehicle is detected behind.</summary>
-        public bool Detected;
+        /// <summary>Whether an emergency vehicle is approaching from behind.</summary>
+        public bool ApproachingFromBehind;
 
-        /// <summary>Entity reference to detected emergency vehicle.</summary>
-        public Entity EmergencyVehicle;
+        /// <summary>Distance to nearest emergency vehicle.</summary>
+        public float NearestDistance;
 
-        /// <summary>Forward distance to emergency (negative = behind).</summary>
-        public float ForwardDistance;
+        /// <summary>Lane of the approaching emergency vehicle.</summary>
+        public int EmergencyLane;
 
-        /// <summary>Lateral offset of emergency vehicle.</summary>
-        public float LateralOffset;
+        /// <summary>Estimated time until emergency arrives (seconds).</summary>
+        public float TimeToArrival;
+
+        /// <summary>Whether warning should be displayed to player.</summary>
+        public bool WarningActive;
 
         /// <summary>Calculated urgency scalar [0, 1].</summary>
         public float Urgency;

@@ -43,6 +43,7 @@ namespace Nightflow.Components
 
     /// <summary>
     /// Smoothed steering state. Prevents jerky movement.
+    /// Also tracks lane change progress for both player and AI.
     /// </summary>
     public struct SteeringState : IComponentData
     {
@@ -54,6 +55,18 @@ namespace Nightflow.Components
 
         /// <summary>Smoothing factor [0, 1]. Higher = slower response.</summary>
         public float Smoothness;
+
+        /// <summary>Whether a lane change is in progress.</summary>
+        public bool ChangingLanes;
+
+        /// <summary>Timer for lane change progress.</summary>
+        public float LaneChangeTimer;
+
+        /// <summary>Duration of lane change (speed-dependent).</summary>
+        public float LaneChangeDuration;
+
+        /// <summary>Direction of lane change: -1 = left, +1 = right.</summary>
+        public int LaneChangeDir;
     }
 
     /// <summary>
