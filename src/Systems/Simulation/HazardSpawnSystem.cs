@@ -13,8 +13,15 @@ using Nightflow.Tags;
 namespace Nightflow.Systems
 {
     /// <summary>
-    /// Spawns and manages road hazards (debris, potholes, barriers).
+    /// Spawns and manages road hazards (debris, cones, barriers, crashed cars).
     /// Hazard density increases with distance/score for progressive difficulty.
+    ///
+    /// Hazard Classification (from spec):
+    /// - Loose tire: Severity 0.2, Mass 0.1, Cosmetic
+    /// - Debris: Severity 0.4, Mass 0.3, Mechanical
+    /// - Cone: Severity 0.3, Mass 0.2, Cosmetic
+    /// - Barrier: Severity 0.9, Mass 0.9, Lethal
+    /// - Crashed car: Severity 1.0, Mass 1.0, Lethal
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -22,31 +29,31 @@ namespace Nightflow.Systems
     public partial struct HazardSpawnSystem : ISystem
     {
         // Spawn parameters
-        private const float BaseSpawnRate = 0.02f;        // hazards per meter
-        private const float DifficultyScale = 0.001f;     // rate increase per 1000m
-        private const float MinSpawnDistance = 100f;      // meters ahead of player
-        private const float MaxSpawnDistance = 300f;      // meters ahead
+        private const float BaseSpawnRate = 0.015f;       // hazards per meter
+        private const float DifficultyScale = 0.002f;     // rate increase per 1000m
+        private const float MinSpawnDistance = 150f;      // meters ahead of player
+        private const float MaxSpawnDistance = 400f;      // meters ahead
         private const float DespawnDistance = 50f;        // meters behind player
+        private const float SpawnCheckInterval = 15f;     // check every 15 meters
+        private const float LaneWidth = 3.6f;
+        private const int NumLanes = 4;
 
-        // Hazard type distribution
-        private const float DebrisChance = 0.5f;          // 50% debris
-        private const float PotholeChance = 0.3f;         // 30% potholes
-        private const float BarrierChance = 0.2f;         // 20% barriers
+        // Hazard type distribution (cumulative)
+        private const float TireChance = 0.20f;           // 20% loose tire
+        private const float DebrisChance = 0.50f;         // 30% debris (cumulative 50%)
+        private const float ConeChance = 0.75f;           // 25% cones (cumulative 75%)
+        private const float BarrierChance = 0.92f;        // 17% barriers (cumulative 92%)
+        // Remaining 8% = crashed car
 
-        // Severity ranges by type
-        private const float DebrisSeverityMin = 0.1f;
-        private const float DebrisSeverityMax = 0.4f;
-        private const float PotholeSeverityMin = 0.2f;
-        private const float PotholeSeverityMax = 0.5f;
-        private const float BarrierSeverityMin = 0.6f;
-        private const float BarrierSeverityMax = 1.0f;
-
+        // State tracking
         private Random _random;
+        private float _furthestSpawnedZ;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            _random = new Random(12345);
+            _random = new Random(42069);
+            _furthestSpawnedZ = 0f;
         }
 
         [BurstCompile]
@@ -55,24 +62,32 @@ namespace Nightflow.Systems
             // Get player position and distance traveled
             float3 playerPos = float3.zero;
             float distanceTraveled = 0f;
+            bool playerActive = false;
 
             foreach (var (transform, scoreSession) in
                 SystemAPI.Query<RefRO<WorldTransform>, RefRO<ScoreSession>>()
-                    .WithAll<PlayerVehicleTag>())
+                    .WithAll<PlayerVehicleTag>()
+                    .WithNone<CrashedTag>())
             {
                 playerPos = transform.ValueRO.Position;
                 distanceTraveled = scoreSession.ValueRO.Distance;
+                playerActive = scoreSession.ValueRO.Active;
                 break;
             }
 
+            if (!playerActive)
+                return;
+
             // Calculate current spawn rate based on difficulty
-            float currentSpawnRate = BaseSpawnRate + DifficultyScale * (distanceTraveled / 1000f);
+            float difficultyMultiplier = 1f + DifficultyScale * (distanceTraveled / 100f);
+            float currentSpawnRate = BaseSpawnRate * difficultyMultiplier;
+
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
 
             // =============================================================
             // Despawn Hazards Behind Player
             // =============================================================
 
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
             float despawnZ = playerPos.z - DespawnDistance;
 
             foreach (var (hazard, transform, entity) in
@@ -90,56 +105,148 @@ namespace Nightflow.Systems
             // Spawn New Hazards Ahead
             // =============================================================
 
-            // TODO: Track furthest spawned hazard Z
-            // TODO: Use spatial hashing to avoid overlapping hazards
+            // Initialize furthest spawned if needed
+            if (_furthestSpawnedZ < playerPos.z + MinSpawnDistance)
+            {
+                _furthestSpawnedZ = playerPos.z + MinSpawnDistance;
+            }
 
-            // Placeholder spawn logic (would be triggered by track generation)
-            // float spawnZ = playerPos.z + MinSpawnDistance;
-            // while (spawnZ < playerPos.z + MaxSpawnDistance)
-            // {
-            //     if (_random.NextFloat() < currentSpawnRate)
-            //     {
-            //         SpawnHazard(ref state, ref ecb, spawnZ);
-            //     }
-            //     spawnZ += 10f; // Check every 10 meters
-            // }
+            // Spawn hazards up to max distance
+            float targetZ = playerPos.z + MaxSpawnDistance;
+
+            while (_furthestSpawnedZ < targetZ)
+            {
+                // Roll for spawn at this location
+                if (_random.NextFloat() < currentSpawnRate * SpawnCheckInterval)
+                {
+                    SpawnHazard(ref ecb, _furthestSpawnedZ);
+                }
+
+                _furthestSpawnedZ += SpawnCheckInterval;
+            }
 
             ecb.Playback(state.EntityManager);
             ecb.Dispose();
         }
 
-        private HazardType SelectHazardType(ref Random random)
+        private void SpawnHazard(ref EntityCommandBuffer ecb, float z)
         {
-            float roll = random.NextFloat();
+            // Select random lane
+            int lane = _random.NextInt(0, NumLanes);
+            float laneOffset = (lane - 1.5f) * LaneWidth;
 
-            if (roll < DebrisChance)
-                return HazardType.Debris;
-            else if (roll < DebrisChance + PotholeChance)
-                return HazardType.Pothole;
-            else
-                return HazardType.Barrier;
+            // Add some lateral variance within lane
+            float lateralVariance = _random.NextFloat(-LaneWidth * 0.3f, LaneWidth * 0.3f);
+            float x = laneOffset + lateralVariance;
+
+            // Select hazard type
+            HazardType hazardType = SelectHazardType();
+            float severity = GetSeverity(hazardType);
+            float massFactor = GetMassFactor(hazardType);
+
+            // Create hazard entity
+            Entity hazard = ecb.CreateEntity();
+
+            // Add components
+            ecb.AddComponent(hazard, new WorldTransform
+            {
+                Position = new float3(x, 0f, z),
+                Rotation = quaternion.RotateY(_random.NextFloat(0f, math.PI * 2f))
+            });
+
+            ecb.AddComponent(hazard, new Hazard
+            {
+                Type = hazardType,
+                Severity = severity,
+                MassFactor = massFactor,
+                Hit = false
+            });
+
+            ecb.AddComponent(hazard, new CollisionShape
+            {
+                ShapeType = CollisionShapeType.Box,
+                Size = GetHazardSize(hazardType),
+                Offset = float3.zero
+            });
+
+            // Add tag
+            ecb.AddComponent<HazardTag>(hazard);
         }
 
-        private float GetSeverity(HazardType type, ref Random random)
+        private HazardType SelectHazardType()
         {
+            float roll = _random.NextFloat();
+
+            if (roll < TireChance)
+                return HazardType.LooseTire;
+            else if (roll < DebrisChance)
+                return HazardType.Debris;
+            else if (roll < ConeChance)
+                return HazardType.Cone;
+            else if (roll < BarrierChance)
+                return HazardType.Barrier;
+            else
+                return HazardType.CrashedCar;
+        }
+
+        private float GetSeverity(HazardType type)
+        {
+            // From spec table
             switch (type)
             {
+                case HazardType.LooseTire:
+                    return 0.2f;
                 case HazardType.Debris:
-                    return random.NextFloat(DebrisSeverityMin, DebrisSeverityMax);
-                case HazardType.Pothole:
-                    return random.NextFloat(PotholeSeverityMin, PotholeSeverityMax);
+                    return 0.4f;
+                case HazardType.Cone:
+                    return 0.3f;
                 case HazardType.Barrier:
-                    return random.NextFloat(BarrierSeverityMin, BarrierSeverityMax);
+                    return 0.9f;
+                case HazardType.CrashedCar:
+                    return 1.0f;
                 default:
                     return 0.3f;
             }
         }
-    }
 
-    public enum HazardType
-    {
-        Debris,
-        Pothole,
-        Barrier
+        private float GetMassFactor(HazardType type)
+        {
+            // From spec table
+            switch (type)
+            {
+                case HazardType.LooseTire:
+                    return 0.1f;
+                case HazardType.Debris:
+                    return 0.3f;
+                case HazardType.Cone:
+                    return 0.2f;
+                case HazardType.Barrier:
+                    return 0.9f;
+                case HazardType.CrashedCar:
+                    return 1.0f;
+                default:
+                    return 0.3f;
+            }
+        }
+
+        private float3 GetHazardSize(HazardType type)
+        {
+            // Half-extents for collision box
+            switch (type)
+            {
+                case HazardType.LooseTire:
+                    return new float3(0.3f, 0.3f, 0.3f);
+                case HazardType.Debris:
+                    return new float3(0.5f, 0.2f, 0.5f);
+                case HazardType.Cone:
+                    return new float3(0.25f, 0.4f, 0.25f);
+                case HazardType.Barrier:
+                    return new float3(1.5f, 0.5f, 0.3f);
+                case HazardType.CrashedCar:
+                    return new float3(1.0f, 0.7f, 2.2f);
+                default:
+                    return new float3(0.5f, 0.3f, 0.5f);
+            }
+        }
     }
 }
