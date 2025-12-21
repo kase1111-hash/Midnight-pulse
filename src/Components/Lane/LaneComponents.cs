@@ -24,8 +24,17 @@ namespace Nightflow.Components
         /// <summary>Current parameter t along the lane spline [0, 1].</summary>
         public float SplineParameter;
 
-        /// <summary>Current lane index (for multi-lane roads).</summary>
+        /// <summary>Current lane index (for multi-lane roads). Deprecated, use CurrentLane.</summary>
         public int LaneIndex;
+
+        /// <summary>Current lane index (0-based from left).</summary>
+        public int CurrentLane;
+
+        /// <summary>Target lane during lane change.</summary>
+        public int TargetLane;
+
+        /// <summary>Total number of lanes on current segment.</summary>
+        public int TotalLanes;
     }
 
     /// <summary>

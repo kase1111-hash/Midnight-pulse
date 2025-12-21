@@ -102,6 +102,15 @@ namespace Nightflow.Components
 
         /// <summary>Yaw follow offset (for drift whip).</summary>
         public float YawOffset;
+
+        /// <summary>Distance offset from base follow distance.</summary>
+        public float DistanceOffset;
+
+        /// <summary>Target look-at offset from vehicle center.</summary>
+        public float3 TargetOffset;
+
+        /// <summary>Current camera world position.</summary>
+        public float3 Position;
     }
 
     /// <summary>
