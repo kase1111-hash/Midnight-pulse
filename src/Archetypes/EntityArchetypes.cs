@@ -61,7 +61,9 @@ namespace Nightflow.Archetypes
                 typeof(ScoreSummary),
                 // Signaling
                 typeof(EmergencyDetection),
-                typeof(CameraState)
+                typeof(CameraState),
+                // Replay Recording
+                typeof(InputLogEntry)
             );
 
             // =================================================================
@@ -117,17 +119,31 @@ namespace Nightflow.Archetypes
 
             // =================================================================
             // Ghost Vehicle Archetype (for replays)
+            // Includes same simulation components as player for identical physics
             // =================================================================
             GhostVehicle = entityManager.CreateArchetype(
                 // Tags
                 typeof(GhostVehicleTag),
                 // Core
                 typeof(WorldTransform),
+                typeof(PreviousTransform),
                 typeof(Velocity),
+                // Vehicle Control (same as player for identical sim)
+                typeof(PlayerInput),
+                typeof(SteeringState),
+                typeof(LaneTransition),
+                typeof(DriftState),
+                typeof(SpeedTier),
+                // Lane Following
+                typeof(LaneFollower),
                 // Replay
                 typeof(ReplayState),
+                typeof(GhostRenderState),
+                // Rendering
+                typeof(LightEmitter),
                 // Buffers
-                typeof(InputLogEntry)
+                typeof(InputLogEntry),
+                typeof(GhostTrailPoint)
             );
 
             // =================================================================

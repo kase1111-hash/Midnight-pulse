@@ -194,6 +194,27 @@ namespace Nightflow.Systems
                 lightEmitter.ValueRW.Intensity = streetlight.ValueRO.Intensity * lodFactor;
                 lightEmitter.ValueRW.Radius = streetlight.ValueRO.Radius;
             }
+
+            // =============================================================
+            // Ghost Vehicle Render Data
+            // Semi-transparent, pulsing cyan with trail effect
+            // =============================================================
+
+            foreach (var (transform, ghostRender, lightEmitter) in
+                SystemAPI.Query<RefRO<WorldTransform>, RefRO<GhostRenderState>, RefRW<LightEmitter>>()
+                    .WithAll<GhostVehicleTag>())
+            {
+                // Use ghost-specific color and alpha
+                float3 ghostColor = ghostRender.ValueRO.WireframeColor;
+                float ghostAlpha = ghostRender.ValueRO.Alpha;
+
+                // Apply ghost color with transparency
+                lightEmitter.ValueRW.Color = ghostColor;
+                lightEmitter.ValueRW.Intensity = BaseGlowIntensity * ghostAlpha * wireframeGlow;
+
+                // Ghost-specific rendering flags
+                // (could be used by shader for additive blending)
+            }
         }
     }
 }
