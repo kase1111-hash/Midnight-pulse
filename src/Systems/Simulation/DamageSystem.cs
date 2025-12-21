@@ -142,7 +142,7 @@ namespace Nightflow.Systems
                 // k_slip = k_slip × (1 + 0.6 × D_rear)
 
                 // =============================================================
-                // Reduce Risk Cap Based on Damage
+                // Reduce Risk Cap and Rebuild Rate Based on Damage
                 // =============================================================
 
                 // Risk cap reduces as damage accumulates
@@ -150,6 +150,10 @@ namespace Nightflow.Systems
                 float riskCapReduction = damageRatio * RiskCapDamageMultiplier;
                 riskState.ValueRW.Cap = BaseRiskCap * (1f - riskCapReduction);
                 riskState.ValueRW.Cap = math.max(riskState.ValueRO.Cap, 0.5f); // Minimum cap
+
+                // Rebuild rate also degrades with damage (faster decay when damaged)
+                riskState.ValueRW.RebuildRate = 1f - (damageRatio * 0.5f);
+                riskState.ValueRW.RebuildRate = math.max(riskState.ValueRO.RebuildRate, 0.3f);
 
                 // Clamp current risk to new cap
                 if (riskState.ValueRO.Value > riskState.ValueRO.Cap)

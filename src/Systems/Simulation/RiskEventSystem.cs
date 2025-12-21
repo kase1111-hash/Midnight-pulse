@@ -51,17 +51,24 @@ namespace Nightflow.Systems
         private const float EmergencyClearDistance = 15f;
         private const float EmergencyClearRiskBonus = 0.3f;
 
+        // Perfect segment
+        private const float PerfectSegmentRiskBonus = 0.4f;
+        private const float PerfectSegmentScoreBonus = 1000f;
+
         // State tracking
         private float _accumulatedYaw;
         private float _closePassCooldown;
         private bool _wasInDrift;
         private float _lastDriftYaw;
         private bool _emergencyWasClose;
+        private int _lastSegmentIndex;
+        private float _segmentDamageAccum;
 
         // Per-frame event counters
         private int _closePassesThisFrame;
         private int _hazardDodgesThisFrame;
         private int _driftRecoveriesThisFrame;
+        private int _perfectSegmentsThisFrame;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
@@ -71,6 +78,8 @@ namespace Nightflow.Systems
             _wasInDrift = false;
             _lastDriftYaw = 0f;
             _emergencyWasClose = false;
+            _lastSegmentIndex = -1;
+            _segmentDamageAccum = 0f;
         }
 
         [BurstCompile]
@@ -82,6 +91,7 @@ namespace Nightflow.Systems
             _closePassesThisFrame = 0;
             _hazardDodgesThisFrame = 0;
             _driftRecoveriesThisFrame = 0;
+            _perfectSegmentsThisFrame = 0;
 
             // Update cooldowns
             if (_closePassCooldown > 0)
@@ -254,6 +264,61 @@ namespace Nightflow.Systems
             _emergencyWasClose = emergencyClose;
 
             // =============================================================
+            // Perfect Segment Detection
+            // Complete a track segment without taking damage
+            // =============================================================
+
+            // Find current segment
+            int currentSegmentIndex = -1;
+            foreach (var segment in
+                SystemAPI.Query<RefRO<TrackSegment>>()
+                    .WithAll<TrackSegmentTag>())
+            {
+                if (playerPos.z >= segment.ValueRO.StartZ && playerPos.z <= segment.ValueRO.EndZ)
+                {
+                    currentSegmentIndex = segment.ValueRO.Index;
+                    break;
+                }
+            }
+
+            // Track damage accumulation for current segment
+            float currentDamage = 0f;
+            foreach (var damage in SystemAPI.Query<RefRO<DamageState>>().WithAll<PlayerVehicleTag>())
+            {
+                currentDamage = damage.ValueRO.Total;
+                break;
+            }
+
+            if (currentSegmentIndex != _lastSegmentIndex && _lastSegmentIndex >= 0)
+            {
+                // Crossed into a new segment
+                // Check if we completed the previous segment without damage
+                if (_segmentDamageAccum < 0.01f && playerSpeed >= 25f)
+                {
+                    // Perfect segment! No damage taken and maintaining speed
+                    riskBonus += PerfectSegmentRiskBonus;
+                    _perfectSegmentsThisFrame++;
+
+                    // One-time score bonus added directly
+                    foreach (var session in SystemAPI.Query<RefRW<ScoreSession>>().WithAll<PlayerVehicleTag>())
+                    {
+                        session.ValueRW.Score += PerfectSegmentScoreBonus;
+                    }
+                }
+
+                // Reset damage accumulator for new segment
+                _segmentDamageAccum = 0f;
+            }
+            else if (currentSegmentIndex == _lastSegmentIndex)
+            {
+                // Same segment - accumulate damage delta
+                // This is a simplified approach; ideally track damage per segment
+                _segmentDamageAccum = currentDamage;
+            }
+
+            _lastSegmentIndex = currentSegmentIndex;
+
+            // =============================================================
             // Apply Risk Bonus and Track Statistics
             // =============================================================
 
@@ -263,9 +328,11 @@ namespace Nightflow.Systems
                     SystemAPI.Query<RefRW<RiskState>, RefRW<ScoreSummary>>()
                         .WithAll<PlayerVehicleTag>())
                 {
-                    // Add risk bonus, capped by damage-reduced cap
+                    // Add risk bonus scaled by rebuild rate, capped by damage-reduced cap
+                    // Damage reduces rebuild rate, making it harder to accumulate risk bonus
+                    float scaledBonus = riskBonus * risk.ValueRO.RebuildRate;
                     risk.ValueRW.Value = math.min(
-                        risk.ValueRO.Value + riskBonus,
+                        risk.ValueRO.Value + scaledBonus,
                         risk.ValueRO.Cap
                     );
                 }
@@ -277,6 +344,7 @@ namespace Nightflow.Systems
                 summary.ValueRW.ClosePasses += _closePassesThisFrame;
                 summary.ValueRW.HazardsDodged += _hazardDodgesThisFrame;
                 summary.ValueRW.DriftRecoveries += _driftRecoveriesThisFrame;
+                summary.ValueRW.PerfectSegments += _perfectSegmentsThisFrame;
             }
         }
     }
