@@ -57,6 +57,9 @@ namespace Nightflow.Tags
     /// <summary>Tag for overpass segments.</summary>
     public struct OverpassTag : IComponentData { }
 
+    /// <summary>Tag for lane marker/line entities.</summary>
+    public struct LaneMarkerTag : IComponentData { }
+
     // ========================================================================
     // Hazard Tags
     // ========================================================================
