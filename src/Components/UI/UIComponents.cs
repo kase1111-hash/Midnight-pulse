@@ -1,0 +1,153 @@
+// ============================================================================
+// Nightflow - Unity DOTS Components: UI and Game State
+// ============================================================================
+
+using Unity.Entities;
+using Unity.Mathematics;
+
+namespace Nightflow.Components
+{
+    /// <summary>
+    /// UI state singleton for MonoBehaviour HUD bridge.
+    /// Updated by UISystem every frame.
+    ///
+    /// From spec:
+    /// - Speed, Multiplier, Score, Damage zone indicators
+    /// - Transparent overlay, minimal HUD
+    /// - Off-screen threat signaling
+    /// </summary>
+    public struct UIState : IComponentData
+    {
+        // Speedometer
+        public float SpeedKmh;
+        public float SpeedMph;
+        public int SpeedTier;           // 0=Cruise, 1=Fast, 2=Boosted
+
+        // Score display
+        public float Score;
+        public float DisplayScore;      // Smoothed for animation
+        public float Multiplier;
+        public float HighestMultiplier;
+        public bool MultiplierFlash;
+
+        // Risk meter
+        public float RiskValue;
+        public float RiskCap;
+        public float RiskPercent;
+
+        // Damage indicators
+        public float DamageTotal;
+        public float DamageFront;
+        public float DamageRear;
+        public float DamageLeft;
+        public float DamageRight;
+        public bool DamageFlash;
+        public bool CriticalDamage;
+
+        // Warnings
+        public int WarningPriority;     // 0=None, 1=Risk, 2=Damage, 3=Emergency
+        public bool WarningFlash;
+        public float EmergencyDistance;
+        public float EmergencyETA;
+
+        // Progress
+        public float DistanceKm;
+        public float TimeSurvived;
+
+        // Off-screen signals (packed)
+        public int SignalCount;
+        public float4 Signal0;          // xy=screenPos, z=urgency, w=type
+        public float4 Signal1;
+        public float4 Signal2;
+        public float4 Signal3;
+
+        // Menu/overlay state
+        public bool ShowPauseMenu;
+        public bool ShowCrashOverlay;
+        public bool ShowScoreSummary;
+        public float OverlayAlpha;
+    }
+
+    /// <summary>
+    /// Game state singleton for flow management.
+    /// Handles pause, crash flow, and autopilot activation.
+    ///
+    /// From spec:
+    /// - Pause with 5-second cooldown
+    /// - Crash flow: impact → shake → fade → summary → reset → autopilot
+    /// </summary>
+    public struct GameState : IComponentData
+    {
+        // Pause state
+        public bool IsPaused;
+        public float PauseCooldown;         // Seconds until pause allowed again
+        public float PauseCooldownMax;      // 5 seconds per spec
+
+        // Crash flow state
+        public CrashFlowPhase CrashPhase;
+        public float CrashPhaseTimer;
+        public float FadeAlpha;
+
+        // Autopilot state
+        public bool AutopilotQueued;        // Will enable after crash reset
+        public bool PlayerControlActive;    // Player has taken control
+        public float IdleTimer;             // Time since last input
+
+        // Menu state
+        public MenuState CurrentMenu;
+        public bool MenuVisible;
+
+        // Time scale (for crash slow-mo)
+        public float TimeScale;
+    }
+
+    /// <summary>
+    /// Crash flow phases per spec.
+    /// </summary>
+    public enum CrashFlowPhase : byte
+    {
+        None = 0,
+        Impact = 1,         // Initial impact, shake
+        ScreenShake = 2,    // Extended shake
+        FadeOut = 3,        // Fade to black
+        Summary = 4,        // Score breakdown display
+        Reset = 5,          // Vehicle reset
+        FadeIn = 6          // Fade back in, autopilot starts
+    }
+
+    /// <summary>
+    /// Menu states.
+    /// </summary>
+    public enum MenuState : byte
+    {
+        None = 0,
+        Pause = 1,
+        ScoreSummary = 2,
+        Settings = 3,
+        Leaderboard = 4
+    }
+
+    /// <summary>
+    /// Score summary data for end-of-run display.
+    /// </summary>
+    public struct ScoreSummaryDisplay : IComponentData
+    {
+        public float FinalScore;
+        public float TotalDistance;
+        public float MaxSpeed;
+        public float TimeSurvived;
+
+        public int ClosePasses;
+        public int HazardsDodged;
+        public int DriftRecoveries;
+        public int PerfectSegments;
+
+        public float RiskBonusTotal;
+        public float SpeedBonusTotal;
+
+        public CrashReason EndReason;
+
+        public bool IsNewHighScore;
+        public int LeaderboardRank;
+    }
+}

@@ -13,8 +13,12 @@ namespace Nightflow.Systems
 {
     /// <summary>
     /// Prepares UI data for HUD display.
-    /// Calculates display values for speed, score, damage, and warnings.
-    /// Note: Actual UI rendering handled by MonoBehaviour bridge.
+    /// Writes to UIState singleton for MonoBehaviour bridge.
+    ///
+    /// From spec:
+    /// - Speed, Multiplier, Score, Damage zone indicators
+    /// - Transparent overlay (visible during autopilot)
+    /// - Minimal HUD, no full-screen interruptions
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
@@ -22,10 +26,18 @@ namespace Nightflow.Systems
     public partial struct UISystem : ISystem
     {
         // Display parameters
-        private const float SpeedDisplaySmoothing = 10f;
-        private const float ScoreDisplaySmoothing = 5f;
-        private const float DamageFlashThreshold = 0.1f;
+        private const float ScoreDisplaySmoothing = 8f;
         private const float WarningFlashRate = 4f;        // Hz
+
+        // Previous frame values for flash detection
+        private float _prevDamage;
+        private float _prevMultiplier;
+
+        public void OnCreate(ref SystemState state)
+        {
+            _prevDamage = 0f;
+            _prevMultiplier = 1f;
+        }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -33,154 +45,163 @@ namespace Nightflow.Systems
             float deltaTime = SystemAPI.Time.DeltaTime;
             float time = (float)SystemAPI.Time.ElapsedTime;
 
-            // =============================================================
-            // Player HUD Data
-            // =============================================================
-
-            foreach (var (velocity, scoreSession, riskState, damage, speedTier, detection) in
-                SystemAPI.Query<RefRO<Velocity>, RefRO<ScoreSession>, RefRO<RiskState>,
-                               RefRO<DamageState>, RefRO<SpeedTier>, RefRO<EmergencyDetection>>()
-                    .WithAll<PlayerVehicleTag>())
+            // Get UIState singleton
+            foreach (var uiState in SystemAPI.Query<RefRW<UIState>>())
             {
                 // =============================================================
-                // Speedometer
+                // Player HUD Data
                 // =============================================================
 
-                // Convert m/s to display units (km/h or mph)
-                float speedKmh = velocity.ValueRO.Forward * 3.6f;
+                foreach (var (velocity, scoreSession, riskState, damage, speedTier, detection, summary) in
+                    SystemAPI.Query<RefRO<Velocity>, RefRO<ScoreSession>, RefRO<RiskState>,
+                                   RefRO<DamageState>, RefRO<SpeedTier>, RefRO<EmergencyDetection>,
+                                   RefRO<ScoreSummary>>()
+                        .WithAll<PlayerVehicleTag>())
+                {
+                    // =============================================================
+                    // Speedometer
+                    // =============================================================
 
-                // Calculate digital speedometer segments
-                int speedDigits = (int)math.clamp(speedKmh, 0, 999);
+                    float speedMs = velocity.ValueRO.Forward;
+                    uiState.ValueRW.SpeedKmh = speedMs * 3.6f;
+                    uiState.ValueRW.SpeedMph = speedMs * 2.237f;
+                    uiState.ValueRW.SpeedTier = speedTier.ValueRO.Tier;
 
-                // Speed tier indicator (color/icon)
-                int tier = speedTier.ValueRO.Tier;
-                // 0 = Cruise (white), 1 = Fast (yellow), 2 = Boosted (red/orange)
+                    // =============================================================
+                    // Score Display
+                    // =============================================================
+
+                    float currentScore = scoreSession.ValueRO.Score;
+                    float currentMultiplier = scoreSession.ValueRO.Multiplier *
+                        (1f + scoreSession.ValueRO.RiskMultiplier);
+
+                    // Smooth score display for animation
+                    uiState.ValueRW.DisplayScore = math.lerp(
+                        uiState.ValueRO.DisplayScore,
+                        currentScore,
+                        ScoreDisplaySmoothing * deltaTime
+                    );
+
+                    uiState.ValueRW.Score = currentScore;
+                    uiState.ValueRW.Multiplier = currentMultiplier;
+                    uiState.ValueRW.HighestMultiplier = scoreSession.ValueRO.HighestMultiplier;
+
+                    // Flash multiplier when increasing
+                    uiState.ValueRW.MultiplierFlash = currentMultiplier > _prevMultiplier + 0.1f;
+                    _prevMultiplier = currentMultiplier;
+
+                    // =============================================================
+                    // Risk Meter
+                    // =============================================================
+
+                    uiState.ValueRW.RiskValue = riskState.ValueRO.Value;
+                    uiState.ValueRW.RiskCap = riskState.ValueRO.Cap;
+                    uiState.ValueRW.RiskPercent = riskState.ValueRO.Cap > 0
+                        ? riskState.ValueRO.Value / riskState.ValueRO.Cap
+                        : 0f;
+
+                    // =============================================================
+                    // Damage Indicator
+                    // =============================================================
+
+                    float totalDamage = damage.ValueRO.Total;
+                    uiState.ValueRW.DamageTotal = math.saturate(totalDamage / 100f);
+                    uiState.ValueRW.DamageFront = damage.ValueRO.Front;
+                    uiState.ValueRW.DamageRear = damage.ValueRO.Rear;
+                    uiState.ValueRW.DamageLeft = damage.ValueRO.Left;
+                    uiState.ValueRW.DamageRight = damage.ValueRO.Right;
+
+                    // Flash when taking new damage
+                    uiState.ValueRW.DamageFlash = totalDamage > _prevDamage + 1f;
+                    _prevDamage = totalDamage;
+
+                    uiState.ValueRW.CriticalDamage = totalDamage > 80f;
+
+                    // =============================================================
+                    // Warning Indicators
+                    // =============================================================
+
+                    bool emergencyWarning = detection.ValueRO.WarningActive;
+                    uiState.ValueRW.EmergencyDistance = detection.ValueRO.NearestDistance;
+                    uiState.ValueRW.EmergencyETA = detection.ValueRO.TimeToArrival;
+
+                    // Warning flash state
+                    uiState.ValueRW.WarningFlash = math.frac(time * WarningFlashRate) < 0.5f;
+
+                    // Priority: Emergency > Critical Damage > High Risk
+                    int priority = 0;
+                    if (emergencyWarning) priority = 3;
+                    else if (uiState.ValueRO.CriticalDamage) priority = 2;
+                    else if (uiState.ValueRO.RiskPercent > 0.8f) priority = 1;
+                    uiState.ValueRW.WarningPriority = priority;
+
+                    // =============================================================
+                    // Progress
+                    // =============================================================
+
+                    uiState.ValueRW.DistanceKm = scoreSession.ValueRO.Distance / 1000f;
+                    uiState.ValueRW.TimeSurvived = summary.ValueRO.TimeSurvived;
+
+                    break;
+                }
 
                 // =============================================================
-                // Score Display
+                // Off-Screen Signals
                 // =============================================================
 
-                float displayScore = scoreSession.ValueRO.Score;
-                float displayMultiplier = scoreSession.ValueRO.Multiplier * (1f + scoreSession.ValueRO.RiskMultiplier);
+                int signalCount = 0;
+                float4 signals0 = float4.zero;
+                float4 signals1 = float4.zero;
+                float4 signals2 = float4.zero;
+                float4 signals3 = float4.zero;
 
-                // Format score with commas for display
-                // (actual formatting in UI layer)
+                foreach (var signal in SystemAPI.Query<RefRO<OffscreenSignal>>())
+                {
+                    if (!signal.ValueRO.Active)
+                        continue;
 
-                // Multiplier flash when increasing
-                bool multiplierIncreasing = displayMultiplier > 1.5f;
+                    // Pack: xy=screenPos, z=urgency, w=type
+                    float4 packed = new float4(
+                        signal.ValueRO.ScreenPosition.x,
+                        signal.ValueRO.ScreenPosition.y,
+                        signal.ValueRO.Urgency,
+                        (float)signal.ValueRO.ThreatType
+                    );
 
-                // =============================================================
-                // Risk Meter
-                // =============================================================
+                    switch (signalCount)
+                    {
+                        case 0: signals0 = packed; break;
+                        case 1: signals1 = packed; break;
+                        case 2: signals2 = packed; break;
+                        case 3: signals3 = packed; break;
+                    }
 
-                float riskValue = riskState.ValueRO.Value;
-                float riskCap = riskState.ValueRO.Cap;
-                float riskPercent = riskCap > 0 ? riskValue / riskCap : 0f;
+                    signalCount++;
+                    if (signalCount >= 4) break;
+                }
 
-                // Visual indicator of cap reduction from damage
-                float capReduction = 1f - riskCap; // How much cap has been reduced
-
-                // =============================================================
-                // Damage Indicator
-                // =============================================================
-
-                float totalDamage = damage.ValueRO.Total;
-
-                // Per-zone damage for vehicle diagram
-                float frontDamage = damage.ValueRO.Front;
-                float rearDamage = damage.ValueRO.Rear;
-                float leftDamage = damage.ValueRO.Left;
-                float rightDamage = damage.ValueRO.Right;
-
-                // Flash damage zones that just took damage
-                // (would need previous frame comparison)
-
-                // Critical damage warning
-                bool criticalDamage = totalDamage > 0.8f;
-
-                // =============================================================
-                // Warning Indicators
-                // =============================================================
-
-                // Emergency vehicle warning
-                bool emergencyWarning = detection.ValueRO.WarningActive;
-                float emergencyDistance = detection.ValueRO.NearestDistance;
-                float emergencyETA = detection.ValueRO.TimeToArrival;
-
-                // Calculate warning flash state
-                bool warningFlash = math.frac(time * WarningFlashRate) < 0.5f;
-
-                // Combine warnings into priority system
-                // 1. Emergency vehicle (highest)
-                // 2. Critical damage
-                // 3. High risk zone
-
-                int warningPriority = 0;
-                if (emergencyWarning) warningPriority = 3;
-                else if (criticalDamage) warningPriority = 2;
-                else if (riskPercent > 0.8f) warningPriority = 1;
+                uiState.ValueRW.SignalCount = signalCount;
+                uiState.ValueRW.Signal0 = signals0;
+                uiState.ValueRW.Signal1 = signals1;
+                uiState.ValueRW.Signal2 = signals2;
+                uiState.ValueRW.Signal3 = signals3;
 
                 // =============================================================
-                // Distance/Progress
+                // Crash/Menu State (from GameState)
                 // =============================================================
 
-                float distanceKm = scoreSession.ValueRO.Distance / 1000f;
+                foreach (var gameState in SystemAPI.Query<RefRO<GameState>>())
+                {
+                    uiState.ValueRW.ShowPauseMenu = gameState.ValueRO.IsPaused;
+                    uiState.ValueRW.ShowCrashOverlay =
+                        gameState.ValueRO.CrashPhase != CrashFlowPhase.None;
+                    uiState.ValueRW.ShowScoreSummary =
+                        gameState.ValueRO.CrashPhase == CrashFlowPhase.Summary;
+                    uiState.ValueRW.OverlayAlpha = gameState.ValueRO.FadeAlpha;
+                    break;
+                }
 
-                // =============================================================
-                // Pack UI Data (would write to singleton)
-                // =============================================================
-
-                // TODO: Write to UIData singleton for MonoBehaviour bridge
-                // UIData.SpeedKmh = speedKmh;
-                // UIData.SpeedTier = tier;
-                // UIData.Score = displayScore;
-                // UIData.Multiplier = displayMultiplier;
-                // UIData.RiskPercent = riskPercent;
-                // UIData.DamageTotal = totalDamage;
-                // UIData.DamageZones = new float4(frontDamage, rearDamage, leftDamage, rightDamage);
-                // UIData.WarningPriority = warningPriority;
-                // UIData.WarningFlash = warningFlash;
-                // UIData.EmergencyETA = emergencyETA;
-                // UIData.DistanceKm = distanceKm;
-            }
-
-            // =============================================================
-            // Off-Screen Indicators
-            // =============================================================
-
-            // Collect active signals for UI rendering
-            int signalCount = 0;
-
-            foreach (var signal in SystemAPI.Query<RefRO<OffscreenSignal>>())
-            {
-                if (!signal.ValueRO.Active)
-                    continue;
-
-                // TODO: Pack into signal array for UI
-                // UIData.Signals[signalCount].ScreenPos = signal.ValueRO.ScreenPosition;
-                // UIData.Signals[signalCount].Color = signal.ValueRO.Color;
-                // UIData.Signals[signalCount].Urgency = signal.ValueRO.Urgency;
-                // UIData.Signals[signalCount].PulsePhase = signal.ValueRO.PulsePhase;
-
-                signalCount++;
-                if (signalCount >= 8) break; // Limit active indicators
-            }
-
-            // TODO: UIData.SignalCount = signalCount;
-
-            // =============================================================
-            // Crash/Game Over State
-            // =============================================================
-
-            foreach (var crashState in SystemAPI.Query<RefRO<CrashState>>().WithAll<PlayerVehicleTag>())
-            {
-                if (!crashState.ValueRO.IsCrashed)
-                    continue;
-
-                // TODO: Trigger crash UI overlay
-                // UIData.ShowCrashOverlay = true;
-                // UIData.CrashReason = crashState.ValueRO.Reason;
-                // UIData.CrashTime = crashState.ValueRO.CrashTime;
+                break;
             }
         }
     }
