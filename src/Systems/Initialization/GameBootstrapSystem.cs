@@ -149,7 +149,19 @@ namespace Nightflow.Systems
             {
                 Value = 0f,
                 Cap = 1f,
+                RebuildRate = 1f,
                 BrakePenaltyActive = false
+            });
+            ecb.AddComponent(playerEntity, new ScoreSummary
+            {
+                FinalScore = 0f,
+                TotalDistance = 0f,
+                HighestSpeed = 0f,
+                ClosePasses = 0,
+                HazardsDodged = 0,
+                DriftRecoveries = 0,
+                TimeSurvived = 0f,
+                EndReason = CrashReason.None
             });
 
             // Signaling & detection
@@ -189,13 +201,6 @@ namespace Nightflow.Systems
                 Position = playerPos - new float3(0, -3f, 8f),
                 Rotation = quaternion.identity
             });
-
-            // =============================================================
-            // Create Score Summary (singleton for UI)
-            // =============================================================
-
-            Entity scoreEntity = ecb.CreateEntity();
-            ecb.AddComponent(scoreEntity, new ScoreSummary());
 
             // Playback command buffer
             ecb.Playback(state.EntityManager);

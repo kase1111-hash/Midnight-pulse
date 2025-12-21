@@ -58,6 +58,7 @@ namespace Nightflow.Archetypes
                 // Scoring
                 typeof(ScoreSession),
                 typeof(RiskState),
+                typeof(ScoreSummary),
                 // Signaling
                 typeof(EmergencyDetection),
                 typeof(CameraState)

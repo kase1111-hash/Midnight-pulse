@@ -107,6 +107,9 @@ namespace Nightflow.Components
         /// <summary>Number of drift recoveries.</summary>
         public int DriftRecoveries;
 
+        /// <summary>Number of perfect segments (no damage).</summary>
+        public int PerfectSegments;
+
         /// <summary>Time survived (seconds).</summary>
         public float TimeSurvived;
 
