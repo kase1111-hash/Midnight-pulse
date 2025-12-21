@@ -167,10 +167,23 @@ namespace Nightflow.Systems
             // Signaling & detection
             ecb.AddComponent(playerEntity, new LightEmitter
             {
-                Color = new float4(0f, 1f, 0.8f, 1f), // Cyan
-                Intensity = 1f
+                Color = new float3(0f, 1f, 0.8f), // Cyan
+                Intensity = 1f,
+                Radius = 5f
             });
             ecb.AddComponent(playerEntity, new EmergencyDetection());
+
+            // Headlights
+            ecb.AddComponent(playerEntity, new Headlight
+            {
+                Color = new float3(1f, 0.95f, 0.9f),    // Warm white
+                Intensity = 2f,
+                Range = 80f,
+                SpotAngle = 35f,
+                LeftOffset = new float3(-0.8f, 0.4f, 2f),
+                RightOffset = new float3(0.8f, 0.4f, 2f),
+                HighBeam = false
+            });
 
             // Tags
             ecb.AddComponent<PlayerVehicleTag>(playerEntity);

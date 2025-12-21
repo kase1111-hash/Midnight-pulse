@@ -5,6 +5,7 @@
 
 using Unity.Entities;
 using Unity.Burst;
+using Unity.Mathematics;
 using Nightflow.Components;
 
 namespace Nightflow.Systems
@@ -94,6 +95,70 @@ namespace Nightflow.Systems
 
 #if UNITY_EDITOR
             state.EntityManager.SetName(audioEntity, "AudioState");
+#endif
+
+            // =============================================================
+            // Create Render State Singleton
+            // Global rendering parameters for shader bridge
+            // =============================================================
+
+            var renderEntity = state.EntityManager.CreateEntity();
+            state.EntityManager.AddComponentData(renderEntity, new RenderState
+            {
+                // Wireframe
+                WireframeThickness = 1.5f,
+                WireframeGlow = 1.2f,
+                EdgeIntensity = 1f,
+
+                // Bloom
+                BloomThreshold = 0.8f,
+                BloomIntensity = 1.5f,
+                BloomRadius = 0.02f,
+                BloomSoftKnee = 0.5f,
+
+                // Motion blur (updated by speed)
+                MotionBlurIntensity = 0f,
+                MotionBlurSamples = 8f,
+
+                // Ambient
+                AmbientIntensity = 0.05f,
+                AmbientColor = new float3(0.1f, 0.1f, 0.2f),
+                GridGlowIntensity = 0.1f,
+
+                // City glow
+                CityGlowIntensity = 0.3f,
+                CityGlowColor = new float3(1f, 0.6f, 0.3f),
+                HorizonGlow = 0.2f,
+
+                // Exposure
+                Exposure = 1f,
+                Contrast = 1.1f,
+                Saturation = 1.2f,
+
+                // Fog
+                FogDensity = 0.02f,
+                FogStart = 100f,
+                FogEnd = 500f,
+                FogColor = new float3(0.05f, 0.05f, 0.1f),
+
+                // Screen effects
+                ChromaticAberration = 0f,
+                Vignette = 0.3f,
+                FilmGrain = 0.05f
+            });
+
+            state.EntityManager.AddComponentData(renderEntity, new SkyboxState
+            {
+                HorizonColor = new float3(0.1f, 0.05f, 0.15f),
+                ZenithColor = new float3(0.02f, 0.02f, 0.05f),
+                StarIntensity = 0.8f,
+                MoonPhase = 0.5f,
+                CloudCover = 0.2f,
+                AtmosphereScatter = 0.1f
+            });
+
+#if UNITY_EDITOR
+            state.EntityManager.SetName(renderEntity, "RenderState");
 #endif
         }
     }
