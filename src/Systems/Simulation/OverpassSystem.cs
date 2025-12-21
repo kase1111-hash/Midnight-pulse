@@ -61,7 +61,7 @@ namespace Nightflow.Systems
 
                     // Calculate t parameter (progress through segment)
                     float segmentLength = segment.ValueRO.EndZ - segment.ValueRO.StartZ;
-                    float t = (playerZ - segment.ValueRO.StartZ) / segmentLength;
+                    float t = (playerZ - segment.ValueRO.StartZ) / math.max(segmentLength, 0.001f);
 
                     // Apply sinusoidal elevation: h(t) = A × sin(πt)
                     // This creates a smooth arc that rises and falls

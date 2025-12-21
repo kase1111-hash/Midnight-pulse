@@ -62,7 +62,7 @@ namespace Nightflow.Systems
             {
                 float segmentStart = segment.ValueRO.StartZ;
                 float segmentEnd = segment.ValueRO.EndZ;
-                float segmentLength = segmentEnd - segmentStart;
+                float segmentLength = math.max(segmentEnd - segmentStart, 0.001f);
 
                 // Check if player is in this fork segment
                 if (playerZ >= segmentStart && playerZ <= segmentEnd)
