@@ -65,7 +65,7 @@ namespace Nightflow.Systems
                     inTunnel = true;
                     // Calculate progress within segment
                     float segmentLength = segment.ValueRO.EndZ - segment.ValueRO.StartZ;
-                    tunnelProgress = (playerZ - segment.ValueRO.StartZ) / segmentLength;
+                    tunnelProgress = (playerZ - segment.ValueRO.StartZ) / math.max(segmentLength, 0.001f);
                     isEntry = tunnelData.ValueRO.IsEntry;
                     isExit = tunnelData.ValueRO.IsExit;
                     break;
