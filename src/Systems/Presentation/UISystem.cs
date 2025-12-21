@@ -165,7 +165,7 @@ namespace Nightflow.Systems
                         signal.ValueRO.ScreenPosition.x,
                         signal.ValueRO.ScreenPosition.y,
                         signal.ValueRO.Urgency,
-                        (float)signal.ValueRO.ThreatType
+                        (float)signal.ValueRO.Type
                     );
 
                     switch (signalCount)

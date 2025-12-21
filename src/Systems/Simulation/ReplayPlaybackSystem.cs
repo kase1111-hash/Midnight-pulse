@@ -148,7 +148,7 @@ namespace Nightflow.Systems
             // Reset velocity
             velocity.Forward = 0f;
             velocity.Lateral = 0f;
-            velocity.Yaw = 0f;
+            velocity.Angular = 0f;
         }
     }
 

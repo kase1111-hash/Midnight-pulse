@@ -101,7 +101,7 @@ namespace Nightflow.Systems
                     out float3 splinePos, out float3 forward, out float3 right, out float3 up);
 
                 // Update spline T for other systems
-                laneFollower.ValueRW.SplineT = segmentProgress;
+                laneFollower.ValueRW.SplineParameter = segmentProgress;
 
                 // =============================================================
                 // Calculate Lane Center Position
