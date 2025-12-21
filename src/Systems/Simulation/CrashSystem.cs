@@ -29,10 +29,10 @@ namespace Nightflow.Systems
             var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
 
             foreach (var (crashState, damage, crashable, velocity, driftState,
-                         autopilot, scoreSession, summary, entity) in
+                         autopilot, scoreSession, summary, collision, entity) in
                 SystemAPI.Query<RefRW<CrashState>, RefRO<DamageState>, RefRO<Crashable>,
                                RefRO<Velocity>, RefRO<DriftState>, RefRW<Autopilot>,
-                               RefRW<ScoreSession>, RefRW<ScoreSummary>>()
+                               RefRW<ScoreSession>, RefRW<ScoreSummary>, RefRO<CollisionEvent>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithEntityAccess())
             {
@@ -64,11 +64,21 @@ namespace Nightflow.Systems
                 // Severity > 0.8 AND v_impact > v_crash
                 // =============================================================
 
-                // TODO: Check from most recent collision event
-                // if (severity > 0.8f && vImpact > crashable.ValueRO.CrashSpeed)
-                // {
-                //     reason = CrashReason.LethalHazard;
-                // }
+                if (collision.ValueRO.Occurred)
+                {
+                    Entity hazardEntity = collision.ValueRO.OtherEntity;
+                    if (hazardEntity != Entity.Null && SystemAPI.HasComponent<Hazard>(hazardEntity))
+                    {
+                        var hazard = SystemAPI.GetComponent<Hazard>(hazardEntity);
+                        float vImpact = collision.ValueRO.ImpactSpeed;
+
+                        // Lethal hazards (Barrier, CrashedCar) have severity > 0.8
+                        if (hazard.Severity > 0.8f && vImpact > crashable.ValueRO.CrashSpeed)
+                        {
+                            reason = CrashReason.LethalHazard;
+                        }
+                    }
+                }
 
                 // =============================================================
                 // Condition B: Structural Damage Exceeded
