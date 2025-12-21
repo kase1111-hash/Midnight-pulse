@@ -230,7 +230,7 @@ namespace Nightflow.Systems
                 TargetLane = lane,
                 LateralOffset = 0f,
                 MagnetStrength = 1f,
-                SplineT = 0f
+                SplineParameter = 0f
             });
 
             // Steering

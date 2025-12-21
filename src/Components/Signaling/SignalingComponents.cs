@@ -47,6 +47,18 @@ namespace Nightflow.Components
 
         /// <summary>Whether signal is currently active.</summary>
         public bool Active;
+
+        /// <summary>Distance to threat (m).</summary>
+        public float Distance;
+
+        /// <summary>Screen-space position for UI rendering.</summary>
+        public float2 ScreenPosition;
+
+        /// <summary>Current pulse animation phase [0, 1].</summary>
+        public float PulsePhase;
+
+        /// <summary>Signal color (RGBA).</summary>
+        public float4 Color;
     }
 
     /// <summary>

@@ -148,7 +148,7 @@ namespace Nightflow.Systems
                 TargetLane = lane,
                 MagnetStrength = 12f,
                 LateralOffset = 0f,
-                SplineT = 0f
+                SplineParameter = 0f
             });
 
             // Emergency AI

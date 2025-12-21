@@ -116,7 +116,7 @@ namespace Nightflow.Systems
                 TargetLane = PlayerStartLane,
                 LateralOffset = 0f,
                 MagnetStrength = 1f,
-                SplineT = PlayerStartZ / SegmentLength
+                SplineParameter = PlayerStartZ / SegmentLength
             });
 
             // Damage & crash
