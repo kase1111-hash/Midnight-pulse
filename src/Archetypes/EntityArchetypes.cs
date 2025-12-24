@@ -6,6 +6,7 @@ using Unity.Entities;
 using Nightflow.Components;
 using Nightflow.Tags;
 using Nightflow.Buffers;
+using Nightflow.Systems;
 
 namespace Nightflow.Archetypes
 {
@@ -198,7 +199,13 @@ namespace Nightflow.Archetypes
                 // Hazard Data
                 typeof(Components.Hazard),
                 // Collision
-                typeof(CollisionShape)
+                typeof(CollisionShape),
+                // Procedural Mesh Generation
+                typeof(HazardMeshData),
+                // Mesh Buffers (dynamic, populated by ProceduralHazardMeshSystem)
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
 
             // =================================================================

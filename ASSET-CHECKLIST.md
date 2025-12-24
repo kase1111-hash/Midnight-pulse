@@ -95,11 +95,11 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 - [ ] Guardrail mesh
 
 #### Hazards
-- [ ] Traffic cone mesh
-- [ ] Debris pile mesh
-- [ ] Loose tire mesh
-- [ ] Barrier block mesh
-- [ ] Construction barrel mesh (optional)
+- [x] Traffic cone mesh - **PROCEDURAL** (ProceduralHazardMeshSystem) - Neon Orange #FF8800
+- [x] Debris pile mesh - **PROCEDURAL** (ProceduralHazardMeshSystem)
+- [x] Loose tire mesh - **PROCEDURAL** (ProceduralHazardMeshSystem)
+- [x] Barrier block mesh - **PROCEDURAL** (ProceduralHazardMeshSystem)
+- [x] Crashed car mesh - **PROCEDURAL** (ProceduralHazardMeshSystem)
 
 ### Particles & Effects
 - [ ] Headlight beam effect
@@ -182,10 +182,10 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 ### Phase 2: Traffic & Environment
 1. Traffic car variants (2-3)
 2. Streetlight mesh
-3. Barrier mesh
+3. ~~Barrier mesh~~ - **DONE** (Procedural generation implemented)
 4. Tire/wind sounds
 5. Collision sounds
-6. Hazard meshes
+6. ~~Hazard meshes~~ - **DONE** (Procedural generation implemented)
 
 ### Phase 3: Polish & Atmosphere
 1. Emergency vehicle assets
@@ -232,7 +232,7 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 
 ## Procedural Generation Details
 
-The following assets are now generated at runtime by `ProceduralRoadMeshSystem`:
+### Road & Environment (`ProceduralRoadMeshSystem`)
 
 | Asset | Generation Method | Parameters |
 |-------|-------------------|------------|
@@ -244,9 +244,26 @@ The following assets are now generated at runtime by `ProceduralRoadMeshSystem`:
 | Overpass deck | Elevated road + sinusoidal profile | h(t) = 8m × sin(πt) |
 | Support pillars | Box geometry | 1.5m width, 40m spacing |
 
+### Hazards (`ProceduralHazardMeshSystem`)
+
+| Asset | Generation Method | Color |
+|-------|-------------------|-------|
+| Traffic cone | Octagonal cone with stripes | Neon Orange #FF8800 + White stripes |
+| Debris pile | Irregular extruded polygon | Dim orange/yellow |
+| Loose tire | Torus (12 segments × 6 ring) | Dark gray with subtle glow |
+| Barrier block | Box with beveled edges | Bright orange #FF6600 |
+| Crashed car | Deformed box with tilt | Dimmed Magenta #FF00FF |
+
+**Cone Details:**
+- Height: 70cm, Base radius: 20cm, Top radius: 3cm
+- 8 radial segments (octagonal wireframe look)
+- 3 height segments with 2 white stripe bands
+- Glow intensity: 1.2x (bright neon)
+
 **Files:**
 - `src/Components/Presentation/ProceduralMeshComponents.cs` - Mesh data components
-- `src/Systems/Presentation/ProceduralRoadMeshSystem.cs` - Mesh generation system
+- `src/Systems/Presentation/ProceduralRoadMeshSystem.cs` - Road mesh generation
+- `src/Systems/Presentation/ProceduralHazardMeshSystem.cs` - Hazard mesh generation
 - `src/Buffers/BufferElements.cs` - MeshVertex, MeshTriangle, SubMeshRange buffers
 
 ---
