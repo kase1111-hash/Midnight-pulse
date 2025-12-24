@@ -1,0 +1,589 @@
+/* ============================================================================
+   Nightflow - HUD Stylesheet
+   Neon wireframe aesthetic for all UI elements
+   ============================================================================ */
+
+/* ============================================================================
+   Variables / Root
+   ============================================================================ */
+:root {
+    /* Neon Colors */
+    --color-cyan: #00FFFF;
+    --color-magenta: #FF00FF;
+    --color-orange: #FF8800;
+    --color-red: #FF0000;
+    --color-blue: #0066FF;
+    --color-white: #FFFFFF;
+    --color-yellow: #FFFF00;
+
+    /* UI Colors */
+    --color-bg-dark: rgba(10, 10, 15, 0.8);
+    --color-bg-panel: rgba(20, 20, 30, 0.9);
+    --color-border: rgba(0, 255, 255, 0.5);
+
+    /* Text */
+    --color-text-primary: #00FFFF;
+    --color-text-secondary: rgba(0, 255, 255, 0.7);
+    --color-text-warning: #FF8800;
+    --color-text-danger: #FF0000;
+
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+
+    /* Glow effect */
+    --glow-cyan: 0 0 10px rgba(0, 255, 255, 0.8);
+    --glow-magenta: 0 0 10px rgba(255, 0, 255, 0.8);
+    --glow-orange: 0 0 10px rgba(255, 136, 0, 0.8);
+}
+
+/* ============================================================================
+   Base Styles
+   ============================================================================ */
+.hud-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.hidden {
+    display: none;
+}
+
+.label-small {
+    font-size: 10px;
+    color: var(--color-text-secondary);
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+}
+
+/* ============================================================================
+   Top Bar - Score & Multiplier
+   ============================================================================ */
+.top-bar {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: var(--spacing-md);
+    height: 80px;
+}
+
+.score-container {
+    align-items: flex-start;
+}
+
+.score-value {
+    font-size: 36px;
+    color: var(--color-cyan);
+    -unity-font-style: bold;
+    text-shadow: var(--glow-cyan);
+    margin-top: var(--spacing-xs);
+}
+
+.multiplier-container {
+    align-items: center;
+}
+
+.multiplier-value {
+    font-size: 28px;
+    color: var(--color-magenta);
+    -unity-font-style: bold;
+    text-shadow: var(--glow-magenta);
+}
+
+.multiplier-value.flash {
+    scale: 1.2 1.2;
+    transition-duration: 0.1s;
+}
+
+.multiplier-bar {
+    width: 100px;
+    height: 4px;
+    background-color: rgba(255, 0, 255, 0.2);
+    border-radius: 2px;
+    margin-top: var(--spacing-xs);
+    overflow: hidden;
+}
+
+.multiplier-fill {
+    height: 100%;
+    width: 0%;
+    background-color: var(--color-magenta);
+    border-radius: 2px;
+    transition-duration: 0.2s;
+}
+
+.distance-container {
+    align-items: flex-end;
+}
+
+.distance-value {
+    font-size: 20px;
+    color: var(--color-text-secondary);
+    margin-top: var(--spacing-xs);
+}
+
+/* ============================================================================
+   Side Panels
+   ============================================================================ */
+.side-panel {
+    position: absolute;
+    top: 100px;
+    padding: var(--spacing-md);
+}
+
+.left-panel {
+    left: 0;
+}
+
+.right-panel {
+    right: 0;
+    align-items: flex-end;
+}
+
+/* ============================================================================
+   Damage Indicator
+   ============================================================================ */
+.damage-indicator {
+    width: 120px;
+}
+
+.damage-bar-container {
+    width: 100%;
+    height: 8px;
+    margin-top: var(--spacing-xs);
+    position: relative;
+}
+
+.damage-bar-bg {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.damage-bar-fill {
+    position: absolute;
+    height: 100%;
+    width: 0%;
+    background-color: var(--color-cyan);
+    border-radius: 4px;
+    transition-duration: 0.3s;
+}
+
+.damage-bar-fill.warning {
+    background-color: var(--color-orange);
+}
+
+.damage-bar-fill.critical {
+    background-color: var(--color-red);
+}
+
+.damage-zones {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: var(--spacing-sm);
+    width: 60px;
+    height: 80px;
+    align-self: center;
+}
+
+.damage-zone {
+    width: 20px;
+    height: 20px;
+    background-color: rgba(0, 255, 255, 0.2);
+    border-width: 1px;
+    border-color: var(--color-cyan);
+    border-radius: 2px;
+    margin: 2px;
+}
+
+.damage-zone.damaged {
+    background-color: rgba(255, 136, 0, 0.5);
+    border-color: var(--color-orange);
+}
+
+.damage-zone.critical {
+    background-color: rgba(255, 0, 0, 0.5);
+    border-color: var(--color-red);
+}
+
+/* ============================================================================
+   Warning Indicator
+   ============================================================================ */
+.warning-indicator {
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(255, 0, 0, 0.2);
+    border-width: 1px;
+    border-color: var(--color-red);
+    border-radius: 4px;
+    padding: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+}
+
+.warning-icon {
+    font-size: 24px;
+    color: var(--color-red);
+    margin-right: var(--spacing-sm);
+}
+
+.warning-text {
+    font-size: 12px;
+    color: var(--color-red);
+    -unity-font-style: bold;
+}
+
+.warning-indicator.flash {
+    background-color: rgba(255, 0, 0, 0.4);
+}
+
+/* ============================================================================
+   Speedometer
+   ============================================================================ */
+.speedometer {
+    align-items: center;
+    background-color: var(--color-bg-dark);
+    border-width: 2px;
+    border-color: var(--color-cyan);
+    border-radius: 8px;
+    padding: var(--spacing-md);
+    min-width: 120px;
+}
+
+.speed-value {
+    font-size: 48px;
+    color: var(--color-cyan);
+    -unity-font-style: bold;
+    text-shadow: var(--glow-cyan);
+}
+
+.speed-unit {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    margin-top: -8px;
+}
+
+.speed-tier-indicator {
+    flex-direction: row;
+    margin-top: var(--spacing-sm);
+}
+
+.speedometer.boosted {
+    border-color: var(--color-magenta);
+}
+
+.speedometer.boosted .speed-value {
+    color: var(--color-magenta);
+    text-shadow: var(--glow-magenta);
+}
+
+/* ============================================================================
+   Lane Indicator
+   ============================================================================ */
+.lane-indicator {
+    flex-direction: row;
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+    background-color: var(--color-bg-dark);
+    border-radius: 4px;
+}
+
+.lane-dot {
+    width: 12px;
+    height: 12px;
+    background-color: rgba(0, 255, 255, 0.2);
+    border-radius: 6px;
+    margin: 0 4px;
+}
+
+.lane-dot.active {
+    background-color: var(--color-cyan);
+    box-shadow: var(--glow-cyan);
+}
+
+/* ============================================================================
+   Bottom Bar - Status Indicators
+   ============================================================================ */
+.bottom-bar {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    padding: var(--spacing-md);
+    height: 60px;
+}
+
+.status-indicator {
+    flex-direction: row;
+    align-items: center;
+    background-color: var(--color-bg-dark);
+    border-width: 1px;
+    border-color: var(--color-cyan);
+    border-radius: 4px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin: 0 var(--spacing-sm);
+}
+
+.status-icon {
+    font-size: 16px;
+    color: var(--color-cyan);
+    margin-right: var(--spacing-sm);
+}
+
+.status-text {
+    font-size: 12px;
+    color: var(--color-cyan);
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+}
+
+.boost-icon {
+    color: var(--color-magenta);
+}
+
+/* ============================================================================
+   Notifications
+   ============================================================================ */
+.notification-container {
+    position: absolute;
+    left: 50%;
+    top: 30%;
+    translate: -50% 0;
+    align-items: center;
+}
+
+.notification {
+    background-color: var(--color-bg-panel);
+    border-width: 2px;
+    border-color: var(--color-cyan);
+    border-radius: 8px;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    margin-bottom: var(--spacing-sm);
+    opacity: 1;
+    transition-duration: 0.3s;
+}
+
+.notification.bonus {
+    border-color: var(--color-yellow);
+}
+
+.notification.warning {
+    border-color: var(--color-orange);
+}
+
+.notification.danger {
+    border-color: var(--color-red);
+}
+
+.notification-text {
+    font-size: 18px;
+    color: var(--color-cyan);
+    -unity-font-style: bold;
+    text-shadow: var(--glow-cyan);
+}
+
+.notification-value {
+    font-size: 24px;
+    color: var(--color-yellow);
+    -unity-font-style: bold;
+    margin-left: var(--spacing-sm);
+}
+
+/* ============================================================================
+   Emergency Arrows
+   ============================================================================ */
+.emergency-arrow {
+    position: absolute;
+    align-items: center;
+    padding: var(--spacing-sm);
+}
+
+.emergency-arrow.left {
+    left: var(--spacing-lg);
+    top: 50%;
+    translate: 0 -50%;
+}
+
+.emergency-arrow.right {
+    right: var(--spacing-lg);
+    top: 50%;
+    translate: 0 -50%;
+}
+
+.emergency-arrow.behind {
+    bottom: 100px;
+    left: 50%;
+    translate: -50% 0;
+}
+
+.arrow-icon {
+    font-size: 48px;
+    color: var(--color-red);
+    text-shadow: var(--glow-orange);
+}
+
+.arrow-label {
+    font-size: 12px;
+    color: var(--color-red);
+    -unity-font-style: bold;
+}
+
+.emergency-arrow.flash .arrow-icon {
+    color: var(--color-blue);
+}
+
+/* ============================================================================
+   Overlay & Menu Panels
+   ============================================================================ */
+.overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    justify-content: center;
+    align-items: center;
+}
+
+.menu-panel {
+    background-color: var(--color-bg-panel);
+    border-width: 2px;
+    border-color: var(--color-cyan);
+    border-radius: 12px;
+    padding: var(--spacing-xl);
+    min-width: 300px;
+    align-items: center;
+}
+
+.menu-title {
+    font-size: 36px;
+    color: var(--color-cyan);
+    -unity-font-style: bold;
+    text-shadow: var(--glow-cyan);
+    margin-bottom: var(--spacing-lg);
+    letter-spacing: 4px;
+}
+
+.crash-title {
+    color: var(--color-red);
+    text-shadow: var(--glow-orange);
+}
+
+.menu-button {
+    background-color: transparent;
+    border-width: 2px;
+    border-color: var(--color-cyan);
+    border-radius: 4px;
+    padding: var(--spacing-sm) var(--spacing-xl);
+    margin: var(--spacing-xs) 0;
+    min-width: 200px;
+    color: var(--color-cyan);
+    font-size: 16px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    transition-duration: 0.15s;
+}
+
+.menu-button:hover {
+    background-color: rgba(0, 255, 255, 0.2);
+    scale: 1.05 1.05;
+}
+
+.menu-button:active {
+    background-color: rgba(0, 255, 255, 0.4);
+}
+
+.menu-button.primary {
+    background-color: rgba(0, 255, 255, 0.2);
+    border-color: var(--color-cyan);
+}
+
+/* ============================================================================
+   Score Summary
+   ============================================================================ */
+.gameover-panel {
+    min-width: 400px;
+}
+
+.score-summary {
+    width: 100%;
+    margin-bottom: var(--spacing-lg);
+}
+
+.summary-row {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: var(--spacing-xs) 0;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(0, 255, 255, 0.2);
+}
+
+.summary-label {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+}
+
+.summary-value {
+    font-size: 14px;
+    color: var(--color-cyan);
+    -unity-font-style: bold;
+}
+
+.highscore-text {
+    font-size: 24px;
+    color: var(--color-yellow);
+    -unity-font-style: bold;
+    text-shadow: 0 0 15px rgba(255, 255, 0, 0.8);
+    margin-bottom: var(--spacing-md);
+    letter-spacing: 2px;
+}
+
+/* ============================================================================
+   Fade Overlay
+   ============================================================================ */
+.fade-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: black;
+    opacity: 0;
+    transition-duration: 0.5s;
+}
+
+.fade-overlay.active {
+    opacity: 1;
+}
+
+/* ============================================================================
+   Animations
+   ============================================================================ */
+@keyframes pulse {
+    0% { opacity: 1; scale: 1 1; }
+    50% { opacity: 0.7; scale: 1.1 1.1; }
+    100% { opacity: 1; scale: 1 1; }
+}
+
+@keyframes flash {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+}
+
+.pulse {
+    animation: pulse 1s infinite;
+}
+
+.flash {
+    animation: flash 0.5s infinite;
+}

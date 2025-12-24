@@ -150,4 +150,54 @@ namespace Nightflow.Components
         public bool IsNewHighScore;
         public int LeaderboardRank;
     }
+
+    /// <summary>
+    /// Crash reason enumeration.
+    /// </summary>
+    public enum CrashReason : byte
+    {
+        None = 0,
+        TotalDamage = 1,        // Accumulated too much damage
+        BarrierImpact = 2,      // Hit barrier at high speed
+        HeadOnCollision = 3,    // Collided with oncoming traffic
+        Rollover = 4            // Flipped/rolled vehicle
+    }
+
+    /// <summary>
+    /// HUD notification for temporary display messages.
+    /// </summary>
+    public struct HUDNotification : IBufferElementData
+    {
+        /// <summary>Type of notification.</summary>
+        public HUDNotificationType Type;
+
+        /// <summary>Associated value (points, multiplier, etc).</summary>
+        public float Value;
+
+        /// <summary>Time remaining to display (seconds).</summary>
+        public float TimeRemaining;
+
+        /// <summary>Screen position for popup (0-1 normalized).</summary>
+        public float2 ScreenPosition;
+    }
+
+    /// <summary>
+    /// Types of HUD notifications.
+    /// </summary>
+    public enum HUDNotificationType : byte
+    {
+        NearMiss = 0,           // +500 Near Miss!
+        MultiplierUp = 1,       // Multiplier x2.0!
+        MultiplierLost = 2,     // Multiplier Lost
+        SpeedBonus = 3,         // Speed Bonus +1000
+        DamageWarning = 4,      // ! Damage Critical
+        NewHighScore = 5,       // New High Score!
+        PerfectDodge = 6,       // Perfect Dodge!
+        DriftBonus = 7          // Drift Recovery +250
+    }
+
+    /// <summary>
+    /// Singleton tag for main UI controller entity.
+    /// </summary>
+    public struct UIControllerTag : IComponentData { }
 }
