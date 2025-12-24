@@ -8,6 +8,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using Nightflow.Components;
+using Nightflow.Tags;
 
 namespace Nightflow.Systems.UI
 {
@@ -70,10 +71,11 @@ namespace Nightflow.Systems.UI
             float2 closestEmergencyDir = float2.zero;
             bool hasEmergency = false;
 
-            // Find emergency vehicles
-            foreach (var (transform, emergency) in SystemAPI.Query<RefRO<LocalTransform>, RefRO<EmergencyVehicle>>())
+            // Find emergency vehicles (using SirenAudio component for active state)
+            foreach (var (transform, siren) in SystemAPI.Query<RefRO<LocalTransform>, RefRO<SirenAudio>>()
+                .WithAll<EmergencyVehicleTag>())
             {
-                if (!emergency.ValueRO.IsActive)
+                if (!siren.ValueRO.IsActive)
                     continue;
 
                 float3 toVehicle = transform.ValueRO.Position - playerPos;
@@ -177,20 +179,5 @@ namespace Nightflow.Systems.UI
                 case 3: uiState.Signal3 = signal; break;
             }
         }
-    }
-
-    /// <summary>
-    /// Tag component for player vehicle (should already exist in vehicle components).
-    /// </summary>
-    public struct PlayerVehicleTag : IComponentData { }
-
-    /// <summary>
-    /// Component for emergency vehicles (should already exist in vehicle components).
-    /// </summary>
-    public struct EmergencyVehicle : IComponentData
-    {
-        public bool IsActive;
-        public int EmergencyType; // 0=Police, 1=Ambulance, 2=Fire
-        public float SirenPhase;
     }
 }

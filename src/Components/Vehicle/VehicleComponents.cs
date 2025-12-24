@@ -3,9 +3,19 @@
 // ============================================================================
 
 using Unity.Entities;
+using Unity.Mathematics;
 
 namespace Nightflow.Components
 {
+    /// <summary>
+    /// Vehicle velocity in world space.
+    /// </summary>
+    public struct VehicleVelocity : IComponentData
+    {
+        public float3 Linear;
+        public float3 Angular;
+    }
+
     /// <summary>
     /// Raw player input state. Written by InputSystem, read by vehicle systems.
     /// Disabled when Autopilot.Enabled = true.

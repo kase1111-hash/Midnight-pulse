@@ -7,6 +7,7 @@ using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
 using Nightflow.Components;
+using Nightflow.Tags;
 
 namespace Nightflow.Systems.Audio
 {
