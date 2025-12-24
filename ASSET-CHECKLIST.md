@@ -6,47 +6,49 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 
 ## Audio Assets
 
+**Audio System Status: IMPLEMENTED** - ECS audio systems and MonoBehaviour bridge complete. Audio clip files need to be created/sourced.
+
 ### Engine & Vehicle Sounds
-- [ ] Engine idle loop (low rumble, loopable)
-- [ ] Engine acceleration layers (pitch-modulatable, 3-5 layers by RPM)
-- [ ] Engine deceleration/coast sound
-- [ ] Tire rolling on asphalt (loopable, speed-modulatable)
-- [ ] Tire squeal/skid (intensity layers for drift)
-- [ ] Wind rush loop (intensity scales with speed²)
+- [ ] Engine idle loop (low rumble, loopable) - **SYSTEM READY** (EngineAudioSystem.cs)
+- [ ] Engine acceleration layers (pitch-modulatable, 3-5 layers by RPM) - **SYSTEM READY**
+- [ ] Engine deceleration/coast sound - **SYSTEM READY**
+- [ ] Tire rolling on asphalt (loopable, speed-modulatable) - **SYSTEM READY**
+- [ ] Tire squeal/skid (intensity layers for drift) - **SYSTEM READY**
+- [ ] Wind rush loop (intensity scales with speed²) - **SYSTEM READY**
 
 ### Collision & Impact Sounds
-- [ ] Light impact thud (small hazards: cones, debris)
-- [ ] Medium impact crunch (traffic sideswipe)
-- [ ] Heavy crash sound (barrier, crashed car)
-- [ ] Metal scrape loop (grinding against barriers)
-- [ ] Glass shatter (optional, for severe crashes)
+- [ ] Light impact thud (small hazards: cones, debris) - **SYSTEM READY** (CollisionAudioSystem.cs)
+- [ ] Medium impact crunch (traffic sideswipe) - **SYSTEM READY**
+- [ ] Heavy crash sound (barrier, crashed car) - **SYSTEM READY**
+- [ ] Metal scrape loop (grinding against barriers) - **SYSTEM READY**
+- [ ] Glass shatter (optional, for severe crashes) - **SYSTEM READY**
 
 ### Emergency Vehicle Sounds
-- [ ] Police siren loop (doppler-shiftable)
-- [ ] Ambulance siren loop (doppler-shiftable)
-- [ ] Siren distant/approaching variations
+- [ ] Police siren loop (doppler-shiftable) - **SYSTEM READY** (SirenAudioSystem.cs)
+- [ ] Ambulance siren loop (doppler-shiftable) - **SYSTEM READY**
+- [ ] Siren distant/approaching variations - **SYSTEM READY** (Doppler effect implemented)
 
 ### Environment & Ambient
-- [ ] Tunnel reverb impulse response
-- [ ] Overpass reverb impulse response
-- [ ] Open road ambience (dry, minimal reverb)
-- [ ] Distant highway traffic ambience
+- [ ] Tunnel reverb impulse response - **SYSTEM READY** (AmbientAudioSystem.cs)
+- [ ] Overpass reverb impulse response - **SYSTEM READY**
+- [ ] Open road ambience (dry, minimal reverb) - **SYSTEM READY**
+- [ ] Distant highway traffic ambience - **SYSTEM READY**
 - [ ] Construction zone noise (optional)
 
 ### Music & Score
-- [ ] Main gameplay music loop (synthwave/electronic, intensity-modulatable)
-- [ ] Low-intensity music layer (cruising speed)
-- [ ] High-intensity music layer (boosted speed)
-- [ ] Terminal sequence music (end-game credits ambience)
-- [ ] Menu/pause music (optional)
+- [ ] Main gameplay music loop (synthwave/electronic, intensity-modulatable) - **SYSTEM READY** (MusicSystem.cs)
+- [ ] Low-intensity music layer (cruising speed) - **SYSTEM READY**
+- [ ] High-intensity music layer (boosted speed) - **SYSTEM READY**
+- [ ] Terminal sequence music (end-game credits ambience) - **SYSTEM READY**
+- [ ] Menu/pause music (optional) - **SYSTEM READY**
 
 ### UI Sounds
-- [ ] Score tick/increment sound
-- [ ] Multiplier increase chime
-- [ ] Multiplier lost/reset sound
-- [ ] Damage warning beep
-- [ ] Near-miss whoosh (risk event)
-- [ ] Lane change swoosh (subtle)
+- [ ] Score tick/increment sound - **SYSTEM READY** (UIAudioSystem.cs)
+- [ ] Multiplier increase chime - **SYSTEM READY**
+- [ ] Multiplier lost/reset sound - **SYSTEM READY**
+- [ ] Damage warning beep - **SYSTEM READY**
+- [ ] Near-miss whoosh (risk event) - **SYSTEM READY**
+- [ ] Lane change swoosh (subtle) - **SYSTEM READY**
 
 ---
 
@@ -536,6 +538,109 @@ hud-root
 | LightImpact | Impulse ≥ 10 | 30% alpha |
 | MediumImpact | Impulse ≥ 30 | 60% alpha |
 | Damage | Damage event | Red tint |
+
+---
+
+## Audio System Details
+
+### Components (`src/Components/Audio/AudioComponents.cs`)
+
+| Component | Purpose |
+|-----------|---------|
+| `EngineAudio` | Vehicle engine state (RPM, throttle, layer volumes, pitch) |
+| `TireAudio` | Tire rolling and skid sounds (speed, slip ratio) |
+| `WindAudio` | Wind rush audio (speed², turbulence) |
+| `SirenAudio` | Emergency siren with doppler (position, velocity, phase) |
+| `CollisionAudioEvent` | One-shot collision sound request |
+| `ScrapeAudio` | Continuous metal scraping sound |
+| `ReverbZone` | Environment reverb (tunnel, overpass, open road) |
+| `AmbientAudio` | Ambient layer state (volume, fade) |
+| `MusicState` | Dynamic music (intensity, layer volumes, transitions) |
+| `UIAudioEvent` | UI sound request |
+| `AudioConfig` | Global audio settings (volumes, doppler, distance) |
+| `AudioListener` | Listener position/velocity for 3D audio |
+
+### Systems (`src/Systems/Audio/`)
+
+| System | Purpose |
+|--------|---------|
+| `EngineAudioSystem` | Updates engine audio from vehicle state |
+| `CollisionAudioSystem` | Processes collision events, triggers sounds |
+| `SirenAudioSystem` | Calculates doppler shift, updates siren state |
+| `AmbientAudioSystem` | Manages ambient layers and reverb zones |
+| `MusicSystem` | Dynamic intensity-based music crossfading |
+| `UIAudioSystem` | Processes UI sound events |
+
+### MonoBehaviour Bridge (`src/Audio/AudioManager.cs`)
+
+Connects ECS audio to Unity AudioSources:
+- Pooled one-shot sources for impacts
+- Persistent looping sources for engine/ambient
+- AudioMixer group routing
+- Volume/pitch interpolation
+
+### Engine Audio Layers
+
+| Layer | RPM Range | Crossfade |
+|-------|-----------|-----------|
+| Idle | 600-1500 | Full at idle, fades as RPM rises |
+| Low | 1000-3500 | Bell curve centered at 2250 |
+| Mid | 3000-5500 | Bell curve centered at 4250 |
+| High | 5000-8000 | Bell curve centered at 6500 |
+
+**Pitch Modulation:** 0.8x - 2.0x based on normalized RPM
+
+### Doppler Effect
+
+```
+f' = f × (c + v_listener) / (c + v_source)
+pitch = 1 + (relativeVelocity / speedOfSound) × dopplerScale
+```
+
+- Speed of sound: 343 m/s (configurable)
+- Doppler scale: 1.0 (configurable)
+- Clamped: 0.5x - 2.0x pitch range
+
+### Siren Patterns
+
+| Type | Pattern | Frequency |
+|------|---------|-----------|
+| Police | Smooth sine wail | 1.5 Hz |
+| Ambulance | Sharp yelp alternation | 4.0 Hz |
+| Fire | Periodic horn blasts | 0.8 Hz |
+
+### Dynamic Music
+
+| Layer | Trigger | Intensity |
+|-------|---------|-----------|
+| Base | Always | 100% |
+| Low Intensity | < 0.3 intensity | Fades from 100% → 20% |
+| High Intensity | > 0.7 intensity | Fades in 0% → 100% |
+
+**Intensity Sources:**
+- Speed (80-200 km/h): 0-50%
+- Multiplier (1x-4x): 0-30%
+- Damage level: 0-20%
+- Events: +20-40% for 2-8 seconds
+
+### Reverb Presets
+
+| Environment | Decay Time | Early Reflections | Late Reverb |
+|-------------|------------|-------------------|-------------|
+| Open Road | 0.5s | 0.1 | 0.05 |
+| Tunnel | 3.5s | 0.6 | 0.7 |
+| Overpass | 1.5s | 0.4 | 0.3 |
+| Urban | 2.0s | 0.3 | 0.4 |
+
+### Audio Mixer Groups
+
+| Group | Contents |
+|-------|----------|
+| Master | All audio |
+| Music | Dynamic music layers |
+| SFX | Collisions, one-shots |
+| Engine | Engine layers, tires, wind |
+| Ambient | Environment, distant traffic |
 
 ---
 
