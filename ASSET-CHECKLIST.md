@@ -84,14 +84,14 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 - [ ] Crashed car mesh (damaged, stationary)
 
 #### Road & Environment
-- [ ] Road segment mesh (straight, 4-lane)
-- [ ] Road segment mesh (curved)
-- [ ] Tunnel entrance/exit mesh
-- [ ] Tunnel interior segment mesh
-- [ ] Overpass structure mesh
-- [ ] Fork/merge segment mesh
+- [x] Road segment mesh (straight, 4-lane) - **PROCEDURAL** (ProceduralRoadMeshSystem)
+- [x] Road segment mesh (curved) - **PROCEDURAL** (ProceduralRoadMeshSystem)
+- [x] Tunnel entrance/exit mesh - **PROCEDURAL** (ProceduralRoadMeshSystem)
+- [x] Tunnel interior segment mesh - **PROCEDURAL** (ProceduralRoadMeshSystem)
+- [x] Overpass structure mesh - **PROCEDURAL** (ProceduralRoadMeshSystem)
+- [x] Fork/merge segment mesh - **PROCEDURAL** (ProceduralRoadMeshSystem)
 - [ ] Streetlight post mesh
-- [ ] Highway barrier mesh (continuous)
+- [x] Highway barrier mesh (continuous) - **PROCEDURAL** (ProceduralRoadMeshSystem)
 - [ ] Guardrail mesh
 
 #### Hazards
@@ -173,7 +173,7 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 ### Phase 1: Core Gameplay (MVP)
 1. Player car mesh
 2. Basic wireframe shader
-3. Road segment meshes
+3. ~~Road segment meshes~~ - **DONE** (Procedural generation implemented)
 4. Engine sound loop
 5. Primary UI font
 6. Speedometer HUD
@@ -190,7 +190,7 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 ### Phase 3: Polish & Atmosphere
 1. Emergency vehicle assets
 2. Siren sounds with doppler
-3. Tunnel/overpass meshes
+3. ~~Tunnel/overpass meshes~~ - **DONE** (Procedural generation implemented)
 4. Reverb impulse responses
 5. Music loops
 6. Particle effects
@@ -225,8 +225,29 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 - Loopable sounds should have seamless loop points
 - 3D models should be optimized for real-time rendering (low poly count)
 - Wireframe aesthetic means many meshes can be simple geometry
-- Consider procedural generation for road segments to reduce asset count
+- ~~Consider procedural generation for road segments to reduce asset count~~ **IMPLEMENTED!**
 - UI should be readable at high speeds (large, high-contrast text)
+
+---
+
+## Procedural Generation Details
+
+The following assets are now generated at runtime by `ProceduralRoadMeshSystem`:
+
+| Asset | Generation Method | Parameters |
+|-------|-------------------|------------|
+| Road surface | Hermite spline extrusion | 40 length segments, 8 width segments |
+| Lane markings | Overlay quads with dashing | 3m dash, 6m gap |
+| Barriers | Edge extrusion | 0.8m height, both sides |
+| Tunnel walls | Arch profile extrusion | 6m height, 16m width |
+| Tunnel ceiling | Curved arch | 8 arch segments |
+| Overpass deck | Elevated road + sinusoidal profile | h(t) = 8m × sin(πt) |
+| Support pillars | Box geometry | 1.5m width, 40m spacing |
+
+**Files:**
+- `src/Components/Presentation/ProceduralMeshComponents.cs` - Mesh data components
+- `src/Systems/Presentation/ProceduralRoadMeshSystem.cs` - Mesh generation system
+- `src/Buffers/BufferElements.cs` - MeshVertex, MeshTriangle, SubMeshRange buffers
 
 ---
 

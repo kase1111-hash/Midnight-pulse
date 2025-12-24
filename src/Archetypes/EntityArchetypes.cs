@@ -161,9 +161,16 @@ namespace Nightflow.Archetypes
                 // Track Data
                 typeof(Components.TrackSegment),
                 typeof(HermiteSpline),
+                // Procedural Mesh Generation
+                typeof(ProceduralMeshData),
+                typeof(MeshBounds),
                 // Buffers
                 typeof(LaneReference),
-                typeof(HazardReference)
+                typeof(HazardReference),
+                // Mesh Buffers (dynamic, populated by ProceduralRoadMeshSystem)
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
 
             // =================================================================
