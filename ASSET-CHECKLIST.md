@@ -62,15 +62,17 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 - [x] Skybox/horizon gradient shader - **IMPLEMENTED** (NightSkybox.shader)
 
 ### Materials
-- [ ] Player vehicle material (Cyan glow - #00FFFF)
-- [ ] Traffic vehicle material (Magenta - #FF00FF)
-- [ ] Emergency vehicle material (Red/Blue strobe)
-- [ ] Road surface material (dark with lane markings)
-- [ ] Barrier material (Orange - #FF8800)
-- [ ] Hazard materials (cone, debris, tire)
-- [ ] Streetlight material (warm sodium - #FFD080)
-- [ ] Tunnel interior material
-- [ ] Overpass material
+- [x] Player vehicle material (Cyan glow - #00FFFF) - **IMPLEMENTED** (PlayerVehicle.mat)
+- [x] Traffic vehicle material (Magenta - #FF00FF) - **IMPLEMENTED** (TrafficVehicle.mat)
+- [x] Emergency vehicle material (Red/Blue strobe) - **IMPLEMENTED** (EmergencyVehiclePolice.mat, EmergencyVehicleAmbulance.mat)
+- [x] Road surface material (dark with lane markings) - **IMPLEMENTED** (RoadSurface.mat)
+- [x] Barrier material (Orange - #FF8800) - **IMPLEMENTED** (Barrier.mat)
+- [x] Hazard materials (cone, debris, tire) - **IMPLEMENTED** (HazardCone.mat, HazardDebris.mat, HazardTire.mat)
+- [x] Streetlight material (warm sodium - #FFD080) - **IMPLEMENTED** (Streetlight.mat, StreetlightPole.mat)
+- [x] Tunnel interior material - **IMPLEMENTED** (TunnelInterior.mat, TunnelLight.mat)
+- [x] Overpass material - **IMPLEMENTED** (Overpass.mat)
+- [x] Ghost vehicle material - **IMPLEMENTED** (GhostVehicle.mat)
+- [x] Headlight/Taillight materials - **IMPLEMENTED** (Headlight.mat, Taillight.mat)
 
 ### 3D Models/Meshes
 
