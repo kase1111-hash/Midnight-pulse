@@ -108,10 +108,10 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 - [x] Headlight beam effect - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Warm white glow
 - [x] Taillight glow effect - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Red glow
 - [x] Emergency strobe effect (red/blue) - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Light bar
-- [ ] Spark particles (collision)
-- [ ] Tire smoke particles (drift/skid)
-- [ ] Speed lines effect (high velocity)
-- [ ] Crash screen flash effect
+- [x] Spark particles (collision) - **IMPLEMENTED** (SparkParticleSystem.cs + NeonParticle.shader)
+- [x] Tire smoke particles (drift/skid) - **IMPLEMENTED** (TireSmokeParticleSystem.cs + SmokeParticle.shader)
+- [x] Speed lines effect (high velocity) - **IMPLEMENTED** (SpeedLinesSystem.cs + SpeedLines.shader)
+- [x] Crash screen flash effect - **IMPLEMENTED** (CrashFlashSystem.cs + CrashFlash.shader)
 
 ---
 
@@ -445,6 +445,97 @@ hud-root
 4. **Summary** (2.0s min) - Score breakdown display
 5. **Reset** (0.3s) - Vehicle repositioning
 6. **FadeIn** (0.5s) - Fade back, autopilot starts
+
+---
+
+## Particle System Details
+
+### Components (`src/Components/Presentation/ParticleComponents.cs`)
+
+| Component | Purpose |
+|-----------|---------|
+| `Particle` | Individual particle data (position, velocity, color, lifetime) |
+| `ParticleEmitter` | Emitter configuration (rate, colors, sizes, lifetimes) |
+| `ParticleType` | Enum: Spark, TireSmoke, SpeedLine, CrashFlash, Debris, Glow |
+| `SparkEmitterTag` | Tag for spark emitters on vehicles |
+| `TireSmokeEmitterTag` | Tag for tire smoke emitters at wheel positions |
+| `SpeedLineEffect` | Screen-space velocity streak controller |
+| `CrashFlashEffect` | Screen flash overlay controller |
+| `CollisionEvent` | Collision data for triggering sparks |
+| `DriftState` | Drift detection for tire smoke triggering |
+
+### Systems (`src/Systems/Presentation/`)
+
+| System | Purpose |
+|--------|---------|
+| `SparkParticleSystem` | Spawns/updates orange spark particles on collision |
+| `TireSmokeParticleSystem` | Spawns/updates gray smoke with cyan tint during drift |
+| `SpeedLinesSystem` | Spawns/updates white/cyan streaks at high speed |
+| `CrashFlashSystem` | Manages screen flash phases (FlashIn → Hold → FadeOut) |
+| `ParticleRenderSystem` | GPU-instanced rendering for all particle types |
+| `DriftDetectionSystem` | Detects drift state from vehicle physics |
+| `ImpactFlashTriggerSystem` | Triggers flash effects on collision impacts |
+
+### Shaders (`src/Shaders/`)
+
+| Shader | Purpose |
+|--------|---------|
+| `NeonParticle.shader` | Additive billboard particles with glow for sparks |
+| `SmokeParticle.shader` | Alpha-blended volumetric smoke with noise animation |
+| `SpeedLines.shader` | Elongated additive streaks for velocity effect |
+| `CrashFlash.shader` | Post-process screen flash with chromatic aberration |
+
+### Spark Particles
+
+| Property | Value |
+|----------|-------|
+| Particles per impact | 12 (scales with impulse) |
+| Speed | 5-15 m/s |
+| Lifetime | 0.4s |
+| Size | 0.02-0.08m |
+| Gravity | 15 m/s² |
+| Color | Orange #FF9900 → Red #FF3300 (fading) |
+| Emission | 3-5x (bright glow) |
+
+### Tire Smoke
+
+| Property | Value |
+|----------|-------|
+| Emission rate | 30 particles/sec at full drift |
+| Start size | 0.3m |
+| End size | 1.5m |
+| Speed | 1-3 m/s |
+| Lifetime | 1.2s |
+| Rise speed | 1.5 m/s |
+| Color | Dark gray with subtle cyan tint |
+| Drag | 2.0 |
+
+### Speed Lines
+
+| Property | Value |
+|----------|-------|
+| Speed threshold | 120 km/h (starts appearing) |
+| Max effect speed | 250 km/h (full intensity) |
+| Emission rate | 100 lines/sec at max |
+| Line length | 2-8m (based on speed) |
+| Lifetime | 0.1-0.3s |
+| Spawn radius | 3-15m around player |
+| Colors | White/cyan (70%), Cyan (20%), Magenta (10%) |
+
+### Crash Flash
+
+| Phase | Duration | Effect |
+|-------|----------|--------|
+| FlashIn | 0.05s | Quick ramp to white |
+| Hold | 0.08s | Peak white, transition to red |
+| FadeOut | 0.4s | Red/orange fade with chromatic aberration |
+
+| Flash Type | Trigger | Intensity |
+|------------|---------|-----------|
+| Crash | GameState crash phase | Full effect |
+| LightImpact | Impulse ≥ 10 | 30% alpha |
+| MediumImpact | Impulse ≥ 30 | 60% alpha |
+| Damage | Damage event | Red tint |
 
 ---
 
