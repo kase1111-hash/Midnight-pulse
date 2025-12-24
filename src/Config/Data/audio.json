@@ -1,0 +1,171 @@
+{
+  "masterVolume": {
+    "master": 1.0,
+    "music": 0.7,
+    "sfx": 1.0,
+    "engine": 0.8,
+    "ambient": 0.5,
+    "ui": 0.8
+  },
+  "engine": {
+    "rpm": {
+      "idle": 800,
+      "redline": 7500
+    },
+    "pitch": {
+      "idle": 0.8,
+      "redline": 2.0,
+      "curveExponent": 0.7
+    },
+    "volume": {
+      "base": 0.6,
+      "loadBonus": 0.2,
+      "redline": 1.0
+    },
+    "layers": {
+      "lowCenter": 2500,
+      "midCenter": 4500,
+      "highCenter": 6500,
+      "crossfadeWidth": 1500
+    },
+    "tire": {
+      "rollMaxVolume": 0.5,
+      "rollMaxSpeed": 150,
+      "skidMultiplier": 1.2
+    },
+    "wind": {
+      "maxVolume": 0.6,
+      "onsetSpeed": 60,
+      "maxSpeed": 200
+    },
+    "smoothing": {
+      "rpm": 8,
+      "volume": 10,
+      "pitch": 12
+    }
+  },
+  "collision": {
+    "thresholds": {
+      "light": 5,
+      "medium": 20,
+      "heavy": 50,
+      "glassShatter": 80
+    },
+    "volumes": {
+      "light": 0.4,
+      "medium": 0.7,
+      "heavy": 1.0
+    },
+    "pitchVariation": 0.1,
+    "scrape": {
+      "minVelocity": 3,
+      "maxVolume": 0.7,
+      "fadeTime": 0.3
+    },
+    "cooldown": 0.1
+  },
+  "siren": {
+    "doppler": {
+      "speedOfSound": 343,
+      "scale": 1.0,
+      "minPitch": 0.5,
+      "maxPitch": 2.0
+    },
+    "distance": {
+      "min": 5,
+      "max": 300,
+      "rolloff": 1.0,
+      "fade": 50
+    },
+    "patterns": {
+      "policeWail": 1.5,
+      "ambulanceYelp": 4.0,
+      "fireHorn": 0.8
+    },
+    "maxVolume": 1.0,
+    "fadeSpeed": 2.0
+  },
+  "reverb": {
+    "openRoad": {
+      "decay": 0.5,
+      "earlyReflections": 0.1,
+      "lateReverb": 0.05
+    },
+    "tunnel": {
+      "decay": 3.5,
+      "earlyReflections": 0.6,
+      "lateReverb": 0.7
+    },
+    "overpass": {
+      "decay": 1.5,
+      "earlyReflections": 0.4,
+      "lateReverb": 0.3
+    },
+    "blendDistance": 15,
+    "blendSpeed": 2.0
+  },
+  "ambient": {
+    "volumes": {
+      "openRoad": 0.3,
+      "distantTraffic": 0.2,
+      "tunnelDrone": 0.4,
+      "cityAmbience": 0.25
+    },
+    "fadeSpeed": 1.5
+  },
+  "music": {
+    "intensity": {
+      "lowThreshold": 0.3,
+      "highThreshold": 0.7,
+      "smoothSpeed": 2.0,
+      "decayRate": 0.1
+    },
+    "layers": {
+      "base": 0.7,
+      "lowIntensity": 0.6,
+      "highIntensity": 0.8
+    },
+    "sources": {
+      "speed": 0.5,
+      "speedMaxKmh": 200,
+      "multiplier": 0.3,
+      "damage": 0.2
+    },
+    "events": {
+      "speedBoost": 0.3,
+      "nearMiss": 0.2,
+      "collision": 0.4,
+      "emergency": 0.35
+    },
+    "transitions": {
+      "crossfade": 2.0,
+      "fadeOut": 3.0
+    },
+    "bpm": 120
+  },
+  "ui": {
+    "score": {
+      "tickInterval": 100,
+      "tickMinDelay": 0.05,
+      "tickVolume": 0.3
+    },
+    "multiplier": {
+      "upVolume": 0.6,
+      "lostVolume": 0.5,
+      "cooldown": 0.5
+    },
+    "warning": {
+      "volume": 0.7,
+      "interval": 0.8
+    },
+    "events": {
+      "nearMissVolume": 0.5,
+      "nearMissCooldown": 0.3,
+      "laneChangeVolume": 0.3
+    },
+    "menu": {
+      "selectVolume": 0.5,
+      "backVolume": 0.4
+    }
+  }
+}

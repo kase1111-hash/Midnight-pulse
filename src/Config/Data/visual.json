@@ -1,0 +1,135 @@
+{
+  "colorPalette": {
+    "primary": {
+      "playerCyan": "#00FFFF",
+      "trafficMagenta": "#FF00FF",
+      "hazardOrange": "#FF8800",
+      "emergencyRed": "#FF0000",
+      "emergencyBlue": "#0066FF"
+    },
+    "secondary": {
+      "laneBlue": "#4488FF",
+      "streetlightSodium": "#FFD080",
+      "tunnelFluorescent": "#E6F2FF"
+    },
+    "background": {
+      "roadDark": "#1A1A1A",
+      "skyBlack": "#0A0A0A"
+    },
+    "ui": {
+      "warningYellow": "#FFFF00",
+      "damageRed": "#FF3333",
+      "boostMagenta": "#FF00CC"
+    },
+    "ghost": {
+      "ghostCyan": "#009999",
+      "ghostAlpha": 0.5
+    }
+  },
+  "wireframe": {
+    "line": {
+      "thickness": 0.008,
+      "antiAliasWidth": 0.002
+    },
+    "glow": {
+      "intensity": 2.0,
+      "falloff": 3.0,
+      "playerMultiplier": 1.5
+    },
+    "fill": {
+      "alpha": 0.05,
+      "colorMultiplier": 0.3
+    },
+    "animation": {
+      "pulseEnabled": true,
+      "pulseFrequency": 1.0,
+      "pulseIntensity": 0.1
+    },
+    "distance": {
+      "fadeStart": 100,
+      "fadeEnd": 200
+    }
+  },
+  "lighting": {
+    "streetlights": {
+      "spacing": 40,
+      "intensity": 2.0,
+      "range": 25
+    },
+    "vehicle": {
+      "headlightIntensity": 3.0,
+      "headlightRange": 30,
+      "taillightIntensity": 1.5
+    },
+    "emergency": {
+      "strobeIntensity": 4.0,
+      "strobeFrequency": 8.0
+    },
+    "tunnel": {
+      "spacing": 15,
+      "intensity": 1.5
+    },
+    "ambient": {
+      "intensity": 0.1,
+      "horizonGlow": 0.3
+    }
+  },
+  "postProcess": {
+    "bloom": {
+      "enabled": true,
+      "threshold": 0.8,
+      "intensity": 1.5,
+      "scatter": 0.7
+    },
+    "motionBlur": {
+      "enabled": true,
+      "intensity": 0.3,
+      "maxSpeed": 250,
+      "samples": 8
+    },
+    "filmGrain": {
+      "enabled": true,
+      "intensity": 0.1,
+      "size": 1.2
+    },
+    "scanlines": {
+      "enabled": true,
+      "intensity": 0.08,
+      "density": 300
+    },
+    "vignette": {
+      "enabled": true,
+      "intensity": 0.3,
+      "smoothness": 0.5
+    },
+    "chromaticAberration": {
+      "enabled": true,
+      "intensity": 0.01
+    },
+    "colorGrading": {
+      "saturation": 1.1,
+      "contrast": 1.05,
+      "temperature": -5
+    }
+  },
+  "particles": {
+    "sparks": {
+      "emissionIntensity": 4.0,
+      "colorStart": "#FFB300",
+      "colorEnd": "#FF330000"
+    },
+    "smoke": {
+      "neonTint": 0.15,
+      "color": "#4D5966"
+    },
+    "speedLines": {
+      "emissionIntensity": 2.0,
+      "color": "#E6FFFFCC"
+    },
+    "crashFlash": {
+      "white": "#FFFFFF",
+      "red": "#FF3319CC",
+      "chromaticAberration": 0.02
+    }
+  }
+}

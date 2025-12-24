@@ -1,0 +1,117 @@
+{
+  "vehiclePhysics": {
+    "maxSpeed": 280,
+    "acceleration": 12,
+    "braking": 25,
+    "coastDeceleration": 3,
+    "steeringSensitivity": 2.5,
+    "highSpeedSteeringReduction": 0.4,
+    "steeringReductionSpeed": 200,
+    "laneChangeTime": 0.4,
+    "laneChangeCooldown": 0.2,
+    "laneWidth": 3.5,
+    "boostSpeedMultiplier": 1.3,
+    "boostDuration": 3,
+    "boostCooldown": 8,
+    "collisionDamageMultiplier": 1,
+    "collisionSpeedPenalty": 0.3,
+    "collisionInvulnerability": 0.5
+  },
+  "laneMagnetism": {
+    "enabled": true,
+    "strength": 0.7,
+    "activationDistance": 1.5,
+    "reductionSpeed": 150,
+    "minimumStrength": 0.3,
+    "disableOnManualInput": true,
+    "reEnableDelay": 0.5
+  },
+  "trafficAI": {
+    "baseDensity": 3,
+    "maxDensity": 8,
+    "densityIncreaseRate": 0.1,
+    "minSpawnDistance": 150,
+    "maxSpawnDistance": 300,
+    "despawnDistance": 100,
+    "baseSpeed": 100,
+    "speedVariation": 20,
+    "slowVehicleChance": 0.15,
+    "slowVehicleSpeedMultiplier": 0.6,
+    "laneChangeChance": 0.05,
+    "laneChangeDuration": 1.5,
+    "safeLaneChangeDistance": 30,
+    "emergencySpawnChance": 0.1,
+    "emergencySpeed": 180,
+    "emergencySpawnDistance": 200,
+    "vehicleWeights": {
+      "sedan": 0.5,
+      "suv": 0.3,
+      "truck": 0.2
+    }
+  },
+  "hazardSpawn": {
+    "baseSpawnRate": 0.5,
+    "maxSpawnRate": 2,
+    "spawnRateIncrease": 0.05,
+    "minHazardSpacing": 20,
+    "hazardWeights": {
+      "cone": 0.4,
+      "debris": 0.25,
+      "tire": 0.2,
+      "barrier": 0.1,
+      "crashedCar": 0.05
+    },
+    "hazardDamage": {
+      "cone": 0.05,
+      "debris": 0.1,
+      "tire": 0.15,
+      "barrier": 0.25,
+      "crashedCar": 0.4
+    },
+    "constructionZoneChance": 0.1,
+    "multiLanePatternChance": 0.2
+  },
+  "scoring": {
+    "pointsPerMeter": 1,
+    "pointsPerSecond": 10,
+    "speedBonusPerKmh": 0.5,
+    "baseMultiplier": 1,
+    "maxMultiplier": 5,
+    "nearMissMultiplierBonus": 0.1,
+    "multiplierDecayRate": 0.05,
+    "resetMultiplierOnCollision": true,
+    "nearMissDistance": 2,
+    "nearMissPoints": 500,
+    "perfectDodgeDistance": 1,
+    "perfectDodgePoints": 1000,
+    "speedBonusThreshold": 180,
+    "speedBonusPointsPerSecond": 50,
+    "kilometerBonus": 1000,
+    "minuteBonus": 500
+  },
+  "camera": {
+    "baseHeight": 3,
+    "baseDistance": 8,
+    "speedHeightBonus": 1.5,
+    "speedDistanceBonus": 4,
+    "baseFOV": 60,
+    "speedFOVBonus": 20,
+    "fovSmoothSpeed": 3,
+    "lookAheadFactor": 0.5,
+    "maxLookAhead": 15,
+    "collisionShakeIntensity": 0.5,
+    "collisionShakeDuration": 0.3,
+    "speedShakeIntensity": 0.02,
+    "positionSmoothSpeed": 8,
+    "rotationSmoothSpeed": 5
+  },
+  "difficulty": {
+    "fullDifficultyDistance": 10,
+    "fullDifficultyTime": 5,
+    "scaleMode": "distance",
+    "maxTrafficMultiplier": 2,
+    "maxHazardMultiplier": 2.5,
+    "maxTrafficSpeedBonus": 30,
+    "maxEmergencyMultiplier": 3
+  }
+}

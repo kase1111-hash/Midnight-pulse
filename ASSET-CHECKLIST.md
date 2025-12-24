@@ -6,47 +6,49 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 
 ## Audio Assets
 
+**Audio System Status: IMPLEMENTED** - ECS audio systems and MonoBehaviour bridge complete. Audio clip files need to be created/sourced.
+
 ### Engine & Vehicle Sounds
-- [ ] Engine idle loop (low rumble, loopable)
-- [ ] Engine acceleration layers (pitch-modulatable, 3-5 layers by RPM)
-- [ ] Engine deceleration/coast sound
-- [ ] Tire rolling on asphalt (loopable, speed-modulatable)
-- [ ] Tire squeal/skid (intensity layers for drift)
-- [ ] Wind rush loop (intensity scales with speed²)
+- [ ] Engine idle loop (low rumble, loopable) - **SYSTEM READY** (EngineAudioSystem.cs)
+- [ ] Engine acceleration layers (pitch-modulatable, 3-5 layers by RPM) - **SYSTEM READY**
+- [ ] Engine deceleration/coast sound - **SYSTEM READY**
+- [ ] Tire rolling on asphalt (loopable, speed-modulatable) - **SYSTEM READY**
+- [ ] Tire squeal/skid (intensity layers for drift) - **SYSTEM READY**
+- [ ] Wind rush loop (intensity scales with speed²) - **SYSTEM READY**
 
 ### Collision & Impact Sounds
-- [ ] Light impact thud (small hazards: cones, debris)
-- [ ] Medium impact crunch (traffic sideswipe)
-- [ ] Heavy crash sound (barrier, crashed car)
-- [ ] Metal scrape loop (grinding against barriers)
-- [ ] Glass shatter (optional, for severe crashes)
+- [ ] Light impact thud (small hazards: cones, debris) - **SYSTEM READY** (CollisionAudioSystem.cs)
+- [ ] Medium impact crunch (traffic sideswipe) - **SYSTEM READY**
+- [ ] Heavy crash sound (barrier, crashed car) - **SYSTEM READY**
+- [ ] Metal scrape loop (grinding against barriers) - **SYSTEM READY**
+- [ ] Glass shatter (optional, for severe crashes) - **SYSTEM READY**
 
 ### Emergency Vehicle Sounds
-- [ ] Police siren loop (doppler-shiftable)
-- [ ] Ambulance siren loop (doppler-shiftable)
-- [ ] Siren distant/approaching variations
+- [ ] Police siren loop (doppler-shiftable) - **SYSTEM READY** (SirenAudioSystem.cs)
+- [ ] Ambulance siren loop (doppler-shiftable) - **SYSTEM READY**
+- [ ] Siren distant/approaching variations - **SYSTEM READY** (Doppler effect implemented)
 
 ### Environment & Ambient
-- [ ] Tunnel reverb impulse response
-- [ ] Overpass reverb impulse response
-- [ ] Open road ambience (dry, minimal reverb)
-- [ ] Distant highway traffic ambience
+- [ ] Tunnel reverb impulse response - **SYSTEM READY** (AmbientAudioSystem.cs)
+- [ ] Overpass reverb impulse response - **SYSTEM READY**
+- [ ] Open road ambience (dry, minimal reverb) - **SYSTEM READY**
+- [ ] Distant highway traffic ambience - **SYSTEM READY**
 - [ ] Construction zone noise (optional)
 
 ### Music & Score
-- [ ] Main gameplay music loop (synthwave/electronic, intensity-modulatable)
-- [ ] Low-intensity music layer (cruising speed)
-- [ ] High-intensity music layer (boosted speed)
-- [ ] Terminal sequence music (end-game credits ambience)
-- [ ] Menu/pause music (optional)
+- [ ] Main gameplay music loop (synthwave/electronic, intensity-modulatable) - **SYSTEM READY** (MusicSystem.cs)
+- [ ] Low-intensity music layer (cruising speed) - **SYSTEM READY**
+- [ ] High-intensity music layer (boosted speed) - **SYSTEM READY**
+- [ ] Terminal sequence music (end-game credits ambience) - **SYSTEM READY**
+- [ ] Menu/pause music (optional) - **SYSTEM READY**
 
 ### UI Sounds
-- [ ] Score tick/increment sound
-- [ ] Multiplier increase chime
-- [ ] Multiplier lost/reset sound
-- [ ] Damage warning beep
-- [ ] Near-miss whoosh (risk event)
-- [ ] Lane change swoosh (subtle)
+- [ ] Score tick/increment sound - **SYSTEM READY** (UIAudioSystem.cs)
+- [ ] Multiplier increase chime - **SYSTEM READY**
+- [ ] Multiplier lost/reset sound - **SYSTEM READY**
+- [ ] Damage warning beep - **SYSTEM READY**
+- [ ] Near-miss whoosh (risk event) - **SYSTEM READY**
+- [ ] Lane change swoosh (subtle) - **SYSTEM READY**
 
 ---
 
@@ -108,10 +110,10 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 - [x] Headlight beam effect - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Warm white glow
 - [x] Taillight glow effect - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Red glow
 - [x] Emergency strobe effect (red/blue) - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Light bar
-- [ ] Spark particles (collision)
-- [ ] Tire smoke particles (drift/skid)
-- [ ] Speed lines effect (high velocity)
-- [ ] Crash screen flash effect
+- [x] Spark particles (collision) - **IMPLEMENTED** (SparkParticleSystem.cs + NeonParticle.shader)
+- [x] Tire smoke particles (drift/skid) - **IMPLEMENTED** (TireSmokeParticleSystem.cs + SmokeParticle.shader)
+- [x] Speed lines effect (high velocity) - **IMPLEMENTED** (SpeedLinesSystem.cs + SpeedLines.shader)
+- [x] Crash screen flash effect - **IMPLEMENTED** (CrashFlashSystem.cs + CrashFlash.shader)
 
 ---
 
@@ -148,26 +150,28 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 
 ## Configuration Files
 
+**Configuration System Status: IMPLEMENTED** - ScriptableObject configs with JSON export/import complete.
+
 ### Gameplay Tuning (JSON/YAML)
-- [ ] Vehicle physics parameters
-- [ ] Lane magnetism settings
-- [ ] Traffic AI weights and thresholds
-- [ ] Hazard spawn rates and types
-- [ ] Scoring multipliers and thresholds
-- [ ] Camera behavior parameters
+- [x] Vehicle physics parameters - **IMPLEMENTED** (GameplayConfig.cs, gameplay.json)
+- [x] Lane magnetism settings - **IMPLEMENTED** (GameplayConfig.cs)
+- [x] Traffic AI weights and thresholds - **IMPLEMENTED** (GameplayConfig.cs)
+- [x] Hazard spawn rates and types - **IMPLEMENTED** (GameplayConfig.cs)
+- [x] Scoring multipliers and thresholds - **IMPLEMENTED** (GameplayConfig.cs)
+- [x] Camera behavior parameters - **IMPLEMENTED** (GameplayConfig.cs)
 
 ### Audio Configuration
-- [ ] Engine pitch curves (speed to pitch mapping)
-- [ ] Volume curves (speed to volume mapping)
-- [ ] Doppler effect parameters
-- [ ] Reverb zone presets (tunnel, overpass, open)
-- [ ] Music intensity mapping
+- [x] Engine pitch curves (speed to pitch mapping) - **IMPLEMENTED** (AudioConfig.cs, audio.json)
+- [x] Volume curves (speed to volume mapping) - **IMPLEMENTED** (AudioConfig.cs)
+- [x] Doppler effect parameters - **IMPLEMENTED** (AudioConfig.cs)
+- [x] Reverb zone presets (tunnel, overpass, open) - **IMPLEMENTED** (AudioConfig.cs)
+- [x] Music intensity mapping - **IMPLEMENTED** (AudioConfig.cs)
 
 ### Visual Configuration
-- [ ] Color palette definitions
-- [ ] Light intensity presets
-- [ ] Bloom/post-process settings
-- [ ] Wireframe rendering parameters
+- [x] Color palette definitions - **IMPLEMENTED** (VisualConfig.cs, visual.json)
+- [x] Light intensity presets - **IMPLEMENTED** (VisualConfig.cs)
+- [x] Bloom/post-process settings - **IMPLEMENTED** (VisualConfig.cs)
+- [x] Wireframe rendering parameters - **IMPLEMENTED** (VisualConfig.cs)
 
 ---
 
@@ -445,6 +449,399 @@ hud-root
 4. **Summary** (2.0s min) - Score breakdown display
 5. **Reset** (0.3s) - Vehicle repositioning
 6. **FadeIn** (0.5s) - Fade back, autopilot starts
+
+---
+
+## Particle System Details
+
+### Components (`src/Components/Presentation/ParticleComponents.cs`)
+
+| Component | Purpose |
+|-----------|---------|
+| `Particle` | Individual particle data (position, velocity, color, lifetime) |
+| `ParticleEmitter` | Emitter configuration (rate, colors, sizes, lifetimes) |
+| `ParticleType` | Enum: Spark, TireSmoke, SpeedLine, CrashFlash, Debris, Glow |
+| `SparkEmitterTag` | Tag for spark emitters on vehicles |
+| `TireSmokeEmitterTag` | Tag for tire smoke emitters at wheel positions |
+| `SpeedLineEffect` | Screen-space velocity streak controller |
+| `CrashFlashEffect` | Screen flash overlay controller |
+| `CollisionEvent` | Collision data for triggering sparks |
+| `DriftState` | Drift detection for tire smoke triggering |
+
+### Systems (`src/Systems/Presentation/`)
+
+| System | Purpose |
+|--------|---------|
+| `SparkParticleSystem` | Spawns/updates orange spark particles on collision |
+| `TireSmokeParticleSystem` | Spawns/updates gray smoke with cyan tint during drift |
+| `SpeedLinesSystem` | Spawns/updates white/cyan streaks at high speed |
+| `CrashFlashSystem` | Manages screen flash phases (FlashIn → Hold → FadeOut) |
+| `ParticleRenderSystem` | GPU-instanced rendering for all particle types |
+| `DriftDetectionSystem` | Detects drift state from vehicle physics |
+| `ImpactFlashTriggerSystem` | Triggers flash effects on collision impacts |
+
+### Shaders (`src/Shaders/`)
+
+| Shader | Purpose |
+|--------|---------|
+| `NeonParticle.shader` | Additive billboard particles with glow for sparks |
+| `SmokeParticle.shader` | Alpha-blended volumetric smoke with noise animation |
+| `SpeedLines.shader` | Elongated additive streaks for velocity effect |
+| `CrashFlash.shader` | Post-process screen flash with chromatic aberration |
+
+### Spark Particles
+
+| Property | Value |
+|----------|-------|
+| Particles per impact | 12 (scales with impulse) |
+| Speed | 5-15 m/s |
+| Lifetime | 0.4s |
+| Size | 0.02-0.08m |
+| Gravity | 15 m/s² |
+| Color | Orange #FF9900 → Red #FF3300 (fading) |
+| Emission | 3-5x (bright glow) |
+
+### Tire Smoke
+
+| Property | Value |
+|----------|-------|
+| Emission rate | 30 particles/sec at full drift |
+| Start size | 0.3m |
+| End size | 1.5m |
+| Speed | 1-3 m/s |
+| Lifetime | 1.2s |
+| Rise speed | 1.5 m/s |
+| Color | Dark gray with subtle cyan tint |
+| Drag | 2.0 |
+
+### Speed Lines
+
+| Property | Value |
+|----------|-------|
+| Speed threshold | 120 km/h (starts appearing) |
+| Max effect speed | 250 km/h (full intensity) |
+| Emission rate | 100 lines/sec at max |
+| Line length | 2-8m (based on speed) |
+| Lifetime | 0.1-0.3s |
+| Spawn radius | 3-15m around player |
+| Colors | White/cyan (70%), Cyan (20%), Magenta (10%) |
+
+### Crash Flash
+
+| Phase | Duration | Effect |
+|-------|----------|--------|
+| FlashIn | 0.05s | Quick ramp to white |
+| Hold | 0.08s | Peak white, transition to red |
+| FadeOut | 0.4s | Red/orange fade with chromatic aberration |
+
+| Flash Type | Trigger | Intensity |
+|------------|---------|-----------|
+| Crash | GameState crash phase | Full effect |
+| LightImpact | Impulse ≥ 10 | 30% alpha |
+| MediumImpact | Impulse ≥ 30 | 60% alpha |
+| Damage | Damage event | Red tint |
+
+---
+
+## Audio System Details
+
+### Components (`src/Components/Audio/AudioComponents.cs`)
+
+| Component | Purpose |
+|-----------|---------|
+| `EngineAudio` | Vehicle engine state (RPM, throttle, layer volumes, pitch) |
+| `TireAudio` | Tire rolling and skid sounds (speed, slip ratio) |
+| `WindAudio` | Wind rush audio (speed², turbulence) |
+| `SirenAudio` | Emergency siren with doppler (position, velocity, phase) |
+| `CollisionAudioEvent` | One-shot collision sound request |
+| `ScrapeAudio` | Continuous metal scraping sound |
+| `ReverbZone` | Environment reverb (tunnel, overpass, open road) |
+| `AmbientAudio` | Ambient layer state (volume, fade) |
+| `MusicState` | Dynamic music (intensity, layer volumes, transitions) |
+| `UIAudioEvent` | UI sound request |
+| `AudioConfig` | Global audio settings (volumes, doppler, distance) |
+| `AudioListener` | Listener position/velocity for 3D audio |
+
+### Systems (`src/Systems/Audio/`)
+
+| System | Purpose |
+|--------|---------|
+| `EngineAudioSystem` | Updates engine audio from vehicle state |
+| `CollisionAudioSystem` | Processes collision events, triggers sounds |
+| `SirenAudioSystem` | Calculates doppler shift, updates siren state |
+| `AmbientAudioSystem` | Manages ambient layers and reverb zones |
+| `MusicSystem` | Dynamic intensity-based music crossfading |
+| `UIAudioSystem` | Processes UI sound events |
+
+### MonoBehaviour Bridge (`src/Audio/AudioManager.cs`)
+
+Connects ECS audio to Unity AudioSources:
+- Pooled one-shot sources for impacts
+- Persistent looping sources for engine/ambient
+- AudioMixer group routing
+- Volume/pitch interpolation
+
+### Engine Audio Layers
+
+| Layer | RPM Range | Crossfade |
+|-------|-----------|-----------|
+| Idle | 600-1500 | Full at idle, fades as RPM rises |
+| Low | 1000-3500 | Bell curve centered at 2250 |
+| Mid | 3000-5500 | Bell curve centered at 4250 |
+| High | 5000-8000 | Bell curve centered at 6500 |
+
+**Pitch Modulation:** 0.8x - 2.0x based on normalized RPM
+
+### Doppler Effect
+
+```
+f' = f × (c + v_listener) / (c + v_source)
+pitch = 1 + (relativeVelocity / speedOfSound) × dopplerScale
+```
+
+- Speed of sound: 343 m/s (configurable)
+- Doppler scale: 1.0 (configurable)
+- Clamped: 0.5x - 2.0x pitch range
+
+### Siren Patterns
+
+| Type | Pattern | Frequency |
+|------|---------|-----------|
+| Police | Smooth sine wail | 1.5 Hz |
+| Ambulance | Sharp yelp alternation | 4.0 Hz |
+| Fire | Periodic horn blasts | 0.8 Hz |
+
+### Dynamic Music
+
+| Layer | Trigger | Intensity |
+|-------|---------|-----------|
+| Base | Always | 100% |
+| Low Intensity | < 0.3 intensity | Fades from 100% → 20% |
+| High Intensity | > 0.7 intensity | Fades in 0% → 100% |
+
+**Intensity Sources:**
+- Speed (80-200 km/h): 0-50%
+- Multiplier (1x-4x): 0-30%
+- Damage level: 0-20%
+- Events: +20-40% for 2-8 seconds
+
+### Reverb Presets
+
+| Environment | Decay Time | Early Reflections | Late Reverb |
+|-------------|------------|-------------------|-------------|
+| Open Road | 0.5s | 0.1 | 0.05 |
+| Tunnel | 3.5s | 0.6 | 0.7 |
+| Overpass | 1.5s | 0.4 | 0.3 |
+| Urban | 2.0s | 0.3 | 0.4 |
+
+### Audio Mixer Groups
+
+| Group | Contents |
+|-------|----------|
+| Master | All audio |
+| Music | Dynamic music layers |
+| SFX | Collisions, one-shots |
+| Engine | Engine layers, tires, wind |
+| Ambient | Environment, distant traffic |
+
+---
+
+## Configuration System Details
+
+### Overview
+
+The configuration system uses Unity ScriptableObjects for editor integration with JSON export capability for external editing and version control.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `src/Config/GameplayConfig.cs` | Vehicle physics, lane magnetism, traffic AI, hazards, scoring, camera, difficulty |
+| `src/Config/AudioConfig.cs` | Engine curves, collision, siren/doppler, reverb, ambient, music, UI audio |
+| `src/Config/VisualConfig.cs` | Color palette, wireframe, lighting, post-process, particles |
+| `src/Config/NightflowConfig.cs` | Master config with ConfigManager and ECS sync components |
+| `src/Config/Data/gameplay.json` | JSON export of gameplay settings |
+| `src/Config/Data/audio.json` | JSON export of audio settings |
+| `src/Config/Data/visual.json` | JSON export of visual settings |
+
+### ScriptableObject Structure
+
+**GameplayConfig:**
+```
+GameplayConfig (ScriptableObject)
+├── VehiclePhysicsConfig
+│   ├── maxSpeed: 280 km/h
+│   ├── acceleration: 12 m/s²
+│   ├── braking: 25 m/s²
+│   ├── steeringSensitivity: 2.5
+│   ├── laneChangeTime: 0.4s
+│   └── boost (multiplier, duration, cooldown)
+├── LaneMagnetismConfig
+│   ├── enabled: true
+│   ├── strength: 0.7
+│   └── activationDistance: 1.5m
+├── TrafficAIConfig
+│   ├── baseDensity: 3 per 100m
+│   ├── emergencySpawnChance: 0.1
+│   └── vehicle type weights
+├── HazardSpawnConfig
+│   ├── baseSpawnRate: 0.5 per 100m
+│   ├── type weights (cone, debris, tire, barrier, crashed)
+│   └── damage values per type
+├── ScoringConfig
+│   ├── pointsPerMeter: 1
+│   ├── maxMultiplier: 5
+│   ├── nearMissPoints: 500
+│   └── kilometer/minute bonuses
+├── CameraConfig
+│   ├── baseHeight: 3m, baseDistance: 8m
+│   ├── baseFOV: 60°
+│   ├── speed-based adjustments
+│   └── shake parameters
+└── DifficultyConfig
+    ├── fullDifficultyDistance: 10 km
+    └── multipliers (traffic, hazards, speed)
+```
+
+**AudioConfigAsset:**
+```
+AudioConfigAsset (ScriptableObject)
+├── MasterVolumeConfig
+│   ├── master: 1.0
+│   ├── music: 0.7
+│   ├── sfx: 1.0
+│   └── engine/ambient/ui volumes
+├── EngineAudioConfig
+│   ├── idleRPM: 800, redlineRPM: 7500
+│   ├── pitch curves (idle: 0.8, redline: 2.0)
+│   ├── layer crossfade centers (low: 2500, mid: 4500, high: 6500)
+│   └── tire/wind audio settings
+├── CollisionAudioConfig
+│   ├── impact thresholds (light: 5, medium: 20, heavy: 50)
+│   ├── volume per intensity
+│   └── scrape settings
+├── SirenAudioConfig
+│   ├── speedOfSound: 343 m/s
+│   ├── dopplerScale: 1.0
+│   ├── distance attenuation (5m - 300m)
+│   └── siren pattern frequencies
+├── ReverbConfig
+│   ├── openRoad (decay: 0.5s)
+│   ├── tunnel (decay: 3.5s)
+│   ├── overpass (decay: 1.5s)
+│   └── blend settings
+├── AmbientAudioConfig
+│   └── volume levels per environment
+├── MusicConfig
+│   ├── intensity thresholds (low: 0.3, high: 0.7)
+│   ├── intensity sources (speed, multiplier, damage)
+│   ├── event boosts
+│   └── crossfade/transition settings
+└── UIAudioConfig
+    ├── score tick settings
+    ├── multiplier volumes
+    ├── warning intervals
+    └── menu volumes
+```
+
+**VisualConfig:**
+```
+VisualConfig (ScriptableObject)
+├── ColorPaletteConfig
+│   ├── primary (playerCyan, trafficMagenta, hazardOrange, emergency)
+│   ├── secondary (laneBlue, streetlightSodium, tunnelFluorescent)
+│   ├── background (roadDark, skyBlack)
+│   ├── ui (warningYellow, damageRed, boostMagenta)
+│   └── ghost (ghostCyan with 0.5 alpha)
+├── WireframeConfig
+│   ├── lineThickness: 0.008
+│   ├── glowIntensity: 2.0, glowFalloff: 3.0
+│   ├── fillAlpha: 0.05
+│   ├── pulse (frequency: 1 Hz, intensity: 0.1)
+│   └── distance fade (100m - 200m)
+├── LightingConfig
+│   ├── streetlights (spacing: 40m, intensity: 2.0)
+│   ├── vehicle lights (headlight: 3.0, taillight: 1.5)
+│   ├── emergency strobe (intensity: 4.0, frequency: 8 Hz)
+│   ├── tunnel lights (spacing: 15m)
+│   └── ambient (intensity: 0.1, horizon glow: 0.3)
+├── PostProcessConfig
+│   ├── bloom (threshold: 0.8, intensity: 1.5)
+│   ├── motionBlur (intensity: 0.3, maxSpeed: 250)
+│   ├── filmGrain (intensity: 0.1, size: 1.2)
+│   ├── scanlines (intensity: 0.08, density: 300)
+│   ├── vignette (intensity: 0.3)
+│   ├── chromaticAberration (intensity: 0.01)
+│   └── colorGrading (saturation: 1.1, contrast: 1.05)
+└── ParticleVisualConfig
+    ├── sparks (emission: 4.0, colors: orange → red)
+    ├── smoke (neonTint: 0.15, color: gray)
+    ├── speedLines (emission: 2.0, color: white/cyan)
+    └── crashFlash (white, red, chromatic: 0.02)
+```
+
+### Master Config & ECS Sync
+
+**NightflowConfig.cs** provides:
+
+1. **Master ScriptableObject** - References to all three config assets
+2. **ConfigManager (MonoBehaviour)** - Loads/saves JSON, syncs to ECS
+3. **ECS Components** - Lightweight structs for Burst-compiled systems
+
+```csharp
+// ECS sync components
+public struct GameplayConfigData : IComponentData { ... }
+public struct AudioConfigData : IComponentData { ... }
+public struct VisualConfigData : IComponentData { ... }
+```
+
+### JSON Format
+
+Configs export to human-readable JSON for version control and external editing:
+
+**gameplay.json:**
+```json
+{
+  "vehiclePhysics": {
+    "maxSpeed": 280,
+    "acceleration": 12,
+    "braking": 25,
+    ...
+  },
+  "laneMagnetism": { ... },
+  "trafficAI": { ... },
+  ...
+}
+```
+
+### Unity Editor Integration
+
+Create configs via:
+- **Assets > Create > Nightflow > Gameplay Config**
+- **Assets > Create > Nightflow > Audio Config**
+- **Assets > Create > Nightflow > Visual Config**
+- **Assets > Create > Nightflow > Master Config**
+
+All parameters have tooltips and range sliders in the Inspector.
+
+### ConfigManager API
+
+```csharp
+// Get current config
+var gameplay = ConfigManager.Instance.Gameplay;
+var audio = ConfigManager.Instance.Audio;
+var visual = ConfigManager.Instance.Visual;
+
+// Save/Load JSON
+ConfigManager.Instance.SaveToJson();
+ConfigManager.Instance.LoadFromJson();
+
+// Sync to ECS (called automatically on changes)
+ConfigManager.Instance.SyncToECS();
+
+// Apply visual config to shader globals
+ConfigManager.Instance.ApplyVisualConfig();
+```
 
 ---
 
