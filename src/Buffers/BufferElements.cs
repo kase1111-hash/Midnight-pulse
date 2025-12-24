@@ -7,6 +7,61 @@ using Unity.Mathematics;
 
 namespace Nightflow.Buffers
 {
+    // =========================================================================
+    // Procedural Mesh Buffers
+    // =========================================================================
+
+    /// <summary>
+    /// Vertex data for procedurally generated meshes.
+    /// Stored as dynamic buffer on entities with ProceduralMeshData.
+    /// </summary>
+    [InternalBufferCapacity(64)]
+    public struct MeshVertex : IBufferElementData
+    {
+        /// <summary>Vertex position in local space.</summary>
+        public float3 Position;
+
+        /// <summary>Vertex normal for lighting.</summary>
+        public float3 Normal;
+
+        /// <summary>UV coordinates for texturing/wireframe.</summary>
+        public float2 UV;
+
+        /// <summary>Vertex color (RGBA, used for wireframe glow intensity).</summary>
+        public float4 Color;
+    }
+
+    /// <summary>
+    /// Triangle indices for procedural meshes.
+    /// Each element is one index; triangles use 3 consecutive indices.
+    /// </summary>
+    [InternalBufferCapacity(128)]
+    public struct MeshTriangle : IBufferElementData
+    {
+        /// <summary>Vertex index for this corner of a triangle.</summary>
+        public int Index;
+    }
+
+    /// <summary>
+    /// Sub-mesh definition for separating road surface, barriers, markings, etc.
+    /// </summary>
+    [InternalBufferCapacity(4)]
+    public struct SubMeshRange : IBufferElementData
+    {
+        /// <summary>Starting index in the triangle buffer.</summary>
+        public int StartIndex;
+
+        /// <summary>Number of indices in this sub-mesh.</summary>
+        public int IndexCount;
+
+        /// <summary>Material/rendering type: 0=road, 1=barrier, 2=marking, 3=tunnel, 4=overpass.</summary>
+        public int MaterialType;
+    }
+
+    // =========================================================================
+    // Lane & Spline Buffers
+    // =========================================================================
+
     /// <summary>
     /// Spline control point for lane geometry.
     /// Stored as dynamic buffer on Lane entities.

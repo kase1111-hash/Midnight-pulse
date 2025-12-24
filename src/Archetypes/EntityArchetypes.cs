@@ -6,6 +6,7 @@ using Unity.Entities;
 using Nightflow.Components;
 using Nightflow.Tags;
 using Nightflow.Buffers;
+using Nightflow.Systems;
 
 namespace Nightflow.Archetypes
 {
@@ -65,7 +66,12 @@ namespace Nightflow.Archetypes
                 // Environment (tunnel/overpass/fork state)
                 typeof(EnvironmentState),
                 // Replay Recording
-                typeof(InputLogEntry)
+                typeof(InputLogEntry),
+                // Procedural Mesh Generation
+                typeof(VehicleMeshData),
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
 
             // =================================================================
@@ -90,7 +96,12 @@ namespace Nightflow.Archetypes
                 // Collision
                 typeof(CollisionShape),
                 // Buffers
-                typeof(NearbyVehicle)
+                typeof(NearbyVehicle),
+                // Procedural Mesh Generation
+                typeof(VehicleMeshData),
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
 
             // =================================================================
@@ -116,7 +127,12 @@ namespace Nightflow.Archetypes
                 // Signaling
                 typeof(LightEmitter),
                 // Buffers
-                typeof(NearbyVehicle)
+                typeof(NearbyVehicle),
+                // Procedural Mesh Generation
+                typeof(VehicleMeshData),
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
 
             // =================================================================
@@ -147,7 +163,12 @@ namespace Nightflow.Archetypes
                 typeof(LightEmitter),
                 // Buffers
                 typeof(InputLogEntry),
-                typeof(GhostTrailPoint)
+                typeof(GhostTrailPoint),
+                // Procedural Mesh Generation
+                typeof(VehicleMeshData),
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
 
             // =================================================================
@@ -161,9 +182,16 @@ namespace Nightflow.Archetypes
                 // Track Data
                 typeof(Components.TrackSegment),
                 typeof(HermiteSpline),
+                // Procedural Mesh Generation
+                typeof(ProceduralMeshData),
+                typeof(MeshBounds),
                 // Buffers
                 typeof(LaneReference),
-                typeof(HazardReference)
+                typeof(HazardReference),
+                // Mesh Buffers (dynamic, populated by ProceduralRoadMeshSystem)
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
 
             // =================================================================
@@ -191,7 +219,13 @@ namespace Nightflow.Archetypes
                 // Hazard Data
                 typeof(Components.Hazard),
                 // Collision
-                typeof(CollisionShape)
+                typeof(CollisionShape),
+                // Procedural Mesh Generation
+                typeof(HazardMeshData),
+                // Mesh Buffers (dynamic, populated by ProceduralHazardMeshSystem)
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
 
             // =================================================================
@@ -203,7 +237,12 @@ namespace Nightflow.Archetypes
                 // Core
                 typeof(WorldTransform),
                 // Light Data
-                typeof(LightEmitter)
+                typeof(LightEmitter),
+                // Procedural Mesh Generation
+                typeof(LightFixtureMeshData),
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
         }
     }
