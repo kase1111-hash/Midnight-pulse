@@ -62,15 +62,17 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 - [x] Skybox/horizon gradient shader - **IMPLEMENTED** (NightSkybox.shader)
 
 ### Materials
-- [ ] Player vehicle material (Cyan glow - #00FFFF)
-- [ ] Traffic vehicle material (Magenta - #FF00FF)
-- [ ] Emergency vehicle material (Red/Blue strobe)
-- [ ] Road surface material (dark with lane markings)
-- [ ] Barrier material (Orange - #FF8800)
-- [ ] Hazard materials (cone, debris, tire)
-- [ ] Streetlight material (warm sodium - #FFD080)
-- [ ] Tunnel interior material
-- [ ] Overpass material
+- [x] Player vehicle material (Cyan glow - #00FFFF) - **IMPLEMENTED** (PlayerVehicle.mat)
+- [x] Traffic vehicle material (Magenta - #FF00FF) - **IMPLEMENTED** (TrafficVehicle.mat)
+- [x] Emergency vehicle material (Red/Blue strobe) - **IMPLEMENTED** (EmergencyVehiclePolice.mat, EmergencyVehicleAmbulance.mat)
+- [x] Road surface material (dark with lane markings) - **IMPLEMENTED** (RoadSurface.mat)
+- [x] Barrier material (Orange - #FF8800) - **IMPLEMENTED** (Barrier.mat)
+- [x] Hazard materials (cone, debris, tire) - **IMPLEMENTED** (HazardCone.mat, HazardDebris.mat, HazardTire.mat)
+- [x] Streetlight material (warm sodium - #FFD080) - **IMPLEMENTED** (Streetlight.mat, StreetlightPole.mat)
+- [x] Tunnel interior material - **IMPLEMENTED** (TunnelInterior.mat, TunnelLight.mat)
+- [x] Overpass material - **IMPLEMENTED** (Overpass.mat)
+- [x] Ghost vehicle material - **IMPLEMENTED** (GhostVehicle.mat)
+- [x] Headlight/Taillight materials - **IMPLEMENTED** (Headlight.mat, Taillight.mat)
 
 ### 3D Models/Meshes
 
@@ -116,12 +118,12 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 ## UI Assets
 
 ### HUD Elements
-- [ ] Speedometer design (digital/analog)
-- [ ] Speed value display
-- [ ] Score counter display
-- [ ] Multiplier indicator (1.0x, 1.5x, 2.5x)
-- [ ] Damage meter/bar
-- [ ] Lane position indicator (optional)
+- [x] Speedometer design (digital/analog) - **IMPLEMENTED** (NightflowHUD.uxml + UIController.cs)
+- [x] Speed value display - **IMPLEMENTED** (NightflowHUD.uxml)
+- [x] Score counter display - **IMPLEMENTED** (NightflowHUD.uxml)
+- [x] Multiplier indicator (1.0x, 1.5x, 2.5x) - **IMPLEMENTED** (NightflowHUD.uxml)
+- [x] Damage meter/bar - **IMPLEMENTED** (NightflowHUD.uxml + damage zones)
+- [x] Lane position indicator (optional) - **IMPLEMENTED** (NightflowHUD.uxml)
 
 ### Fonts
 - [ ] Primary UI font (monospace, neon-style)
@@ -129,17 +131,17 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 - [ ] Terminal sequence font (typewriter/console style)
 
 ### Icons & Indicators
-- [ ] Offscreen emergency vehicle indicator (arrow)
-- [ ] Damage warning icon
-- [ ] Autopilot active indicator
+- [x] Offscreen emergency vehicle indicator (arrow) - **IMPLEMENTED** (NightflowHUD.uxml + WarningIndicatorSystem.cs)
+- [x] Damage warning icon - **IMPLEMENTED** (NightflowHUD.uxml warning-indicator)
+- [x] Autopilot active indicator - **IMPLEMENTED** (NightflowHUD.uxml status-indicator)
 - [ ] Pause icon
 - [ ] Resume icon
 
 ### Screens
 - [ ] Main menu background
-- [ ] Pause overlay
-- [ ] Game over/crash screen
-- [ ] Score summary layout
+- [x] Pause overlay - **IMPLEMENTED** (NightflowHUD.uxml pause-overlay)
+- [x] Game over/crash screen - **IMPLEMENTED** (NightflowHUD.uxml gameover-overlay)
+- [x] Score summary layout - **IMPLEMENTED** (NightflowHUD.uxml score-summary)
 - [ ] Terminal sequence background (end credits)
 
 ---
@@ -360,6 +362,89 @@ All shaders are written for Unity's Universal Render Pipeline (URP).
 - `src/Shaders/NeonBloom.shader` - Bloom post-process
 - `src/Shaders/MotionBlur.shader` - Motion blur post-process
 - `src/Shaders/FilmGrain.shader` - Film grain post-process
+
+---
+
+## UI System Details
+
+### Layout & Styling
+
+| File | Purpose |
+|------|---------|
+| `NightflowHUD.uxml` | UI Toolkit layout - HUD, overlays, menus |
+| `NightflowHUD.uss` | Stylesheet with neon aesthetic |
+
+### ECS Components (`src/Components/UI/UIComponents.cs`)
+
+| Component | Purpose |
+|-----------|---------|
+| `UIState` | HUD data singleton (speed, score, damage, warnings) |
+| `GameState` | Game flow state (pause, crash phase, timescale) |
+| `ScoreSummaryDisplay` | End-of-run statistics |
+| `HUDNotification` | Buffer for popup messages |
+| `CrashFlowPhase` | Crash sequence phases enum |
+| `MenuState` | Menu state enum |
+| `CrashReason` | Crash cause enum |
+| `HUDNotificationType` | Notification types enum |
+
+### Systems (`src/Systems/UI/`)
+
+| System | Purpose |
+|--------|---------|
+| `HUDUpdateSystem` | Updates UIState from player vehicle data |
+| `ScreenFlowSystem` | Manages game state transitions, crash flow, pause |
+| `WarningIndicatorSystem` | Off-screen threat indicators |
+
+### MonoBehaviour Bridge (`src/UI/UIController.cs`)
+
+Connects ECS UIState to UI Toolkit elements:
+- Reads UIState singleton every frame
+- Updates visual elements (labels, progress bars, overlays)
+- Handles button callbacks (pause, restart, quit)
+- Manages notification queue and animations
+
+### HUD Layout Structure
+
+```
+hud-root
+├── top-bar
+│   ├── score-container (SCORE + value)
+│   ├── multiplier-container (x + fill bar)
+│   └── distance-container (DISTANCE + km)
+├── left-panel
+│   ├── damage-indicator (INTEGRITY bar + zones)
+│   └── warning-indicator (! + text)
+├── right-panel
+│   ├── speedometer (value + KM/H + tier dots)
+│   └── lane-indicator (5 dots)
+├── bottom-bar
+│   ├── autopilot-indicator
+│   └── boost-indicator
+├── notification-container
+├── emergency-arrows (left, right, behind)
+├── pause-overlay (menu-panel)
+├── gameover-overlay (crash-title, summary, buttons)
+└── fade-overlay
+```
+
+### CSS Variables
+
+| Variable | Value | Usage |
+|----------|-------|-------|
+| `--color-cyan` | #00FFFF | Primary accent, player |
+| `--color-magenta` | #FF00FF | Multiplier, boost |
+| `--color-orange` | #FF8800 | Warnings, hazards |
+| `--color-red` | #FF0000 | Critical, damage |
+| `--color-yellow` | #FFFF00 | Bonus, high score |
+
+### Crash Flow Sequence
+
+1. **Impact** (0.2s) - Slow-mo, initial shake
+2. **ScreenShake** (0.8s) - Extended shake effect
+3. **FadeOut** (0.5s) - Fade to black
+4. **Summary** (2.0s min) - Score breakdown display
+5. **Reset** (0.3s) - Vehicle repositioning
+6. **FadeIn** (0.5s) - Fade back, autopilot starts
 
 ---
 

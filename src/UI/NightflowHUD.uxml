@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements"
+         xsi="http://www.w3.org/2001/XMLSchema-instance"
+         schemaLocation="UnityEngine.UIElements UIElements.xsd">
+
+    <!-- Main HUD Container -->
+    <ui:VisualElement name="hud-root" class="hud-root">
+
+        <!-- Top Bar: Score and Multiplier -->
+        <ui:VisualElement name="top-bar" class="top-bar">
+            <ui:VisualElement name="score-container" class="score-container">
+                <ui:Label name="score-label" text="SCORE" class="label-small" />
+                <ui:Label name="score-value" text="0" class="score-value" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="multiplier-container" class="multiplier-container">
+                <ui:Label name="multiplier-value" text="x1.0" class="multiplier-value" />
+                <ui:VisualElement name="multiplier-bar" class="multiplier-bar">
+                    <ui:VisualElement name="multiplier-fill" class="multiplier-fill" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement name="distance-container" class="distance-container">
+                <ui:Label name="distance-label" text="DISTANCE" class="label-small" />
+                <ui:Label name="distance-value" text="0.00 km" class="distance-value" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Left Side: Damage Indicator -->
+        <ui:VisualElement name="left-panel" class="side-panel left-panel">
+            <ui:VisualElement name="damage-indicator" class="damage-indicator">
+                <ui:Label name="damage-label" text="DAMAGE" class="label-small" />
+                <ui:VisualElement name="damage-bar-container" class="damage-bar-container">
+                    <ui:VisualElement name="damage-bar-bg" class="damage-bar-bg" />
+                    <ui:VisualElement name="damage-bar-fill" class="damage-bar-fill" />
+                </ui:VisualElement>
+                <ui:VisualElement name="damage-zones" class="damage-zones">
+                    <ui:VisualElement name="damage-front" class="damage-zone" />
+                    <ui:VisualElement name="damage-left" class="damage-zone" />
+                    <ui:VisualElement name="damage-right" class="damage-zone" />
+                    <ui:VisualElement name="damage-rear" class="damage-zone" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- Warning Indicator -->
+            <ui:VisualElement name="warning-indicator" class="warning-indicator hidden">
+                <ui:Label name="warning-icon" text="⚠" class="warning-icon" />
+                <ui:Label name="warning-text" text="DAMAGE CRITICAL" class="warning-text" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Right Side: Speedometer -->
+        <ui:VisualElement name="right-panel" class="side-panel right-panel">
+            <ui:VisualElement name="speedometer" class="speedometer">
+                <ui:Label name="speed-value" text="0" class="speed-value" />
+                <ui:Label name="speed-unit" text="km/h" class="speed-unit" />
+                <ui:VisualElement name="speed-tier-indicator" class="speed-tier-indicator" />
+            </ui:VisualElement>
+
+            <!-- Lane Position Indicator -->
+            <ui:VisualElement name="lane-indicator" class="lane-indicator">
+                <ui:VisualElement name="lane-0" class="lane-dot" />
+                <ui:VisualElement name="lane-1" class="lane-dot" />
+                <ui:VisualElement name="lane-2" class="lane-dot" />
+                <ui:VisualElement name="lane-3" class="lane-dot" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Bottom Center: Status Indicators -->
+        <ui:VisualElement name="bottom-bar" class="bottom-bar">
+            <ui:VisualElement name="autopilot-indicator" class="status-indicator hidden">
+                <ui:Label name="autopilot-icon" text="◎" class="status-icon" />
+                <ui:Label name="autopilot-text" text="AUTOPILOT" class="status-text" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="boost-indicator" class="status-indicator hidden">
+                <ui:Label name="boost-icon" text="▶▶" class="status-icon boost-icon" />
+                <ui:Label name="boost-text" text="BOOST" class="status-text" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Notification Popup Container -->
+        <ui:VisualElement name="notification-container" class="notification-container">
+            <!-- Dynamic notifications will be added here -->
+        </ui:VisualElement>
+
+        <!-- Emergency Vehicle Warning Arrows -->
+        <ui:VisualElement name="emergency-left" class="emergency-arrow left hidden">
+            <ui:Label text="◀" class="arrow-icon" />
+            <ui:Label text="EMERGENCY" class="arrow-label" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="emergency-right" class="emergency-arrow right hidden">
+            <ui:Label text="▶" class="arrow-icon" />
+            <ui:Label text="EMERGENCY" class="arrow-label" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="emergency-behind" class="emergency-arrow behind hidden">
+            <ui:Label text="▲" class="arrow-icon" />
+            <ui:Label text="EMERGENCY APPROACHING" class="arrow-label" />
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+
+    <!-- Pause Menu Overlay -->
+    <ui:VisualElement name="pause-overlay" class="overlay hidden">
+        <ui:VisualElement name="pause-panel" class="menu-panel">
+            <ui:Label name="pause-title" text="PAUSED" class="menu-title" />
+            <ui:Button name="resume-button" text="RESUME" class="menu-button" />
+            <ui:Button name="restart-button" text="RESTART" class="menu-button" />
+            <ui:Button name="settings-button" text="SETTINGS" class="menu-button" />
+            <ui:Button name="quit-button" text="QUIT" class="menu-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- Game Over Overlay -->
+    <ui:VisualElement name="gameover-overlay" class="overlay hidden">
+        <ui:VisualElement name="gameover-panel" class="menu-panel gameover-panel">
+            <ui:Label name="gameover-title" text="CRASHED" class="menu-title crash-title" />
+
+            <ui:VisualElement name="score-summary" class="score-summary">
+                <ui:VisualElement name="summary-row" class="summary-row">
+                    <ui:Label text="FINAL SCORE" class="summary-label" />
+                    <ui:Label name="final-score" text="0" class="summary-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="summary-row" class="summary-row">
+                    <ui:Label text="DISTANCE" class="summary-label" />
+                    <ui:Label name="final-distance" text="0.00 km" class="summary-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="summary-row" class="summary-row">
+                    <ui:Label text="MAX SPEED" class="summary-label" />
+                    <ui:Label name="final-maxspeed" text="0 km/h" class="summary-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="summary-row" class="summary-row">
+                    <ui:Label text="TIME" class="summary-label" />
+                    <ui:Label name="final-time" text="0:00" class="summary-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="summary-row" class="summary-row">
+                    <ui:Label text="NEAR MISSES" class="summary-label" />
+                    <ui:Label name="final-nearmiss" text="0" class="summary-value" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:Label name="highscore-text" text="NEW HIGH SCORE!" class="highscore-text hidden" />
+
+            <ui:Button name="retry-button" text="RETRY" class="menu-button primary" />
+            <ui:Button name="menu-button" text="MAIN MENU" class="menu-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- Fade Overlay -->
+    <ui:VisualElement name="fade-overlay" class="fade-overlay hidden" />
+
+</ui:UXML>
