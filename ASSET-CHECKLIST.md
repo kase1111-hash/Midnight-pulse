@@ -150,26 +150,28 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 
 ## Configuration Files
 
+**Configuration System Status: IMPLEMENTED** - ScriptableObject configs with JSON export/import complete.
+
 ### Gameplay Tuning (JSON/YAML)
-- [ ] Vehicle physics parameters
-- [ ] Lane magnetism settings
-- [ ] Traffic AI weights and thresholds
-- [ ] Hazard spawn rates and types
-- [ ] Scoring multipliers and thresholds
-- [ ] Camera behavior parameters
+- [x] Vehicle physics parameters - **IMPLEMENTED** (GameplayConfig.cs, gameplay.json)
+- [x] Lane magnetism settings - **IMPLEMENTED** (GameplayConfig.cs)
+- [x] Traffic AI weights and thresholds - **IMPLEMENTED** (GameplayConfig.cs)
+- [x] Hazard spawn rates and types - **IMPLEMENTED** (GameplayConfig.cs)
+- [x] Scoring multipliers and thresholds - **IMPLEMENTED** (GameplayConfig.cs)
+- [x] Camera behavior parameters - **IMPLEMENTED** (GameplayConfig.cs)
 
 ### Audio Configuration
-- [ ] Engine pitch curves (speed to pitch mapping)
-- [ ] Volume curves (speed to volume mapping)
-- [ ] Doppler effect parameters
-- [ ] Reverb zone presets (tunnel, overpass, open)
-- [ ] Music intensity mapping
+- [x] Engine pitch curves (speed to pitch mapping) - **IMPLEMENTED** (AudioConfig.cs, audio.json)
+- [x] Volume curves (speed to volume mapping) - **IMPLEMENTED** (AudioConfig.cs)
+- [x] Doppler effect parameters - **IMPLEMENTED** (AudioConfig.cs)
+- [x] Reverb zone presets (tunnel, overpass, open) - **IMPLEMENTED** (AudioConfig.cs)
+- [x] Music intensity mapping - **IMPLEMENTED** (AudioConfig.cs)
 
 ### Visual Configuration
-- [ ] Color palette definitions
-- [ ] Light intensity presets
-- [ ] Bloom/post-process settings
-- [ ] Wireframe rendering parameters
+- [x] Color palette definitions - **IMPLEMENTED** (VisualConfig.cs, visual.json)
+- [x] Light intensity presets - **IMPLEMENTED** (VisualConfig.cs)
+- [x] Bloom/post-process settings - **IMPLEMENTED** (VisualConfig.cs)
+- [x] Wireframe rendering parameters - **IMPLEMENTED** (VisualConfig.cs)
 
 ---
 
@@ -641,6 +643,205 @@ pitch = 1 + (relativeVelocity / speedOfSound) × dopplerScale
 | SFX | Collisions, one-shots |
 | Engine | Engine layers, tires, wind |
 | Ambient | Environment, distant traffic |
+
+---
+
+## Configuration System Details
+
+### Overview
+
+The configuration system uses Unity ScriptableObjects for editor integration with JSON export capability for external editing and version control.
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `src/Config/GameplayConfig.cs` | Vehicle physics, lane magnetism, traffic AI, hazards, scoring, camera, difficulty |
+| `src/Config/AudioConfig.cs` | Engine curves, collision, siren/doppler, reverb, ambient, music, UI audio |
+| `src/Config/VisualConfig.cs` | Color palette, wireframe, lighting, post-process, particles |
+| `src/Config/NightflowConfig.cs` | Master config with ConfigManager and ECS sync components |
+| `src/Config/Data/gameplay.json` | JSON export of gameplay settings |
+| `src/Config/Data/audio.json` | JSON export of audio settings |
+| `src/Config/Data/visual.json` | JSON export of visual settings |
+
+### ScriptableObject Structure
+
+**GameplayConfig:**
+```
+GameplayConfig (ScriptableObject)
+├── VehiclePhysicsConfig
+│   ├── maxSpeed: 280 km/h
+│   ├── acceleration: 12 m/s²
+│   ├── braking: 25 m/s²
+│   ├── steeringSensitivity: 2.5
+│   ├── laneChangeTime: 0.4s
+│   └── boost (multiplier, duration, cooldown)
+├── LaneMagnetismConfig
+│   ├── enabled: true
+│   ├── strength: 0.7
+│   └── activationDistance: 1.5m
+├── TrafficAIConfig
+│   ├── baseDensity: 3 per 100m
+│   ├── emergencySpawnChance: 0.1
+│   └── vehicle type weights
+├── HazardSpawnConfig
+│   ├── baseSpawnRate: 0.5 per 100m
+│   ├── type weights (cone, debris, tire, barrier, crashed)
+│   └── damage values per type
+├── ScoringConfig
+│   ├── pointsPerMeter: 1
+│   ├── maxMultiplier: 5
+│   ├── nearMissPoints: 500
+│   └── kilometer/minute bonuses
+├── CameraConfig
+│   ├── baseHeight: 3m, baseDistance: 8m
+│   ├── baseFOV: 60°
+│   ├── speed-based adjustments
+│   └── shake parameters
+└── DifficultyConfig
+    ├── fullDifficultyDistance: 10 km
+    └── multipliers (traffic, hazards, speed)
+```
+
+**AudioConfigAsset:**
+```
+AudioConfigAsset (ScriptableObject)
+├── MasterVolumeConfig
+│   ├── master: 1.0
+│   ├── music: 0.7
+│   ├── sfx: 1.0
+│   └── engine/ambient/ui volumes
+├── EngineAudioConfig
+│   ├── idleRPM: 800, redlineRPM: 7500
+│   ├── pitch curves (idle: 0.8, redline: 2.0)
+│   ├── layer crossfade centers (low: 2500, mid: 4500, high: 6500)
+│   └── tire/wind audio settings
+├── CollisionAudioConfig
+│   ├── impact thresholds (light: 5, medium: 20, heavy: 50)
+│   ├── volume per intensity
+│   └── scrape settings
+├── SirenAudioConfig
+│   ├── speedOfSound: 343 m/s
+│   ├── dopplerScale: 1.0
+│   ├── distance attenuation (5m - 300m)
+│   └── siren pattern frequencies
+├── ReverbConfig
+│   ├── openRoad (decay: 0.5s)
+│   ├── tunnel (decay: 3.5s)
+│   ├── overpass (decay: 1.5s)
+│   └── blend settings
+├── AmbientAudioConfig
+│   └── volume levels per environment
+├── MusicConfig
+│   ├── intensity thresholds (low: 0.3, high: 0.7)
+│   ├── intensity sources (speed, multiplier, damage)
+│   ├── event boosts
+│   └── crossfade/transition settings
+└── UIAudioConfig
+    ├── score tick settings
+    ├── multiplier volumes
+    ├── warning intervals
+    └── menu volumes
+```
+
+**VisualConfig:**
+```
+VisualConfig (ScriptableObject)
+├── ColorPaletteConfig
+│   ├── primary (playerCyan, trafficMagenta, hazardOrange, emergency)
+│   ├── secondary (laneBlue, streetlightSodium, tunnelFluorescent)
+│   ├── background (roadDark, skyBlack)
+│   ├── ui (warningYellow, damageRed, boostMagenta)
+│   └── ghost (ghostCyan with 0.5 alpha)
+├── WireframeConfig
+│   ├── lineThickness: 0.008
+│   ├── glowIntensity: 2.0, glowFalloff: 3.0
+│   ├── fillAlpha: 0.05
+│   ├── pulse (frequency: 1 Hz, intensity: 0.1)
+│   └── distance fade (100m - 200m)
+├── LightingConfig
+│   ├── streetlights (spacing: 40m, intensity: 2.0)
+│   ├── vehicle lights (headlight: 3.0, taillight: 1.5)
+│   ├── emergency strobe (intensity: 4.0, frequency: 8 Hz)
+│   ├── tunnel lights (spacing: 15m)
+│   └── ambient (intensity: 0.1, horizon glow: 0.3)
+├── PostProcessConfig
+│   ├── bloom (threshold: 0.8, intensity: 1.5)
+│   ├── motionBlur (intensity: 0.3, maxSpeed: 250)
+│   ├── filmGrain (intensity: 0.1, size: 1.2)
+│   ├── scanlines (intensity: 0.08, density: 300)
+│   ├── vignette (intensity: 0.3)
+│   ├── chromaticAberration (intensity: 0.01)
+│   └── colorGrading (saturation: 1.1, contrast: 1.05)
+└── ParticleVisualConfig
+    ├── sparks (emission: 4.0, colors: orange → red)
+    ├── smoke (neonTint: 0.15, color: gray)
+    ├── speedLines (emission: 2.0, color: white/cyan)
+    └── crashFlash (white, red, chromatic: 0.02)
+```
+
+### Master Config & ECS Sync
+
+**NightflowConfig.cs** provides:
+
+1. **Master ScriptableObject** - References to all three config assets
+2. **ConfigManager (MonoBehaviour)** - Loads/saves JSON, syncs to ECS
+3. **ECS Components** - Lightweight structs for Burst-compiled systems
+
+```csharp
+// ECS sync components
+public struct GameplayConfigData : IComponentData { ... }
+public struct AudioConfigData : IComponentData { ... }
+public struct VisualConfigData : IComponentData { ... }
+```
+
+### JSON Format
+
+Configs export to human-readable JSON for version control and external editing:
+
+**gameplay.json:**
+```json
+{
+  "vehiclePhysics": {
+    "maxSpeed": 280,
+    "acceleration": 12,
+    "braking": 25,
+    ...
+  },
+  "laneMagnetism": { ... },
+  "trafficAI": { ... },
+  ...
+}
+```
+
+### Unity Editor Integration
+
+Create configs via:
+- **Assets > Create > Nightflow > Gameplay Config**
+- **Assets > Create > Nightflow > Audio Config**
+- **Assets > Create > Nightflow > Visual Config**
+- **Assets > Create > Nightflow > Master Config**
+
+All parameters have tooltips and range sliders in the Inspector.
+
+### ConfigManager API
+
+```csharp
+// Get current config
+var gameplay = ConfigManager.Instance.Gameplay;
+var audio = ConfigManager.Instance.Audio;
+var visual = ConfigManager.Instance.Visual;
+
+// Save/Load JSON
+ConfigManager.Instance.SaveToJson();
+ConfigManager.Instance.LoadFromJson();
+
+// Sync to ECS (called automatically on changes)
+ConfigManager.Instance.SyncToECS();
+
+// Apply visual config to shader globals
+ConfigManager.Instance.ApplyVisualConfig();
+```
 
 ---
 
