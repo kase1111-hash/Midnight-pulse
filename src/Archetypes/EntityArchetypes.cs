@@ -66,7 +66,12 @@ namespace Nightflow.Archetypes
                 // Environment (tunnel/overpass/fork state)
                 typeof(EnvironmentState),
                 // Replay Recording
-                typeof(InputLogEntry)
+                typeof(InputLogEntry),
+                // Procedural Mesh Generation
+                typeof(VehicleMeshData),
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
 
             // =================================================================
@@ -91,7 +96,12 @@ namespace Nightflow.Archetypes
                 // Collision
                 typeof(CollisionShape),
                 // Buffers
-                typeof(NearbyVehicle)
+                typeof(NearbyVehicle),
+                // Procedural Mesh Generation
+                typeof(VehicleMeshData),
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
 
             // =================================================================
@@ -117,7 +127,12 @@ namespace Nightflow.Archetypes
                 // Signaling
                 typeof(LightEmitter),
                 // Buffers
-                typeof(NearbyVehicle)
+                typeof(NearbyVehicle),
+                // Procedural Mesh Generation
+                typeof(VehicleMeshData),
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
 
             // =================================================================
@@ -148,7 +163,12 @@ namespace Nightflow.Archetypes
                 typeof(LightEmitter),
                 // Buffers
                 typeof(InputLogEntry),
-                typeof(GhostTrailPoint)
+                typeof(GhostTrailPoint),
+                // Procedural Mesh Generation
+                typeof(VehicleMeshData),
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
 
             // =================================================================
@@ -217,7 +237,12 @@ namespace Nightflow.Archetypes
                 // Core
                 typeof(WorldTransform),
                 // Light Data
-                typeof(LightEmitter)
+                typeof(LightEmitter),
+                // Procedural Mesh Generation
+                typeof(LightFixtureMeshData),
+                typeof(MeshVertex),
+                typeof(MeshTriangle),
+                typeof(SubMeshRange)
             );
         }
     }

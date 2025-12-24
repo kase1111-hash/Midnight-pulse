@@ -75,13 +75,13 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 ### 3D Models/Meshes
 
 #### Vehicles
-- [ ] Player car mesh (low-poly/wireframe style)
-- [ ] Traffic car variant 1 (sedan)
-- [ ] Traffic car variant 2 (SUV)
-- [ ] Traffic car variant 3 (truck/van)
-- [ ] Police car mesh
-- [ ] Ambulance mesh
-- [ ] Crashed car mesh (damaged, stationary)
+- [x] Player car mesh - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Neon Cyan #00FFFF + headlights/taillights
+- [x] Traffic car variant 1 (sedan) - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Neon Magenta #FF00FF
+- [x] Traffic car variant 2 (SUV) - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Neon Magenta #FF00FF
+- [x] Traffic car variant 3 (truck/van) - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Neon Magenta #FF00FF
+- [x] Police car mesh - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Red/Blue #FF0000/#0066FF + light bar
+- [x] Ambulance mesh - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Red/White + light bar
+- [x] Ghost vehicle mesh - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Dim Cyan (50% alpha)
 
 #### Road & Environment
 - [x] Road segment mesh (straight, 4-lane) - **PROCEDURAL** (ProceduralRoadMeshSystem)
@@ -90,9 +90,10 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 - [x] Tunnel interior segment mesh - **PROCEDURAL** (ProceduralRoadMeshSystem)
 - [x] Overpass structure mesh - **PROCEDURAL** (ProceduralRoadMeshSystem)
 - [x] Fork/merge segment mesh - **PROCEDURAL** (ProceduralRoadMeshSystem)
-- [ ] Streetlight post mesh
+- [x] Streetlight post mesh - **PROCEDURAL** (ProceduralLightMeshSystem) - Warm Sodium #FFD080
 - [x] Highway barrier mesh (continuous) - **PROCEDURAL** (ProceduralRoadMeshSystem)
-- [ ] Guardrail mesh
+- [x] Tunnel ceiling lights - **PROCEDURAL** (ProceduralLightMeshSystem) - Cool fluorescent
+- [x] Overpass underside lights - **PROCEDURAL** (ProceduralLightMeshSystem)
 
 #### Hazards
 - [x] Traffic cone mesh - **PROCEDURAL** (ProceduralHazardMeshSystem) - Neon Orange #FF8800
@@ -102,9 +103,9 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 - [x] Crashed car mesh - **PROCEDURAL** (ProceduralHazardMeshSystem)
 
 ### Particles & Effects
-- [ ] Headlight beam effect
-- [ ] Taillight glow effect
-- [ ] Emergency strobe effect (red/blue)
+- [x] Headlight beam effect - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Warm white glow
+- [x] Taillight glow effect - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Red glow
+- [x] Emergency strobe effect (red/blue) - **PROCEDURAL** (ProceduralVehicleMeshSystem) - Light bar
 - [ ] Spark particles (collision)
 - [ ] Tire smoke particles (drift/skid)
 - [ ] Speed lines effect (high velocity)
@@ -171,7 +172,7 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 ## Priority Order (Recommended)
 
 ### Phase 1: Core Gameplay (MVP)
-1. Player car mesh
+1. ~~Player car mesh~~ - **DONE** (Procedural generation implemented)
 2. Basic wireframe shader
 3. ~~Road segment meshes~~ - **DONE** (Procedural generation implemented)
 4. Engine sound loop
@@ -180,20 +181,20 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 7. Score display
 
 ### Phase 2: Traffic & Environment
-1. Traffic car variants (2-3)
-2. Streetlight mesh
+1. ~~Traffic car variants (2-3)~~ - **DONE** (Procedural generation implemented)
+2. ~~Streetlight mesh~~ - **DONE** (Procedural generation implemented)
 3. ~~Barrier mesh~~ - **DONE** (Procedural generation implemented)
 4. Tire/wind sounds
 5. Collision sounds
 6. ~~Hazard meshes~~ - **DONE** (Procedural generation implemented)
 
 ### Phase 3: Polish & Atmosphere
-1. Emergency vehicle assets
+1. ~~Emergency vehicle assets~~ - **DONE** (Procedural generation implemented)
 2. Siren sounds with doppler
 3. ~~Tunnel/overpass meshes~~ - **DONE** (Procedural generation implemented)
 4. Reverb impulse responses
 5. Music loops
-6. Particle effects
+6. Particle effects (mostly done - sparks/smoke remaining)
 
 ### Phase 4: Final Polish
 1. Motion blur shader
@@ -260,10 +261,46 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 - 3 height segments with 2 white stripe bands
 - Glow intensity: 1.2x (bright neon)
 
+### Vehicles (`ProceduralVehicleMeshSystem`)
+
+| Vehicle | Body Style | Color | Features |
+|---------|------------|-------|----------|
+| Player | Sedan | Neon Cyan #00FFFF | Headlights, taillights, 1.5x glow |
+| Traffic (Sedan) | Sedan | Neon Magenta #FF00FF | Headlights, taillights |
+| Traffic (SUV) | SUV | Neon Magenta #FF00FF | Taller profile |
+| Traffic (Truck) | Truck/Van | Neon Magenta #FF00FF | Larger box shape |
+| Police | Sedan | Red/Blue | Light bar with strobes |
+| Ambulance | Van | Red/White | Light bar with strobes |
+| Ghost | Sedan | Dim Cyan (50% alpha) | No lights, 0.6x glow |
+
+**Vehicle Dimensions:**
+- Sedan: 4.5m × 1.8m × 1.4m
+- SUV: 4.8m × 2.0m × 1.8m
+- Truck: 5.5m × 2.1m × 2.2m
+
+**Lights:**
+- Headlights: 12cm radius, warm white, circular
+- Taillights: 20cm × 8cm, red, rectangular
+
+### Streetlights (`ProceduralLightMeshSystem`)
+
+| Light Type | Structure | Color |
+|------------|-----------|-------|
+| Streetlight | 8m pole + 2.5m arm + fixture | Warm Sodium #FFD080 |
+| Tunnel light | Ceiling strip 1.2m × 0.15m | Cool fluorescent |
+| Overpass light | Circular downlight 30cm | Warm Sodium |
+
+**Streetlight Details:**
+- Hexagonal pole (6 segments, slight taper)
+- Curved arm with downward droop
+- Rectangular fixture with glowing bottom
+
 **Files:**
 - `src/Components/Presentation/ProceduralMeshComponents.cs` - Mesh data components
 - `src/Systems/Presentation/ProceduralRoadMeshSystem.cs` - Road mesh generation
 - `src/Systems/Presentation/ProceduralHazardMeshSystem.cs` - Hazard mesh generation
+- `src/Systems/Presentation/ProceduralVehicleMeshSystem.cs` - Vehicle mesh generation
+- `src/Systems/Presentation/ProceduralLightMeshSystem.cs` - Light fixture mesh generation
 - `src/Buffers/BufferElements.cs` - MeshVertex, MeshTriangle, SubMeshRange buffers
 
 ---
