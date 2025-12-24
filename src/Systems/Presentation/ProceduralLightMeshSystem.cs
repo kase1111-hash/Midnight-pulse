@@ -84,8 +84,6 @@ namespace Nightflow.Systems
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
-
             foreach (var (meshData, lightEmitter, entity) in
                 SystemAPI.Query<RefRW<LightFixtureMeshData>, RefRO<LightEmitter>>()
                     .WithAll<LightSourceTag>()
@@ -94,43 +92,46 @@ namespace Nightflow.Systems
                 if (meshData.ValueRO.IsGenerated)
                     continue;
 
+                // Get buffers (they exist in archetype, just need to populate)
+                var vertices = SystemAPI.GetBuffer<MeshVertex>(entity);
+                var triangles = SystemAPI.GetBuffer<MeshTriangle>(entity);
+                var subMeshes = SystemAPI.GetBuffer<SubMeshRange>(entity);
+                vertices.Clear();
+                triangles.Clear();
+                subMeshes.Clear();
+
                 switch (meshData.ValueRO.FixtureType)
                 {
                     case 0: // Streetlight
-                        GenerateStreetlightMesh(ref ecb, entity, meshData.ValueRO.PoleHeight,
+                        GenerateStreetlightMesh(vertices, triangles, subMeshes,
+                                               meshData.ValueRO.PoleHeight,
                                                meshData.ValueRO.ArmLength, lightEmitter.ValueRO.Color);
                         break;
                     case 1: // Tunnel light
-                        GenerateTunnelLightMesh(ref ecb, entity, lightEmitter.ValueRO.Color);
+                        GenerateTunnelLightMesh(vertices, triangles, subMeshes, lightEmitter.ValueRO.Color);
                         break;
                     case 2: // Overpass light
-                        GenerateOverpassLightMesh(ref ecb, entity, lightEmitter.ValueRO.Color);
+                        GenerateOverpassLightMesh(vertices, triangles, subMeshes, lightEmitter.ValueRO.Color);
                         break;
                 }
 
                 meshData.ValueRW.IsGenerated = true;
             }
-
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
         }
 
         /// <summary>
         /// Generates a streetlight with pole, arm, and light fixture.
         /// </summary>
         private void GenerateStreetlightMesh(
-            ref EntityCommandBuffer ecb,
-            Entity entity,
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
             float poleHeight,
             float armLength,
             float3 lightColor)
         {
             if (poleHeight <= 0) poleHeight = DefaultPoleHeight;
             if (armLength <= 0) armLength = ArmLength;
-
-            var vertices = ecb.AddBuffer<MeshVertex>(entity);
-            var triangles = ecb.AddBuffer<MeshTriangle>(entity);
-            var subMeshes = ecb.AddBuffer<SubMeshRange>(entity);
 
             int poleStartIndex = 0;
 
@@ -173,14 +174,11 @@ namespace Nightflow.Systems
         /// Generates a tunnel ceiling light strip.
         /// </summary>
         private void GenerateTunnelLightMesh(
-            ref EntityCommandBuffer ecb,
-            Entity entity,
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
             float3 lightColor)
         {
-            var vertices = ecb.AddBuffer<MeshVertex>(entity);
-            var triangles = ecb.AddBuffer<MeshTriangle>(entity);
-            var subMeshes = ecb.AddBuffer<SubMeshRange>(entity);
-
             float4 glowColor = new float4(lightColor, 1f);
             if (math.length(lightColor) < 0.1f)
                 glowColor = FluorescentColor;
@@ -205,14 +203,11 @@ namespace Nightflow.Systems
         /// Generates an overpass underside light.
         /// </summary>
         private void GenerateOverpassLightMesh(
-            ref EntityCommandBuffer ecb,
-            Entity entity,
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
             float3 lightColor)
         {
-            var vertices = ecb.AddBuffer<MeshVertex>(entity);
-            var triangles = ecb.AddBuffer<MeshTriangle>(entity);
-            var subMeshes = ecb.AddBuffer<SubMeshRange>(entity);
-
             float4 glowColor = new float4(lightColor, 1f);
             if (math.length(lightColor) < 0.1f)
                 glowColor = SodiumColor;

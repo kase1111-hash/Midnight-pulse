@@ -63,13 +63,21 @@ namespace Nightflow.Systems
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
             // Find segments that need mesh generation
-            foreach (var (meshData, segment, spline, entity) in
-                SystemAPI.Query<RefRW<ProceduralMeshData>, RefRO<TrackSegment>, RefRO<HermiteSpline>>()
+            foreach (var (meshData, segment, spline, boundsRW, entity) in
+                SystemAPI.Query<RefRW<ProceduralMeshData>, RefRO<TrackSegment>, RefRO<HermiteSpline>, RefRW<MeshBounds>>()
                     .WithAll<TrackSegmentTag>()
                     .WithEntityAccess())
             {
                 if (meshData.ValueRO.IsGenerated)
                     continue;
+
+                // Get buffers (they exist in archetype, just need to populate)
+                var vertices = SystemAPI.GetBuffer<MeshVertex>(entity);
+                var triangles = SystemAPI.GetBuffer<MeshTriangle>(entity);
+                var subMeshes = SystemAPI.GetBuffer<SubMeshRange>(entity);
+                vertices.Clear();
+                triangles.Clear();
+                subMeshes.Clear();
 
                 // Get segment type for specialized mesh generation
                 int segmentType = segment.ValueRO.Type;
@@ -80,26 +88,30 @@ namespace Nightflow.Systems
 
                 // Generate the road mesh
                 GenerateRoadMesh(
-                    ref ecb,
-                    entity,
+                    vertices,
+                    triangles,
+                    subMeshes,
                     spline.ValueRO,
                     segment.ValueRO,
                     lengthSegments,
-                    ref meshData.ValueRW
+                    ref meshData.ValueRW,
+                    ref boundsRW.ValueRW
                 );
 
                 // Generate barriers
                 GenerateBarrierMesh(
-                    ref ecb,
-                    entity,
+                    vertices,
+                    triangles,
+                    subMeshes,
                     spline.ValueRO,
                     lengthSegments
                 );
 
                 // Generate lane markings
                 GenerateLaneMarkings(
-                    ref ecb,
-                    entity,
+                    vertices,
+                    triangles,
+                    subMeshes,
                     spline.ValueRO,
                     lengthSegments
                 );
@@ -141,12 +153,14 @@ namespace Nightflow.Systems
         /// Generates the main road surface mesh.
         /// </summary>
         private void GenerateRoadMesh(
-            ref EntityCommandBuffer ecb,
-            Entity entity,
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
             HermiteSpline spline,
             TrackSegment segment,
             int lengthSegments,
-            ref ProceduralMeshData meshData)
+            ref ProceduralMeshData meshData,
+            ref MeshBounds bounds)
         {
             // Calculate vertex and index counts
             int vertsPerRow = WidthSegments + 1;
@@ -158,16 +172,8 @@ namespace Nightflow.Systems
             meshData.VertexCount = vertexCount;
             meshData.TriangleCount = triangleCount;
 
-            // Add vertex buffer
-            var vertices = ecb.AddBuffer<MeshVertex>(entity);
             vertices.EnsureCapacity(vertexCount);
-
-            // Add triangle buffer
-            var triangles = ecb.AddBuffer<MeshTriangle>(entity);
             triangles.EnsureCapacity(indexCount);
-
-            // Add sub-mesh ranges
-            var subMeshes = ecb.AddBuffer<SubMeshRange>(entity);
 
             // Generate vertices along the spline
             for (int z = 0; z <= lengthSegments; z++)
@@ -228,15 +234,16 @@ namespace Nightflow.Systems
             });
 
             // Calculate and store bounds
-            ecb.AddComponent(entity, CalculateBounds(spline, segment));
+            bounds = CalculateBounds(spline, segment);
         }
 
         /// <summary>
         /// Generates barrier meshes on both sides of the road.
         /// </summary>
         private void GenerateBarrierMesh(
-            ref EntityCommandBuffer ecb,
-            Entity entity,
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
             HermiteSpline spline,
             int lengthSegments)
         {
@@ -263,8 +270,9 @@ namespace Nightflow.Systems
         /// Generates lane marking geometry (lines between lanes).
         /// </summary>
         private void GenerateLaneMarkings(
-            ref EntityCommandBuffer ecb,
-            Entity entity,
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
             HermiteSpline spline,
             int lengthSegments)
         {

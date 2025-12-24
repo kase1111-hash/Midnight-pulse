@@ -101,8 +101,6 @@ namespace Nightflow.Systems
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
-
             // Player vehicles
             foreach (var (meshData, entity) in
                 SystemAPI.Query<RefRW<VehicleMeshData>>()
@@ -111,7 +109,14 @@ namespace Nightflow.Systems
             {
                 if (!meshData.ValueRO.IsGenerated)
                 {
-                    GenerateVehicleMesh(ref ecb, entity, PlayerColor, 0, 1.5f, true);
+                    var vertices = SystemAPI.GetBuffer<MeshVertex>(entity);
+                    var triangles = SystemAPI.GetBuffer<MeshTriangle>(entity);
+                    var subMeshes = SystemAPI.GetBuffer<SubMeshRange>(entity);
+                    vertices.Clear();
+                    triangles.Clear();
+                    subMeshes.Clear();
+
+                    GenerateVehicleMesh(vertices, triangles, subMeshes, PlayerColor, 0, 1.5f, true);
                     meshData.ValueRW.IsGenerated = true;
                     meshData.ValueRW.WireframeColor = PlayerColor;
                     meshData.ValueRW.GlowIntensity = 1.5f;
@@ -126,9 +131,16 @@ namespace Nightflow.Systems
             {
                 if (!meshData.ValueRO.IsGenerated)
                 {
+                    var vertices = SystemAPI.GetBuffer<MeshVertex>(entity);
+                    var triangles = SystemAPI.GetBuffer<MeshTriangle>(entity);
+                    var subMeshes = SystemAPI.GetBuffer<SubMeshRange>(entity);
+                    vertices.Clear();
+                    triangles.Clear();
+                    subMeshes.Clear();
+
                     // Vary body style based on some property
                     int bodyStyle = meshData.ValueRO.BodyStyle;
-                    GenerateVehicleMesh(ref ecb, entity, TrafficColor, bodyStyle, 1.0f, true);
+                    GenerateVehicleMesh(vertices, triangles, subMeshes, TrafficColor, bodyStyle, 1.0f, true);
                     meshData.ValueRW.IsGenerated = true;
                     meshData.ValueRW.WireframeColor = TrafficColor;
                     meshData.ValueRW.GlowIntensity = 1.0f;
@@ -143,10 +155,17 @@ namespace Nightflow.Systems
             {
                 if (!meshData.ValueRO.IsGenerated)
                 {
+                    var vertices = SystemAPI.GetBuffer<MeshVertex>(entity);
+                    var triangles = SystemAPI.GetBuffer<MeshTriangle>(entity);
+                    var subMeshes = SystemAPI.GetBuffer<SubMeshRange>(entity);
+                    vertices.Clear();
+                    triangles.Clear();
+                    subMeshes.Clear();
+
                     // Police or ambulance based on body style
                     int bodyStyle = meshData.ValueRO.BodyStyle;
                     float4 color = bodyStyle == 3 ? PoliceBlue : AmbulanceRed;
-                    GenerateEmergencyVehicleMesh(ref ecb, entity, bodyStyle, 1.2f);
+                    GenerateEmergencyVehicleMesh(vertices, triangles, subMeshes, bodyStyle, 1.2f);
                     meshData.ValueRW.IsGenerated = true;
                     meshData.ValueRW.WireframeColor = color;
                     meshData.ValueRW.GlowIntensity = 1.2f;
@@ -161,23 +180,28 @@ namespace Nightflow.Systems
             {
                 if (!meshData.ValueRO.IsGenerated)
                 {
-                    GenerateVehicleMesh(ref ecb, entity, GhostColor, 0, 0.6f, false);
+                    var vertices = SystemAPI.GetBuffer<MeshVertex>(entity);
+                    var triangles = SystemAPI.GetBuffer<MeshTriangle>(entity);
+                    var subMeshes = SystemAPI.GetBuffer<SubMeshRange>(entity);
+                    vertices.Clear();
+                    triangles.Clear();
+                    subMeshes.Clear();
+
+                    GenerateVehicleMesh(vertices, triangles, subMeshes, GhostColor, 0, 0.6f, false);
                     meshData.ValueRW.IsGenerated = true;
                     meshData.ValueRW.WireframeColor = GhostColor;
                     meshData.ValueRW.GlowIntensity = 0.6f;
                 }
             }
-
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
         }
 
         /// <summary>
         /// Generates a wireframe vehicle mesh with headlights and taillights.
         /// </summary>
         private void GenerateVehicleMesh(
-            ref EntityCommandBuffer ecb,
-            Entity entity,
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
             float4 bodyColor,
             int bodyStyle,
             float glowIntensity,
@@ -187,10 +211,6 @@ namespace Nightflow.Systems
             float length, width, height, hoodHeight, roofStart, roofEnd;
             GetVehicleDimensions(bodyStyle, out length, out width, out height,
                                  out hoodHeight, out roofStart, out roofEnd);
-
-            var vertices = ecb.AddBuffer<MeshVertex>(entity);
-            var triangles = ecb.AddBuffer<MeshTriangle>(entity);
-            var subMeshes = ecb.AddBuffer<SubMeshRange>(entity);
 
             int bodyStartIndex = 0;
 
@@ -234,8 +254,9 @@ namespace Nightflow.Systems
         /// Generates an emergency vehicle with light bar.
         /// </summary>
         private void GenerateEmergencyVehicleMesh(
-            ref EntityCommandBuffer ecb,
-            Entity entity,
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
             int bodyStyle,
             float glowIntensity)
         {
@@ -245,10 +266,6 @@ namespace Nightflow.Systems
             float length, width, height, hoodHeight, roofStart, roofEnd;
             GetVehicleDimensions(bodyStyle == 4 ? 2 : 0, out length, out width, out height,
                                  out hoodHeight, out roofStart, out roofEnd);
-
-            var vertices = ecb.AddBuffer<MeshVertex>(entity);
-            var triangles = ecb.AddBuffer<MeshTriangle>(entity);
-            var subMeshes = ecb.AddBuffer<SubMeshRange>(entity);
 
             // Generate body with alternating colors for emergency look
             GenerateEmergencyBodyGeometry(vertices, triangles, primaryColor, secondaryColor,

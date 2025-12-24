@@ -101,47 +101,55 @@ namespace Nightflow.Systems
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            var ecb = new EntityCommandBuffer(Allocator.Temp);
-
-            foreach (var (hazard, meshData, transform, entity) in
-                SystemAPI.Query<RefRO<Hazard>, RefRW<HazardMeshData>, RefRO<WorldTransform>>()
+            foreach (var (hazard, meshData, transform, verticesRO, trianglesRO, subMeshesRO, entity) in
+                SystemAPI.Query<RefRO<Hazard>, RefRW<HazardMeshData>, RefRO<WorldTransform>,
+                                DynamicBuffer<MeshVertex>, DynamicBuffer<MeshTriangle>, DynamicBuffer<SubMeshRange>>()
                     .WithAll<HazardTag>()
                     .WithEntityAccess())
             {
                 if (meshData.ValueRO.IsGenerated)
                     continue;
 
+                // Get buffers (they exist in archetype, just need to populate)
+                var vertices = SystemAPI.GetBuffer<MeshVertex>(entity);
+                var triangles = SystemAPI.GetBuffer<MeshTriangle>(entity);
+                var subMeshes = SystemAPI.GetBuffer<SubMeshRange>(entity);
+                vertices.Clear();
+                triangles.Clear();
+                subMeshes.Clear();
+
                 // Generate mesh based on hazard type
                 switch (hazard.ValueRO.Type)
                 {
                     case HazardType.Cone:
-                        GenerateConeMesh(ref ecb, entity, ref meshData.ValueRW);
+                        GenerateConeMesh(vertices, triangles, subMeshes, ref meshData.ValueRW);
                         break;
                     case HazardType.LooseTire:
-                        GenerateTireMesh(ref ecb, entity, ref meshData.ValueRW);
+                        GenerateTireMesh(vertices, triangles, subMeshes, ref meshData.ValueRW);
                         break;
                     case HazardType.Debris:
-                        GenerateDebrisMesh(ref ecb, entity, ref meshData.ValueRW);
+                        GenerateDebrisMesh(vertices, triangles, subMeshes, ref meshData.ValueRW);
                         break;
                     case HazardType.Barrier:
-                        GenerateBarrierMesh(ref ecb, entity, ref meshData.ValueRW);
+                        GenerateBarrierMesh(vertices, triangles, subMeshes, ref meshData.ValueRW);
                         break;
                     case HazardType.CrashedCar:
-                        GenerateCrashedCarMesh(ref ecb, entity, ref meshData.ValueRW);
+                        GenerateCrashedCarMesh(vertices, triangles, subMeshes, ref meshData.ValueRW);
                         break;
                 }
 
                 meshData.ValueRW.IsGenerated = true;
             }
-
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
         }
 
         /// <summary>
         /// Generates a neon orange wireframe traffic cone with white stripes.
         /// </summary>
-        private void GenerateConeMesh(ref EntityCommandBuffer ecb, Entity entity, ref HazardMeshData meshData)
+        private void GenerateConeMesh(
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
+            ref HazardMeshData meshData)
         {
             // Cone vertices: base ring + height segment rings + apex
             // Each ring has ConeRadialSegments vertices
@@ -153,9 +161,6 @@ namespace Nightflow.Systems
             meshData.VertexCount = vertexCount;
             meshData.TriangleCount = triangleCount;
             meshData.GlowIntensity = 1.2f; // Bright neon glow
-
-            var vertices = ecb.AddBuffer<MeshVertex>(entity);
-            var triangles = ecb.AddBuffer<MeshTriangle>(entity);
 
             vertices.EnsureCapacity(vertexCount);
             triangles.EnsureCapacity(indexCount);
@@ -237,7 +242,6 @@ namespace Nightflow.Systems
             // For wireframe, we can skip the base cap or add it
 
             // Add sub-mesh range
-            var subMeshes = ecb.AddBuffer<SubMeshRange>(entity);
             subMeshes.Add(new SubMeshRange
             {
                 StartIndex = 0,
@@ -249,7 +253,11 @@ namespace Nightflow.Systems
         /// <summary>
         /// Generates a loose tire mesh (torus shape).
         /// </summary>
-        private void GenerateTireMesh(ref EntityCommandBuffer ecb, Entity entity, ref HazardMeshData meshData)
+        private void GenerateTireMesh(
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
+            ref HazardMeshData meshData)
         {
             // Simplified tire: just the outer ring for wireframe
             int segments = TireSegments;
@@ -260,9 +268,6 @@ namespace Nightflow.Systems
             meshData.VertexCount = vertexCount;
             meshData.TriangleCount = triangleCount;
             meshData.GlowIntensity = 0.6f;
-
-            var vertices = ecb.AddBuffer<MeshVertex>(entity);
-            var triangles = ecb.AddBuffer<MeshTriangle>(entity);
 
             float tubeRadius = (TireRadius - TireInnerRadius) * 0.5f;
             float centerRadius = TireInnerRadius + tubeRadius;
@@ -319,7 +324,6 @@ namespace Nightflow.Systems
                 }
             }
 
-            var subMeshes = ecb.AddBuffer<SubMeshRange>(entity);
             subMeshes.Add(new SubMeshRange
             {
                 StartIndex = 0,
@@ -331,7 +335,11 @@ namespace Nightflow.Systems
         /// <summary>
         /// Generates an irregular debris pile mesh.
         /// </summary>
-        private void GenerateDebrisMesh(ref EntityCommandBuffer ecb, Entity entity, ref HazardMeshData meshData)
+        private void GenerateDebrisMesh(
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
+            ref HazardMeshData meshData)
         {
             // Simple irregular polygon extruded slightly
             int vertexCount = DebrisPoints * 2; // Top and bottom rings
@@ -340,9 +348,6 @@ namespace Nightflow.Systems
             meshData.VertexCount = vertexCount;
             meshData.TriangleCount = triangleCount;
             meshData.GlowIntensity = 0.8f;
-
-            var vertices = ecb.AddBuffer<MeshVertex>(entity);
-            var triangles = ecb.AddBuffer<MeshTriangle>(entity);
 
             // Generate irregular shape using hash-based offsets
             uint seed = 42u;
@@ -401,7 +406,6 @@ namespace Nightflow.Systems
                 triangles.Add(new MeshTriangle { Index = br });
             }
 
-            var subMeshes = ecb.AddBuffer<SubMeshRange>(entity);
             subMeshes.Add(new SubMeshRange
             {
                 StartIndex = 0,
@@ -413,7 +417,11 @@ namespace Nightflow.Systems
         /// <summary>
         /// Generates a barrier block mesh.
         /// </summary>
-        private void GenerateBarrierMesh(ref EntityCommandBuffer ecb, Entity entity, ref HazardMeshData meshData)
+        private void GenerateBarrierMesh(
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
+            ref HazardMeshData meshData)
         {
             // Simple box with beveled edges for wireframe
             int vertexCount = 24; // 4 vertices per face × 6 faces
@@ -422,9 +430,6 @@ namespace Nightflow.Systems
             meshData.VertexCount = vertexCount;
             meshData.TriangleCount = triangleCount;
             meshData.GlowIntensity = 1.0f;
-
-            var vertices = ecb.AddBuffer<MeshVertex>(entity);
-            var triangles = ecb.AddBuffer<MeshTriangle>(entity);
 
             float hw = BarrierWidth * 0.5f;
             float hh = BarrierHeight * 0.5f;
@@ -463,7 +468,6 @@ namespace Nightflow.Systems
             AddQuad(vertices, triangles, corners[3], corners[2], corners[1], corners[0],
                    new float3(0, -1, 0), BarrierColor);
 
-            var subMeshes = ecb.AddBuffer<SubMeshRange>(entity);
             subMeshes.Add(new SubMeshRange
             {
                 StartIndex = 0,
@@ -475,7 +479,11 @@ namespace Nightflow.Systems
         /// <summary>
         /// Generates a crashed car mesh (simplified boxy vehicle shape).
         /// </summary>
-        private void GenerateCrashedCarMesh(ref EntityCommandBuffer ecb, Entity entity, ref HazardMeshData meshData)
+        private void GenerateCrashedCarMesh(
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
+            ref HazardMeshData meshData)
         {
             // Simplified crashed vehicle: tilted box with deformation
             // Similar to barrier but larger and with damage appearance
@@ -490,9 +498,6 @@ namespace Nightflow.Systems
             meshData.VertexCount = vertexCount;
             meshData.TriangleCount = triangleCount;
             meshData.GlowIntensity = 0.7f; // Dimmer glow for crashed vehicle
-
-            var vertices = ecb.AddBuffer<MeshVertex>(entity);
-            var triangles = ecb.AddBuffer<MeshTriangle>(entity);
 
             float hw = carWidth * 0.5f;
             float hh = carHeight;
@@ -528,7 +533,6 @@ namespace Nightflow.Systems
             AddQuad(vertices, triangles, corners[3], corners[2], corners[1], corners[0],
                    new float3(0, -1, 0), CrashedCarColor);
 
-            var subMeshes = ecb.AddBuffer<SubMeshRange>(entity);
             subMeshes.Add(new SubMeshRange
             {
                 StartIndex = 0,
