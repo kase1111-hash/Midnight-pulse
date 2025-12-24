@@ -53,13 +53,13 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 ## Visual Assets
 
 ### Shaders
-- [ ] Wireframe rendering shader (with glow/bloom support)
-- [ ] Road surface shader (lane lines, reflections)
-- [ ] Neon glow shader (for lights and UI)
-- [ ] Motion blur post-process shader
-- [ ] Bloom post-process shader
-- [ ] Film grain overlay shader
-- [ ] Skybox/horizon gradient shader
+- [x] Wireframe rendering shader (with glow/bloom support) - **IMPLEMENTED** (NeonWireframe.shader, VehicleWireframe.shader)
+- [x] Road surface shader (lane lines, reflections) - **IMPLEMENTED** (RoadSurface.shader)
+- [x] Neon glow shader (for lights and UI) - **IMPLEMENTED** (NeonEmitter.shader)
+- [x] Motion blur post-process shader - **IMPLEMENTED** (MotionBlur.shader)
+- [x] Bloom post-process shader - **IMPLEMENTED** (NeonBloom.shader)
+- [x] Film grain overlay shader - **IMPLEMENTED** (FilmGrain.shader)
+- [x] Skybox/horizon gradient shader - **IMPLEMENTED** (NightSkybox.shader)
 
 ### Materials
 - [ ] Player vehicle material (Cyan glow - #00FFFF)
@@ -302,6 +302,64 @@ A comprehensive list of assets needed for the game. Check off items as they're c
 - `src/Systems/Presentation/ProceduralVehicleMeshSystem.cs` - Vehicle mesh generation
 - `src/Systems/Presentation/ProceduralLightMeshSystem.cs` - Light fixture mesh generation
 - `src/Buffers/BufferElements.cs` - MeshVertex, MeshTriangle, SubMeshRange buffers
+
+---
+
+## Shader Details
+
+All shaders are written for Unity's Universal Render Pipeline (URP).
+
+### Core Shaders
+
+| Shader | File | Purpose |
+|--------|------|---------|
+| Neon Wireframe | `NeonWireframe.shader` | General wireframe with glow/bloom |
+| Vehicle Wireframe | `VehicleWireframe.shader` | Vehicles with damage flash, speed pulse |
+| Road Surface | `RoadSurface.shader` | Dark road with glowing lane markings |
+| Neon Emitter | `NeonEmitter.shader` | Lights with optional strobe effect |
+| Night Skybox | `NightSkybox.shader` | Deep black sky with stars and city glow |
+
+### Post-Process Shaders
+
+| Shader | File | Purpose |
+|--------|------|---------|
+| Neon Bloom | `NeonBloom.shader` | Multi-pass bloom optimized for neon |
+| Motion Blur | `MotionBlur.shader` | Speed-based radial blur |
+| Film Grain | `FilmGrain.shader` | Grain, scanlines, vignette |
+
+### Shader Properties
+
+**NeonWireframe / VehicleWireframe:**
+- Wire Thickness: 0.001 - 0.1
+- Glow Intensity: 0.5 - 5.0
+- Glow Falloff: 0.1 - 10.0
+- Fill Alpha: 0 - 0.3
+
+**RoadSurface:**
+- Lane Line Color: Blue #4488FF
+- Edge Line Color: Orange #FF8800
+- Dash Length: 3m, Gap: 6m
+- Reflection Strength: 0 - 1
+
+**NeonEmitter:**
+- Emission Intensity: 0.5 - 10.0
+- Strobe support for emergency lights
+- Pulse animation for ambient lights
+
+**Post-Process Stack:**
+1. Bloom (threshold: 0.8, intensity: 1.5)
+2. Motion Blur (speed-based, radial)
+3. Film Grain (intensity: 0.1, scanlines: 0.1)
+
+**Files:**
+- `src/Shaders/NeonWireframe.shader` - General wireframe
+- `src/Shaders/VehicleWireframe.shader` - Vehicle-specific wireframe
+- `src/Shaders/RoadSurface.shader` - Road with lane markings
+- `src/Shaders/NeonEmitter.shader` - Light emitters
+- `src/Shaders/NightSkybox.shader` - Night sky
+- `src/Shaders/NeonBloom.shader` - Bloom post-process
+- `src/Shaders/MotionBlur.shader` - Motion blur post-process
+- `src/Shaders/FilmGrain.shader` - Film grain post-process
 
 ---
 
