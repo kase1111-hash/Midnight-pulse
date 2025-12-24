@@ -9,6 +9,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using Nightflow.Components;
+using Nightflow.Tags;
 
 namespace Nightflow.Systems.Presentation
 {
@@ -53,7 +54,7 @@ namespace Nightflow.Systems.Presentation
 
             // Update smoke emitters based on drift state
             foreach (var (transform, driftState, emitter, particleBuffer) in
-                SystemAPI.Query<RefRO<LocalTransform>, RefRO<DriftState>, RefRW<ParticleEmitter>, DynamicBuffer<Particle>>())
+                SystemAPI.Query<RefRO<LocalTransform>, RefRO<DriftVisualState>, RefRW<ParticleEmitter>, DynamicBuffer<Particle>>())
             {
                 if (emitter.ValueRO.Type != ParticleType.TireSmoke)
                     continue;
@@ -106,7 +107,7 @@ namespace Nightflow.Systems.Presentation
             ref DynamicBuffer<Particle> particles,
             ref ParticleEmitter emitter,
             LocalTransform transform,
-            DriftState driftState,
+            DriftVisualState driftState,
             float deltaTime,
             ref Random rng)
         {
@@ -259,7 +260,7 @@ namespace Nightflow.Systems.Presentation
 
             // Update drift state for vehicles with drift detection
             foreach (var (transform, velocity, driftState) in
-                SystemAPI.Query<RefRO<LocalTransform>, RefRO<VehicleVelocity>, RefRW<DriftState>>())
+                SystemAPI.Query<RefRO<LocalTransform>, RefRO<VehicleVelocity>, RefRW<DriftVisualState>>())
             {
                 float3 forward = math.forward(transform.ValueRO.Rotation);
                 float3 velocityDir = math.normalizesafe(velocity.ValueRO.Linear);
@@ -295,14 +296,5 @@ namespace Nightflow.Systems.Presentation
                 );
             }
         }
-    }
-
-    /// <summary>
-    /// Vehicle velocity component (should exist in vehicle components).
-    /// </summary>
-    public struct VehicleVelocity : IComponentData
-    {
-        public float3 Linear;
-        public float3 Angular;
     }
 }

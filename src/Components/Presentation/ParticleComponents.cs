@@ -196,9 +196,10 @@ namespace Nightflow.Components
     }
 
     /// <summary>
-    /// Drift state for tire smoke triggering.
+    /// Visual drift state for tire smoke triggering.
+    /// Separate from VehicleComponents.DriftState for particle effects.
     /// </summary>
-    public struct DriftState : IComponentData
+    public struct DriftVisualState : IComponentData
     {
         public bool IsDrifting;
         public float DriftAngle;        // Degrees from forward
