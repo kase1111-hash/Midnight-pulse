@@ -66,6 +66,7 @@ namespace Nightflow.Components
         public bool ShowPauseMenu;
         public bool ShowCrashOverlay;
         public bool ShowScoreSummary;
+        public bool ShowModeSelect;
         public float OverlayAlpha;
     }
 
@@ -125,7 +126,8 @@ namespace Nightflow.Components
         Pause = 1,
         ScoreSummary = 2,
         Settings = 3,
-        Leaderboard = 4
+        Leaderboard = 4,
+        ModeSelect = 5
     }
 
     /// <summary>
