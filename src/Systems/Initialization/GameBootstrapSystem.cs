@@ -421,6 +421,29 @@ namespace Nightflow.Systems
             });
 
             // =============================================================
+            // Create Score Summary Display Entity
+            // Singleton for end-of-run statistics display
+            // =============================================================
+
+            Entity summaryDisplayEntity = ecb.CreateEntity();
+            ecb.AddComponent(summaryDisplayEntity, new ScoreSummaryDisplay
+            {
+                FinalScore = 0f,
+                TotalDistance = 0f,
+                MaxSpeed = 0f,
+                TimeSurvived = 0f,
+                ClosePasses = 0,
+                HazardsDodged = 0,
+                DriftRecoveries = 0,
+                PerfectSegments = 0,
+                RiskBonusTotal = 0f,
+                SpeedBonusTotal = 0f,
+                EndReason = CrashReason.None,
+                IsNewHighScore = false,
+                LeaderboardRank = 0
+            });
+
+            // =============================================================
             // Create Main Menu State Entity
             // =============================================================
 
