@@ -1,6 +1,6 @@
 // ============================================================================
 // Nightflow - Input Bootstrap
-// Ensures InputBindingManager is created at game start
+// Ensures InputBindingManager and wheel support are created at game start
 // ============================================================================
 
 using UnityEngine;
@@ -9,7 +9,7 @@ using Nightflow.Save;
 namespace Nightflow.Input
 {
     /// <summary>
-    /// Bootstrap component that ensures InputBindingManager exists.
+    /// Bootstrap component that ensures InputBindingManager and wheel support exist.
     /// Add this to a scene object or it will self-instantiate via RuntimeInitializeOnLoadMethod.
     /// </summary>
     public class InputBootstrap : MonoBehaviour
@@ -20,10 +20,10 @@ namespace Nightflow.Input
             // Check if InputBindingManager already exists
             if (InputBindingManager.Instance != null) return;
 
-            // Wait for SaveManager to exist, then create InputBindingManager
+            // Wait for SaveManager to exist, then create input managers
             if (SaveManager.Instance != null)
             {
-                CreateInputBindingManager();
+                CreateInputManagers();
             }
             else
             {
@@ -33,18 +33,35 @@ namespace Nightflow.Input
             }
         }
 
-        private static void CreateInputBindingManager()
+        private static void CreateInputManagers()
         {
-            if (InputBindingManager.Instance != null) return;
+            // Create InputBindingManager
+            if (InputBindingManager.Instance == null)
+            {
+                var bindingGo = new GameObject("[InputBindingManager]");
+                bindingGo.AddComponent<InputBindingManager>();
+                Debug.Log("InputBootstrap: Created InputBindingManager");
+            }
 
-            var go = new GameObject("[InputBindingManager]");
-            go.AddComponent<InputBindingManager>();
+            // Create WheelInputManager for Logitech G920/G29 support
+            if (WheelInputManager.Instance == null)
+            {
+                var wheelGo = new GameObject("[WheelInputManager]");
+                wheelGo.AddComponent<WheelInputManager>();
+                Debug.Log("InputBootstrap: Created WheelInputManager");
+            }
 
-            Debug.Log("InputBootstrap: Created InputBindingManager");
+            // Create ForceFeedbackController for wheel force feedback effects
+            if (ForceFeedbackController.Instance == null)
+            {
+                var ffbGo = new GameObject("[ForceFeedbackController]");
+                ffbGo.AddComponent<ForceFeedbackController>();
+                Debug.Log("InputBootstrap: Created ForceFeedbackController");
+            }
         }
 
         /// <summary>
-        /// Helper component that waits for SaveManager then creates InputBindingManager.
+        /// Helper component that waits for SaveManager then creates input managers.
         /// </summary>
         private class InputBootstrapWait : MonoBehaviour
         {
@@ -52,7 +69,7 @@ namespace Nightflow.Input
             {
                 if (SaveManager.Instance != null)
                 {
-                    CreateInputBindingManager();
+                    CreateInputManagers();
                     Destroy(gameObject);
                 }
             }

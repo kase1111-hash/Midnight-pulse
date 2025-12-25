@@ -408,6 +408,19 @@ namespace Nightflow.Systems
             ecb.AddBuffer<OneShotAudioRequest>(uiEntity);
 
             // =============================================================
+            // Create Force Feedback Event Entity (for wheel support)
+            // =============================================================
+
+            Entity ffbEntity = ecb.CreateEntity();
+            ecb.AddComponent(ffbEntity, new ForceFeedbackEvent
+            {
+                EventType = ForceFeedbackEventType.None,
+                Intensity = 0,
+                Direction = 0,
+                Triggered = false
+            });
+
+            // =============================================================
             // Create Main Menu State Entity
             // =============================================================
 
