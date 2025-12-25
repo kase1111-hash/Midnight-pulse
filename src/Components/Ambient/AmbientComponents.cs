@@ -196,4 +196,90 @@ namespace Nightflow.Components
         /// <summary>Accent window color (cyan/blue).</summary>
         public float4 WindowColorCyan;
     }
+
+    // ============================================================================
+    // Star Field Components
+    // ============================================================================
+
+    /// <summary>
+    /// Singleton state for the night sky star field.
+    /// Provides subtle visual reference points for tracking rotation.
+    /// </summary>
+    public struct StarFieldState : IComponentData
+    {
+        /// <summary>Total number of stars in the sky dome.</summary>
+        public int StarCount;
+
+        /// <summary>Distance to star dome (meters).</summary>
+        public float DomeRadius;
+
+        /// <summary>Minimum elevation angle (radians, above horizon).</summary>
+        public float MinElevation;
+
+        /// <summary>Maximum elevation angle (radians).</summary>
+        public float MaxElevation;
+
+        /// <summary>Base star brightness (0-1, kept low for subtlety).</summary>
+        public float BaseBrightness;
+
+        /// <summary>Random seed for star generation.</summary>
+        public uint RandomSeed;
+
+        /// <summary>Time accumulator for twinkling.</summary>
+        public float TwinkleTime;
+    }
+
+    /// <summary>
+    /// Tag for the star field controller entity.
+    /// </summary>
+    public struct StarFieldTag : IComponentData { }
+
+    /// <summary>
+    /// Individual star in the sky dome.
+    /// Stored in a dynamic buffer on the star field entity.
+    /// </summary>
+    public struct StarData : IBufferElementData
+    {
+        /// <summary>Azimuth angle (radians, 0 = north).</summary>
+        public float Azimuth;
+
+        /// <summary>Elevation angle (radians, above horizon).</summary>
+        public float Elevation;
+
+        /// <summary>Star brightness multiplier (0-1).</summary>
+        public float Brightness;
+
+        /// <summary>Star size multiplier.</summary>
+        public float Size;
+
+        /// <summary>Twinkle phase offset.</summary>
+        public float TwinklePhase;
+
+        /// <summary>Twinkle speed multiplier.</summary>
+        public float TwinkleSpeed;
+
+        /// <summary>Color temperature (0=warm, 1=cool).</summary>
+        public float ColorTemperature;
+    }
+
+    /// <summary>
+    /// Configuration for star field rendering.
+    /// </summary>
+    public struct StarFieldConfig : IComponentData
+    {
+        /// <summary>Base opacity for all stars (kept low for subtlety).</summary>
+        public float BaseOpacity;
+
+        /// <summary>Twinkle intensity (how much brightness varies).</summary>
+        public float TwinkleIntensity;
+
+        /// <summary>Warm star color (reddish-white).</summary>
+        public float4 WarmStarColor;
+
+        /// <summary>Cool star color (bluish-white).</summary>
+        public float4 CoolStarColor;
+
+        /// <summary>Neutral star color (pure white).</summary>
+        public float4 NeutralStarColor;
+    }
 }
