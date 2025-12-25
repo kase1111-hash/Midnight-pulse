@@ -29,6 +29,27 @@ namespace Nightflow.Systems
 
         /// <summary>Glow intensity multiplier.</summary>
         public float GlowIntensity;
+
+        /// <summary>Last applied front damage (for change detection).</summary>
+        public float LastFrontDamage;
+
+        /// <summary>Last applied rear damage.</summary>
+        public float LastRearDamage;
+
+        /// <summary>Last applied left damage.</summary>
+        public float LastLeftDamage;
+
+        /// <summary>Last applied right damage.</summary>
+        public float LastRightDamage;
+
+        /// <summary>Last applied total damage.</summary>
+        public float LastTotalDamage;
+
+        /// <summary>Vehicle length for damage zone calculation.</summary>
+        public float VehicleLength;
+
+        /// <summary>Vehicle width for damage zone calculation.</summary>
+        public float VehicleWidth;
     }
 
     /// <summary>
@@ -120,6 +141,8 @@ namespace Nightflow.Systems
                     meshData.ValueRW.IsGenerated = true;
                     meshData.ValueRW.WireframeColor = PlayerColor;
                     meshData.ValueRW.GlowIntensity = 1.5f;
+                    meshData.ValueRW.VehicleLength = SedanLength;
+                    meshData.ValueRW.VehicleWidth = SedanWidth;
                 }
             }
 
