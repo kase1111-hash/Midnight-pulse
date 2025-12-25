@@ -84,6 +84,49 @@
             <!-- Dynamic notifications will be added here -->
         </ui:VisualElement>
 
+        <!-- Performance Stats Panel (Debug/Dev) -->
+        <ui:VisualElement name="perf-panel" class="perf-panel hidden">
+            <ui:Label name="perf-title" text="STATS" class="perf-title" />
+            <ui:VisualElement name="perf-stats" class="perf-stats">
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="FPS" class="perf-label" />
+                    <ui:Label name="perf-fps" text="60" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="FRAME" class="perf-label" />
+                    <ui:Label name="perf-frametime" text="16.7ms" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="MIN/MAX" class="perf-label" />
+                    <ui:Label name="perf-minmax" text="16.7/16.7" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="ENTITIES" class="perf-label" />
+                    <ui:Label name="perf-entities" text="0" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="TRAFFIC" class="perf-label" />
+                    <ui:Label name="perf-traffic" text="0" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="HAZARDS" class="perf-label" />
+                    <ui:Label name="perf-hazards" text="0" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="SEGMENTS" class="perf-label" />
+                    <ui:Label name="perf-segments" text="0" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="SPEED" class="perf-label" />
+                    <ui:Label name="perf-speed" text="0 m/s" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="POS Z" class="perf-label" />
+                    <ui:Label name="perf-position" text="0m" class="perf-value" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
         <!-- Emergency Vehicle Warning Arrows -->
         <ui:VisualElement name="emergency-left" class="emergency-arrow left hidden">
             <ui:Label text="◀" class="arrow-icon" />

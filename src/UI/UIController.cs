@@ -9,6 +9,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using System.Collections.Generic;
 using Nightflow.Components;
+using Nightflow.Save;
 
 namespace Nightflow.UI
 {
@@ -89,6 +90,18 @@ namespace Nightflow.UI
         private Label summaryMaxSpeed;
         private Label summaryFinalScore;
 
+        // Performance stats panel elements
+        private VisualElement perfPanel;
+        private Label perfFps;
+        private Label perfFrametime;
+        private Label perfMinMax;
+        private Label perfEntities;
+        private Label perfTraffic;
+        private Label perfHazards;
+        private Label perfSegments;
+        private Label perfSpeed;
+        private Label perfPosition;
+
         // Animation state
         private float displayedScore;
         private float damageFlashTimer;
@@ -103,6 +116,7 @@ namespace Nightflow.UI
         private EntityManager entityManager;
         private EntityQuery uiStateQuery;
         private EntityQuery scoreSummaryQuery;
+        private EntityQuery perfStatsQuery;
         private bool ecsInitialized;
 
         private struct NotificationData
@@ -134,6 +148,7 @@ namespace Nightflow.UI
                 entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
                 uiStateQuery = entityManager.CreateEntityQuery(typeof(UIState));
                 scoreSummaryQuery = entityManager.CreateEntityQuery(typeof(ScoreSummaryDisplay));
+                perfStatsQuery = entityManager.CreateEntityQuery(typeof(PerformanceStats));
                 ecsInitialized = true;
             }
         }
@@ -217,6 +232,18 @@ namespace Nightflow.UI
             summaryMaxSpeed = root.Q<Label>("summary-maxspeed");
             summaryFinalScore = root.Q<Label>("summary-finalscore");
 
+            // Performance stats panel
+            perfPanel = root.Q<VisualElement>("perf-panel");
+            perfFps = root.Q<Label>("perf-fps");
+            perfFrametime = root.Q<Label>("perf-frametime");
+            perfMinMax = root.Q<Label>("perf-minmax");
+            perfEntities = root.Q<Label>("perf-entities");
+            perfTraffic = root.Q<Label>("perf-traffic");
+            perfHazards = root.Q<Label>("perf-hazards");
+            perfSegments = root.Q<Label>("perf-segments");
+            perfSpeed = root.Q<Label>("perf-speed");
+            perfPosition = root.Q<Label>("perf-position");
+
             // Setup button callbacks
             SetupButtons();
 
@@ -272,6 +299,7 @@ namespace Nightflow.UI
             UpdateOverlays(uiState);
             UpdateAnimations(Time.deltaTime);
             ProcessNotifications();
+            UpdatePerformanceStats();
         }
 
         private void UpdateHUD(UIState state)
@@ -586,6 +614,126 @@ namespace Nightflow.UI
                         warningIndicator.RemoveFromClassList("flash");
                     }
                 }
+            }
+        }
+
+        private void UpdatePerformanceStats()
+        {
+            // Check if performance stats query has data
+            if (perfStatsQuery.IsEmpty || perfPanel == null)
+                return;
+
+            // Sync display setting from SaveManager (if available)
+            SyncPerformanceDisplaySetting();
+
+            var stats = perfStatsQuery.GetSingleton<PerformanceStats>();
+
+            // Show/hide panel based on DisplayEnabled flag
+            if (stats.DisplayEnabled)
+            {
+                perfPanel.RemoveFromClassList("hidden");
+
+                // Update FPS with color coding
+                if (perfFps != null)
+                {
+                    perfFps.text = $"{stats.SmoothedFPS:F0}";
+
+                    // Color code based on performance
+                    perfFps.RemoveFromClassList("perf-fps-good");
+                    perfFps.RemoveFromClassList("perf-fps-warn");
+                    perfFps.RemoveFromClassList("perf-fps-bad");
+
+                    if (stats.SmoothedFPS >= 55f)
+                        perfFps.AddToClassList("perf-fps-good");
+                    else if (stats.SmoothedFPS >= 30f)
+                        perfFps.AddToClassList("perf-fps-warn");
+                    else
+                        perfFps.AddToClassList("perf-fps-bad");
+                }
+
+                // Frame time
+                if (perfFrametime != null)
+                {
+                    perfFrametime.text = $"{stats.FrameTimeMs:F1}ms";
+                }
+
+                // Min/Max frame times
+                if (perfMinMax != null)
+                {
+                    float min = stats.MinFrameTimeMs < 1000f ? stats.MinFrameTimeMs : 0f;
+                    perfMinMax.text = $"{min:F1}/{stats.MaxFrameTimeMs:F1}";
+                }
+
+                // Entity counts
+                if (perfEntities != null)
+                    perfEntities.text = stats.EntityCount.ToString();
+
+                if (perfTraffic != null)
+                    perfTraffic.text = stats.TrafficCount.ToString();
+
+                if (perfHazards != null)
+                    perfHazards.text = stats.HazardCount.ToString();
+
+                if (perfSegments != null)
+                    perfSegments.text = stats.SegmentCount.ToString();
+
+                // Player stats
+                if (perfSpeed != null)
+                    perfSpeed.text = $"{stats.PlayerSpeed:F1} m/s";
+
+                if (perfPosition != null)
+                    perfPosition.text = $"{stats.PlayerZ:F0}m";
+            }
+            else
+            {
+                perfPanel.AddToClassList("hidden");
+            }
+        }
+
+        /// <summary>
+        /// Sync the performance stats display setting from SaveManager.
+        /// </summary>
+        private void SyncPerformanceDisplaySetting()
+        {
+            var saveManager = SaveManager.Instance;
+            if (saveManager == null || perfStatsQuery.IsEmpty)
+                return;
+
+            var settings = saveManager.GetSettings();
+            bool shouldShow = settings.Display.ShowFPS;
+
+            // Get entity and update DisplayEnabled if it differs
+            var entity = perfStatsQuery.GetSingletonEntity();
+            var stats = entityManager.GetComponentData<PerformanceStats>(entity);
+
+            if (stats.DisplayEnabled != shouldShow)
+            {
+                stats.DisplayEnabled = shouldShow;
+                entityManager.SetComponentData(entity, stats);
+            }
+        }
+
+        /// <summary>
+        /// Toggle the performance stats display on/off.
+        /// Can be called from keyboard shortcut (e.g., F3) or debug menu.
+        /// </summary>
+        public void TogglePerformanceStats()
+        {
+            if (perfStatsQuery.IsEmpty)
+                return;
+
+            var entity = perfStatsQuery.GetSingletonEntity();
+            var stats = entityManager.GetComponentData<PerformanceStats>(entity);
+            stats.DisplayEnabled = !stats.DisplayEnabled;
+            entityManager.SetComponentData(entity, stats);
+
+            // Also update the save settings
+            var saveManager = SaveManager.Instance;
+            if (saveManager != null)
+            {
+                var settings = saveManager.GetSettings();
+                settings.Display.ShowFPS = stats.DisplayEnabled;
+                saveManager.SaveSettings();
             }
         }
 

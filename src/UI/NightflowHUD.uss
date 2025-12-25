@@ -2034,3 +2034,77 @@
     border-color: var(--color-cyan);
     background-color: rgba(0, 255, 255, 0.1);
 }
+
+/* ============================================================================
+   Performance Stats Panel
+   Debug/developer overlay for performance metrics
+   ============================================================================ */
+
+.perf-panel {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    background-color: rgba(0, 0, 0, 0.85);
+    border-width: 1px;
+    border-color: rgba(0, 255, 0, 0.5);
+    border-radius: 4px;
+    padding: var(--spacing-sm);
+    min-width: 160px;
+}
+
+.perf-panel.hidden {
+    display: none;
+}
+
+.perf-title {
+    font-size: 10px;
+    color: rgba(0, 255, 0, 0.9);
+    letter-spacing: 3px;
+    -unity-font-style: bold;
+    margin-bottom: var(--spacing-xs);
+    padding-bottom: var(--spacing-xs);
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(0, 255, 0, 0.3);
+}
+
+.perf-stats {
+    flex-direction: column;
+}
+
+.perf-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1px 0;
+}
+
+.perf-label {
+    font-size: 9px;
+    color: rgba(0, 255, 0, 0.6);
+    letter-spacing: 1px;
+    min-width: 60px;
+}
+
+.perf-value {
+    font-size: 10px;
+    color: rgba(0, 255, 0, 1.0);
+    -unity-font-style: bold;
+    -unity-text-align: upper-right;
+    min-width: 70px;
+    text-shadow: 0 0 4px rgba(0, 255, 0, 0.5);
+}
+
+/* FPS coloring based on performance */
+.perf-fps-good {
+    color: rgba(0, 255, 0, 1.0);
+}
+
+.perf-fps-warn {
+    color: rgba(255, 255, 0, 1.0);
+    text-shadow: 0 0 4px rgba(255, 255, 0, 0.5);
+}
+
+.perf-fps-bad {
+    color: rgba(255, 100, 100, 1.0);
+    text-shadow: 0 0 4px rgba(255, 0, 0, 0.5);
+}
