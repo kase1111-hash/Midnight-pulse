@@ -20,6 +20,7 @@ namespace Nightflow.Save
         public SettingsData Settings = new SettingsData();
         public LeaderboardData Leaderboard = new LeaderboardData();
         public ProgressData Progress = new ProgressData();
+        public ChallengeData Challenges = new ChallengeData();
         public List<GhostRecording> GhostRecordings = new List<GhostRecording>();
     }
 
@@ -234,6 +235,78 @@ namespace Nightflow.Save
         public float BestSpeed;
         public float BestDistance;
         public float BestTime;
+    }
+
+    // ========================================================================
+    // Challenge Data
+    // ========================================================================
+
+    /// <summary>
+    /// Persistent challenge state and history.
+    /// </summary>
+    [Serializable]
+    public class ChallengeData
+    {
+        /// <summary>Last day challenges were generated (days since Unix epoch).</summary>
+        public int LastGeneratedDay;
+
+        /// <summary>Current active daily challenges.</summary>
+        public List<SavedChallenge> DailyChallenges = new List<SavedChallenge>();
+
+        /// <summary>Current active weekly challenges.</summary>
+        public List<SavedChallenge> WeeklyChallenges = new List<SavedChallenge>();
+
+        /// <summary>Total challenges completed lifetime.</summary>
+        public int TotalCompleted;
+
+        /// <summary>Current streak of consecutive days with at least one completion.</summary>
+        public int CurrentStreak;
+
+        /// <summary>Best streak ever achieved.</summary>
+        public int BestStreak;
+
+        /// <summary>Last day a challenge was completed (for streak tracking).</summary>
+        public int LastCompletionDay;
+
+        /// <summary>Total bonus score earned from challenges.</summary>
+        public long TotalBonusEarned;
+    }
+
+    /// <summary>
+    /// Serializable challenge for save data.
+    /// </summary>
+    [Serializable]
+    public class SavedChallenge
+    {
+        public int ChallengeId;
+        public int Type;           // ChallengeType enum value
+        public int Difficulty;     // ChallengeDifficulty enum value
+        public float TargetValue;
+        public float CurrentProgress;
+        public bool Completed;
+        public bool RewardClaimed;
+        public int ScoreReward;
+        public long ExpiresAt;
+        public bool IsWeekly;
+
+        public SavedChallenge() { }
+
+        public SavedChallenge(int id, int type, int difficulty, float target, int reward, long expires, bool weekly)
+        {
+            ChallengeId = id;
+            Type = type;
+            Difficulty = difficulty;
+            TargetValue = target;
+            CurrentProgress = 0;
+            Completed = false;
+            RewardClaimed = false;
+            ScoreReward = reward;
+            ExpiresAt = expires;
+            IsWeekly = weekly;
+        }
+
+        /// <summary>Progress ratio [0, 1].</summary>
+        public float ProgressRatio => TargetValue > 0 ? Mathf.Clamp01(CurrentProgress / TargetValue) : 0f;
     }
 
     // ========================================================================
