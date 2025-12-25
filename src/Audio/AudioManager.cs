@@ -104,6 +104,8 @@ namespace Nightflow.Audio
         private EntityQuery engineQuery;
         private EntityQuery sirenQuery;
         private EntityQuery oneShotQuery;
+        private EntityQuery uiAudioQuery;
+        private EntityQuery collisionAudioQuery;
         private bool ecsInitialized;
 
         private void Awake()
@@ -124,6 +126,8 @@ namespace Nightflow.Audio
                 engineQuery = entityManager.CreateEntityQuery(typeof(EngineAudio));
                 sirenQuery = entityManager.CreateEntityQuery(typeof(SirenAudio));
                 oneShotQuery = entityManager.CreateEntityQuery(typeof(OneShotAudioRequest));
+                uiAudioQuery = entityManager.CreateEntityQuery(typeof(UIAudioEvent));
+                collisionAudioQuery = entityManager.CreateEntityQuery(typeof(CollisionAudioEvent));
                 ecsInitialized = true;
             }
         }
@@ -210,6 +214,8 @@ namespace Nightflow.Audio
             UpdateSirenAudio();
             UpdateAmbientAudio();
             UpdateMusicAudio();
+            ProcessUIAudioEvents();
+            ProcessCollisionAudioEvents();
             ProcessOneShotRequests();
         }
 
@@ -338,6 +344,105 @@ namespace Nightflow.Audio
             musicBaseSource.volume = Mathf.Lerp(musicBaseSource.volume, musicState.BaseLayerVolume * masterMusic, Time.deltaTime * 3f);
             musicLowSource.volume = Mathf.Lerp(musicLowSource.volume, musicState.LowIntensityVolume * masterMusic, Time.deltaTime * 3f);
             musicHighSource.volume = Mathf.Lerp(musicHighSource.volume, musicState.HighIntensityVolume * masterMusic, Time.deltaTime * 3f);
+        }
+
+        private void ProcessUIAudioEvents()
+        {
+            foreach (var entity in uiAudioQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                if (!entityManager.HasBuffer<UIAudioEvent>(entity)) continue;
+
+                var buffer = entityManager.GetBuffer<UIAudioEvent>(entity);
+
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    var evt = buffer[i];
+                    PlayUISound(evt);
+                }
+
+                buffer.Clear();
+            }
+        }
+
+        private void PlayUISound(UIAudioEvent evt)
+        {
+            AudioClip clip = evt.Type switch
+            {
+                UISoundType.ScoreTick => scoreTick,
+                UISoundType.MultiplierUp => multiplierUp,
+                UISoundType.MultiplierLost => multiplierLost,
+                UISoundType.DamageWarning => damageWarning,
+                UISoundType.NearMiss => nearMiss,
+                UISoundType.LaneChange => laneChange,
+                UISoundType.MenuSelect => menuSelect,
+                UISoundType.MenuBack => menuBack,
+                UISoundType.Pause => pauseSound,
+                UISoundType.HighScore => highScore,
+                UISoundType.GameOver => gameOver,
+                _ => null
+            };
+
+            if (clip == null) return;
+
+            var source = GetPooledSource();
+            if (source == null) return;
+
+            source.clip = clip;
+            source.volume = evt.Volume;
+            source.pitch = evt.Pitch;
+            source.spatialBlend = 0f; // UI sounds are 2D
+            source.Play();
+        }
+
+        private void ProcessCollisionAudioEvents()
+        {
+            foreach (var entity in collisionAudioQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                if (!entityManager.HasBuffer<CollisionAudioEvent>(entity)) continue;
+
+                var buffer = entityManager.GetBuffer<CollisionAudioEvent>(entity);
+
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    var evt = buffer[i];
+                    PlayCollisionSound(evt);
+                }
+
+                buffer.Clear();
+            }
+        }
+
+        private void PlayCollisionSound(CollisionAudioEvent evt)
+        {
+            AudioClip clip = evt.Type switch
+            {
+                CollisionAudioType.LightImpact => lightImpacts.Length > 0 ? lightImpacts[Random.Range(0, lightImpacts.Length)] : null,
+                CollisionAudioType.MediumImpact => mediumImpacts.Length > 0 ? mediumImpacts[Random.Range(0, mediumImpacts.Length)] : null,
+                CollisionAudioType.HeavyImpact => heavyImpacts.Length > 0 ? heavyImpacts[Random.Range(0, heavyImpacts.Length)] : null,
+                CollisionAudioType.MetalScrape => metalScrape,
+                CollisionAudioType.GlassShatter => glassShatter,
+                _ => null
+            };
+
+            if (clip == null) return;
+
+            var source = GetPooledSource();
+            if (source == null) return;
+
+            source.clip = clip;
+            source.transform.position = new Vector3(evt.Position.x, evt.Position.y, evt.Position.z);
+
+            // Volume based on impulse force
+            float volume = Mathf.Clamp01(evt.Impulse / 50f);
+            source.volume = 0.5f + volume * 0.5f;
+
+            // Pitch variation based on impact
+            source.pitch = 0.9f + Random.Range(0f, 0.2f);
+
+            source.spatialBlend = spatialBlend3D;
+            source.minDistance = 2f;
+            source.maxDistance = 50f;
+            source.Play();
         }
 
         private void ProcessOneShotRequests()
