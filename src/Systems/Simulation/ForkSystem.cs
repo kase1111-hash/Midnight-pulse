@@ -46,7 +46,7 @@ namespace Nightflow.Systems
                     .WithAll<PlayerVehicleTag>())
             {
                 playerZ = transform.ValueRO.Position.z;
-                playerLane = laneFollower.ValueRO.LaneIndex;
+                playerLane = laneFollower.ValueRO.CurrentLane;
                 lateralOffset = laneFollower.ValueRO.LateralOffset;
                 break;
             }

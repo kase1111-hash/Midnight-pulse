@@ -247,23 +247,112 @@ namespace Nightflow.Systems
             HermiteSpline spline,
             int lengthSegments)
         {
-            // Barrier vertices: 4 verts per cross-section (inner-bottom, inner-top, outer-top, outer-bottom)
-            // Two barriers (left and right)
-            int vertsPerBarrier = 4 * (lengthSegments + 1);
+            // Barrier: 4 verts per cross-section (inner-bottom, inner-top, outer-top, outer-bottom)
+            int vertsPerSection = 4;
+            int startVertexIndex = vertices.Length;
+            int startTriangleIndex = triangles.Length;
 
-            // Get existing buffers (they're already added by GenerateRoadMesh)
-            // We'll append barrier geometry
-
-            // For simplicity in ECS, we track barrier as separate sub-mesh range
-            // The actual vertices are generated as part of the same vertex buffer
-
-            // Left barrier offset
+            // Left barrier offset (outside road edge)
             float leftOffset = -TotalWidth / 2f - BarrierWidth / 2f;
-            // Right barrier offset
+            // Right barrier offset (outside road edge)
             float rightOffset = TotalWidth / 2f + BarrierWidth / 2f;
 
-            // Note: In a full implementation, we'd append to the existing buffers
-            // For now, barrier geometry is conceptually included via sub-mesh ranges
+            // Generate both barriers
+            float[] barrierOffsets = { leftOffset, rightOffset };
+
+            foreach (float barrierOffset in barrierOffsets)
+            {
+                int barrierStartVert = vertices.Length;
+
+                for (int z = 0; z <= lengthSegments; z++)
+                {
+                    float t = z / (float)lengthSegments;
+
+                    SplineUtilities.BuildFrameAtT(
+                        spline.P0, spline.T0, spline.P1, spline.T1, t,
+                        out float3 position, out float3 forward, out float3 right, out float3 up);
+
+                    float3 barrierCenter = position + right * barrierOffset;
+
+                    // Inner bottom
+                    vertices.Add(new MeshVertex
+                    {
+                        Position = barrierCenter - right * (BarrierWidth / 2f),
+                        Normal = -right,
+                        UV = new float2(0f, t),
+                        Color = BarrierColor
+                    });
+
+                    // Inner top
+                    vertices.Add(new MeshVertex
+                    {
+                        Position = barrierCenter - right * (BarrierWidth / 2f) + up * BarrierHeight,
+                        Normal = -right,
+                        UV = new float2(0f, t),
+                        Color = BarrierColor
+                    });
+
+                    // Outer top
+                    vertices.Add(new MeshVertex
+                    {
+                        Position = barrierCenter + right * (BarrierWidth / 2f) + up * BarrierHeight,
+                        Normal = right,
+                        UV = new float2(1f, t),
+                        Color = BarrierColor
+                    });
+
+                    // Outer bottom
+                    vertices.Add(new MeshVertex
+                    {
+                        Position = barrierCenter + right * (BarrierWidth / 2f),
+                        Normal = right,
+                        UV = new float2(1f, t),
+                        Color = BarrierColor
+                    });
+                }
+
+                // Generate triangles for barrier faces
+                for (int z = 0; z < lengthSegments; z++)
+                {
+                    int baseIdx = barrierStartVert + z * vertsPerSection;
+
+                    // Inner face (verts 0, 1)
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 0 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 4 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 5 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 0 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 5 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 1 });
+
+                    // Top face (verts 1, 2)
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 1 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 5 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 6 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 1 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 6 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 2 });
+
+                    // Outer face (verts 2, 3)
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 2 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 6 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 7 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 2 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 7 });
+                    triangles.Add(new MeshTriangle { Index = baseIdx + 3 });
+                }
+            }
+
+            // Add barrier sub-mesh range
+            int barrierIndexCount = triangles.Length - startTriangleIndex;
+            if (barrierIndexCount > 0)
+            {
+                subMeshes.Add(new SubMeshRange
+                {
+                    StartIndex = startTriangleIndex,
+                    IndexCount = barrierIndexCount,
+                    MaterialType = 1 // Barrier material
+                });
+            }
         }
 
         /// <summary>
@@ -276,18 +365,135 @@ namespace Nightflow.Systems
             HermiteSpline spline,
             int lengthSegments)
         {
-            // Lane markings are thin quads along lane boundaries
-            // 3 interior lane lines + 2 edge lines = 5 line strips
+            int startTriangleIndex = triangles.Length;
 
-            // Lane positions from center:
-            // Lane 0-1 boundary: -1.0 * LaneWidth = -3.6m
-            // Lane 1-2 boundary: 0
-            // Lane 2-3 boundary: +1.0 * LaneWidth = +3.6m
-            // Left edge: -2.0 * LaneWidth = -7.2m
-            // Right edge: +2.0 * LaneWidth = +7.2m
+            // Lane boundaries (interior dashed lines)
+            float[] interiorOffsets = { -1.0f * LaneWidth, 0f, 1.0f * LaneWidth };
+            // Edge lines (solid)
+            float[] edgeOffsets = { -2.0f * LaneWidth, 2.0f * LaneWidth };
 
-            // Note: Actual implementation would generate thin quad strips
-            // with appropriate dashing for interior lines
+            // Dashing parameters
+            const float dashLength = 3.0f;
+            const float gapLength = 6.0f;
+            const float lineHeight = 0.01f; // Slightly above road
+
+            // Generate interior dashed lane lines
+            foreach (float laneOffset in interiorOffsets)
+            {
+                float currentZ = 0f;
+                bool isDash = true;
+
+                while (currentZ < 1f)
+                {
+                    float segmentLength = isDash ? dashLength : gapLength;
+                    float tStart = currentZ;
+                    float tEnd = math.min(currentZ + segmentLength / 200f, 1f); // Assuming 200m segment
+
+                    if (isDash)
+                    {
+                        GenerateLineQuad(vertices, triangles, spline, tStart, tEnd,
+                            laneOffset, LaneLineWidth, lineHeight, LaneLineColor);
+                    }
+
+                    currentZ = tEnd;
+                    isDash = !isDash;
+                }
+            }
+
+            // Generate solid edge lines
+            foreach (float edgeOffset in edgeOffsets)
+            {
+                GenerateLineQuad(vertices, triangles, spline, 0f, 1f,
+                    edgeOffset, EdgeLineWidth, lineHeight, EdgeLineColor);
+            }
+
+            // Add lane markings sub-mesh range
+            int markingsIndexCount = triangles.Length - startTriangleIndex;
+            if (markingsIndexCount > 0)
+            {
+                subMeshes.Add(new SubMeshRange
+                {
+                    StartIndex = startTriangleIndex,
+                    IndexCount = markingsIndexCount,
+                    MaterialType = 2 // Lane marking material
+                });
+            }
+        }
+
+        /// <summary>
+        /// Generates a single line quad along the spline.
+        /// </summary>
+        private void GenerateLineQuad(
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            HermiteSpline spline,
+            float tStart,
+            float tEnd,
+            float lateralOffset,
+            float lineWidth,
+            float height,
+            float4 color)
+        {
+            int baseIdx = vertices.Length;
+
+            // Start position
+            SplineUtilities.BuildFrameAtT(
+                spline.P0, spline.T0, spline.P1, spline.T1, tStart,
+                out float3 posStart, out float3 fwdStart, out float3 rightStart, out float3 upStart);
+
+            // End position
+            SplineUtilities.BuildFrameAtT(
+                spline.P0, spline.T0, spline.P1, spline.T1, tEnd,
+                out float3 posEnd, out float3 fwdEnd, out float3 rightEnd, out float3 upEnd);
+
+            float3 startCenter = posStart + rightStart * lateralOffset + upStart * height;
+            float3 endCenter = posEnd + rightEnd * lateralOffset + upEnd * height;
+
+            float halfWidth = lineWidth / 2f;
+
+            // Start left
+            vertices.Add(new MeshVertex
+            {
+                Position = startCenter - rightStart * halfWidth,
+                Normal = upStart,
+                UV = new float2(0f, 0f),
+                Color = color
+            });
+
+            // Start right
+            vertices.Add(new MeshVertex
+            {
+                Position = startCenter + rightStart * halfWidth,
+                Normal = upStart,
+                UV = new float2(1f, 0f),
+                Color = color
+            });
+
+            // End right
+            vertices.Add(new MeshVertex
+            {
+                Position = endCenter + rightEnd * halfWidth,
+                Normal = upEnd,
+                UV = new float2(1f, 1f),
+                Color = color
+            });
+
+            // End left
+            vertices.Add(new MeshVertex
+            {
+                Position = endCenter - rightEnd * halfWidth,
+                Normal = upEnd,
+                UV = new float2(0f, 1f),
+                Color = color
+            });
+
+            // Two triangles for the quad
+            triangles.Add(new MeshTriangle { Index = baseIdx + 0 });
+            triangles.Add(new MeshTriangle { Index = baseIdx + 1 });
+            triangles.Add(new MeshTriangle { Index = baseIdx + 2 });
+            triangles.Add(new MeshTriangle { Index = baseIdx + 0 });
+            triangles.Add(new MeshTriangle { Index = baseIdx + 2 });
+            triangles.Add(new MeshTriangle { Index = baseIdx + 3 });
         }
 
         /// <summary>
@@ -300,25 +506,11 @@ namespace Nightflow.Systems
             TrackSegment segment,
             int lengthSegments)
         {
-            // Check if entity has tunnel data
-            // Tunnel mesh includes:
-            // - Left wall (vertical surface from road edge to ceiling)
-            // - Right wall
-            // - Ceiling (curved or flat arch)
-            // - Light strip geometry along ceiling
-
             const float tunnelHeight = 6f;
-            const float tunnelWidth = 16f;
-
-            // Generate arch profile vertices
-            // Typically 8-12 segments for the arch curve
+            const float tunnelWallOffset = TotalWidth / 2f + 0.5f;
             const int archSegments = 8;
 
-            // Vertices per cross-section: 2 (floor edges) + archSegments + 1 (arch) = archSegments + 3
-            int vertsPerSection = archSegments + 3;
-            int totalVerts = vertsPerSection * (lengthSegments + 1);
-
-            // Add tunnel mesh config if not present
+            // Add tunnel mesh config
             ecb.AddComponent(entity, new TunnelMeshConfig
             {
                 WallHeight = tunnelHeight,
@@ -327,6 +519,24 @@ namespace Nightflow.Systems
                 GenerateLightStrips = true,
                 LightStripSpacing = 20f
             });
+
+            // Note: Tunnel geometry is generated as a separate mesh entity
+            // to allow for different materials (darker interior walls)
+            // The TunnelMeshConfig component signals to a dedicated
+            // TunnelMeshGenerationSystem to create the actual geometry
+
+            // Create tunnel geometry entity
+            Entity tunnelMeshEntity = ecb.CreateEntity();
+            ecb.AddComponent(tunnelMeshEntity, new TunnelGeometry
+            {
+                ParentSegment = entity,
+                WallHeight = tunnelHeight,
+                WallOffset = tunnelWallOffset,
+                ArchSegments = archSegments,
+                LengthSegments = lengthSegments
+            });
+            ecb.AddComponent(tunnelMeshEntity, spline);
+            ecb.AddComponent(tunnelMeshEntity, new TunnelMeshTag());
         }
 
         /// <summary>
@@ -340,25 +550,60 @@ namespace Nightflow.Systems
             int lengthSegments)
         {
             // Overpass uses sinusoidal elevation: h(t) = A * sin(π * t)
-            // where A = ElevationAmplitude (typically 8m)
-
             const float elevationAmplitude = 8f;
             const float pillarSpacing = 40f;
+            const float pillarWidth = 1.5f;
+            const float barrierHeight = 1.2f;
 
             // Add overpass mesh config
             ecb.AddComponent(entity, new OverpassMeshConfig
             {
-                BarrierHeight = 1.2f,
-                PillarWidth = 1.5f,
+                BarrierHeight = barrierHeight,
+                PillarWidth = pillarWidth,
                 PillarSpacing = pillarSpacing,
                 GeneratePillars = true
             });
 
             // Calculate number of support pillars
-            int numPillars = (int)(segment.Length / pillarSpacing);
+            int numPillars = math.max(1, (int)(segment.Length / pillarSpacing));
 
-            // Pillar geometry: simple rectangular columns
-            // Each pillar: 8 vertices (box), 12 triangles (6 faces * 2 tris)
+            // Create pillar entities along the overpass
+            for (int i = 0; i < numPillars; i++)
+            {
+                float t = (i + 0.5f) / numPillars;
+
+                SplineUtilities.BuildFrameAtT(
+                    spline.P0, spline.T0, spline.P1, spline.T1, t,
+                    out float3 position, out float3 forward, out float3 right, out float3 up);
+
+                // Calculate elevation at this point
+                float elevation = elevationAmplitude * math.sin(math.PI * t);
+
+                // Create pillar entity
+                Entity pillarEntity = ecb.CreateEntity();
+                ecb.AddComponent(pillarEntity, new PillarGeometry
+                {
+                    ParentSegment = entity,
+                    Position = position,
+                    Height = elevation,
+                    Width = pillarWidth,
+                    Forward = forward,
+                    Right = right
+                });
+                ecb.AddComponent(pillarEntity, new OverpassPillarTag());
+            }
+
+            // Create overpass geometry entity for elevated barriers
+            Entity overpassGeomEntity = ecb.CreateEntity();
+            ecb.AddComponent(overpassGeomEntity, new OverpassGeometry
+            {
+                ParentSegment = entity,
+                ElevationAmplitude = elevationAmplitude,
+                BarrierHeight = barrierHeight,
+                LengthSegments = lengthSegments
+            });
+            ecb.AddComponent(overpassGeomEntity, spline);
+            ecb.AddComponent(overpassGeomEntity, new OverpassMeshTag());
         }
 
         /// <summary>
