@@ -74,6 +74,8 @@ namespace Nightflow.UI
         private VisualElement fadeOverlay;
         private VisualElement mainMenuOverlay;
         private VisualElement creditsOverlay;
+        private VisualElement modeSelectOverlay;
+        private VisualElement leaderboardOverlay;
         private Label crashTitle;
         private Label highscoreLabel;
 
@@ -237,6 +239,8 @@ namespace Nightflow.UI
             fadeOverlay = root.Q<VisualElement>("fade-overlay");
             mainMenuOverlay = root.Q<VisualElement>("main-menu-overlay");
             creditsOverlay = root.Q<VisualElement>("credits-overlay");
+            modeSelectOverlay = root.Q<VisualElement>("mode-select-overlay");
+            leaderboardOverlay = root.Q<VisualElement>("leaderboard-overlay");
             crashTitle = root.Q<Label>("crash-title");
             highscoreLabel = root.Q<Label>("highscore-label");
 
@@ -305,9 +309,9 @@ namespace Nightflow.UI
         {
             // Pause menu buttons
             var resumeButton = root.Q<Button>("resume-button");
-            var restartButtonPause = root.Q<Button>("restart-button-pause");
+            var restartButtonPause = root.Q<Button>("restart-button");
             var settingsButton = root.Q<Button>("settings-button");
-            var quitButtonPause = root.Q<Button>("quit-button-pause");
+            var quitButtonPause = root.Q<Button>("quit-button");
 
             if (resumeButton != null) resumeButton.clicked += OnResumeClicked;
             if (restartButtonPause != null) restartButtonPause.clicked += OnRestartClicked;
@@ -315,11 +319,52 @@ namespace Nightflow.UI
             if (quitButtonPause != null) quitButtonPause.clicked += OnQuitClicked;
 
             // Game over buttons
-            var restartButtonGameover = root.Q<Button>("restart-button-gameover");
-            var quitButtonGameover = root.Q<Button>("quit-button-gameover");
+            var retryButton = root.Q<Button>("retry-button");
+            var menuButton = root.Q<Button>("menu-button");
 
-            if (restartButtonGameover != null) restartButtonGameover.clicked += OnRestartClicked;
-            if (quitButtonGameover != null) quitButtonGameover.clicked += OnQuitClicked;
+            if (retryButton != null) retryButton.clicked += OnRestartClicked;
+            if (menuButton != null) menuButton.clicked += OnMainMenuClicked;
+
+            // Main menu buttons
+            var playButton = root.Q<Button>("menu-item-0");
+            var leaderboardButton = root.Q<Button>("menu-item-1");
+            var settingsMenuButton = root.Q<Button>("menu-item-2");
+            var creditsButton = root.Q<Button>("menu-item-3");
+            var quitMenuButton = root.Q<Button>("menu-item-4");
+
+            if (playButton != null) playButton.clicked += OnPlayClicked;
+            if (leaderboardButton != null) leaderboardButton.clicked += OnLeaderboardClicked;
+            if (settingsMenuButton != null) settingsMenuButton.clicked += OnSettingsClicked;
+            if (creditsButton != null) creditsButton.clicked += OnCreditsClicked;
+            if (quitMenuButton != null) quitMenuButton.clicked += OnQuitClicked;
+
+            // Credits back button
+            var creditsBackButton = root.Q<Button>("credits-back");
+            if (creditsBackButton != null) creditsBackButton.clicked += OnCreditsBackClicked;
+
+            // Settings back button
+            var settingsBackButton = root.Q<Button>("settings-back");
+            if (settingsBackButton != null) settingsBackButton.clicked += OnSettingsBackClicked;
+
+            // Mode select buttons
+            var modeStartButton = root.Q<Button>("mode-start");
+            var modeBackButton = root.Q<Button>("mode-back");
+            if (modeStartButton != null) modeStartButton.clicked += OnModeStartClicked;
+            if (modeBackButton != null) modeBackButton.clicked += OnModeBackClicked;
+
+            // Mode cards (make them clickable)
+            var modeNightflow = root.Q<VisualElement>("mode-nightflow");
+            var modeRedline = root.Q<VisualElement>("mode-redline");
+            var modeGhost = root.Q<VisualElement>("mode-ghost");
+            var modeFreeflow = root.Q<VisualElement>("mode-freeflow");
+            if (modeNightflow != null) modeNightflow.RegisterCallback<ClickEvent>(e => SelectMode(0));
+            if (modeRedline != null) modeRedline.RegisterCallback<ClickEvent>(e => SelectMode(1));
+            if (modeGhost != null) modeGhost.RegisterCallback<ClickEvent>(e => SelectMode(2));
+            if (modeFreeflow != null) modeFreeflow.RegisterCallback<ClickEvent>(e => SelectMode(3));
+
+            // Leaderboard back button
+            var leaderboardBackButton = root.Q<Button>("leaderboard-back");
+            if (leaderboardBackButton != null) leaderboardBackButton.clicked += OnLeaderboardBackClicked;
         }
 
         private void OnSettingsClicked()
@@ -1033,6 +1078,41 @@ namespace Nightflow.UI
                 creditsOverlay.AddToClassList("hidden");
             }
 
+            // Check for mode select
+            if (state.ShowModeSelect)
+            {
+                if (modeSelectOverlay != null)
+                {
+                    modeSelectOverlay.RemoveFromClassList("hidden");
+                }
+            }
+            else if (modeSelectOverlay != null && !modeSelectOverlay.ClassListContains("hidden"))
+            {
+                modeSelectOverlay.AddToClassList("hidden");
+            }
+
+            // Check for leaderboard (based on menu state)
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            bool showLeaderboard = false;
+            if (!gameStateQuery.IsEmpty)
+            {
+                var gameState = gameStateQuery.GetSingleton<Components.GameState>();
+                showLeaderboard = gameState.CurrentMenu == MenuState.Leaderboard;
+            }
+            gameStateQuery.Dispose();
+
+            if (showLeaderboard)
+            {
+                if (leaderboardOverlay != null)
+                {
+                    leaderboardOverlay.RemoveFromClassList("hidden");
+                }
+            }
+            else if (leaderboardOverlay != null && !leaderboardOverlay.ClassListContains("hidden"))
+            {
+                leaderboardOverlay.AddToClassList("hidden");
+            }
+
             // Check for pause menu
             if (state.ShowPauseMenu)
             {
@@ -1074,6 +1154,8 @@ namespace Nightflow.UI
             if (gameOverOverlay != null) gameOverOverlay.AddToClassList("hidden");
             if (mainMenuOverlay != null) mainMenuOverlay.AddToClassList("hidden");
             if (creditsOverlay != null) creditsOverlay.AddToClassList("hidden");
+            if (modeSelectOverlay != null) modeSelectOverlay.AddToClassList("hidden");
+            if (leaderboardOverlay != null) leaderboardOverlay.AddToClassList("hidden");
         }
 
         private void ShowMainMenu(UIState state)
@@ -1309,6 +1391,281 @@ namespace Nightflow.UI
             #else
             Application.Quit();
             #endif
+        }
+
+        private void OnPlayClicked()
+        {
+            if (!ecsInitialized) return;
+
+            // First, ensure we've dismissed the "Press Start" state
+            DismissPressStart();
+
+            // Navigate to mode select
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            if (!gameStateQuery.IsEmpty)
+            {
+                var entity = gameStateQuery.GetSingletonEntity();
+                var gameState = entityManager.GetComponentData<Components.GameState>(entity);
+                var uiStateEntity = uiStateQuery.GetSingletonEntity();
+                var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
+
+                // Use the navigation helper
+                gameState.CurrentMenu = MenuState.ModeSelect;
+                gameState.MenuVisible = true;
+                uiState.ShowMainMenu = false;
+                uiState.ShowModeSelect = true;
+
+                entityManager.SetComponentData(entity, gameState);
+                entityManager.SetComponentData(uiStateEntity, uiState);
+            }
+            gameStateQuery.Dispose();
+        }
+
+        private void OnLeaderboardClicked()
+        {
+            if (!ecsInitialized) return;
+
+            DismissPressStart();
+
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            if (!gameStateQuery.IsEmpty)
+            {
+                var entity = gameStateQuery.GetSingletonEntity();
+                var gameState = entityManager.GetComponentData<Components.GameState>(entity);
+                var uiStateEntity = uiStateQuery.GetSingletonEntity();
+                var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
+
+                gameState.CurrentMenu = MenuState.Leaderboard;
+                gameState.MenuVisible = true;
+                uiState.ShowMainMenu = false;
+
+                entityManager.SetComponentData(entity, gameState);
+                entityManager.SetComponentData(uiStateEntity, uiState);
+            }
+            gameStateQuery.Dispose();
+        }
+
+        private void OnCreditsClicked()
+        {
+            if (!ecsInitialized) return;
+
+            DismissPressStart();
+
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            if (!gameStateQuery.IsEmpty)
+            {
+                var entity = gameStateQuery.GetSingletonEntity();
+                var gameState = entityManager.GetComponentData<Components.GameState>(entity);
+                var uiStateEntity = uiStateQuery.GetSingletonEntity();
+                var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
+
+                gameState.CurrentMenu = MenuState.Credits;
+                gameState.MenuVisible = true;
+                uiState.ShowMainMenu = false;
+                uiState.ShowCredits = true;
+
+                entityManager.SetComponentData(entity, gameState);
+                entityManager.SetComponentData(uiStateEntity, uiState);
+            }
+            gameStateQuery.Dispose();
+        }
+
+        private void OnCreditsBackClicked()
+        {
+            if (!ecsInitialized) return;
+
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            if (!gameStateQuery.IsEmpty)
+            {
+                var entity = gameStateQuery.GetSingletonEntity();
+                var gameState = entityManager.GetComponentData<Components.GameState>(entity);
+                var uiStateEntity = uiStateQuery.GetSingletonEntity();
+                var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
+
+                // Return to main menu
+                gameState.CurrentMenu = MenuState.MainMenu;
+                gameState.MenuVisible = true;
+                uiState.ShowCredits = false;
+                uiState.ShowMainMenu = true;
+
+                entityManager.SetComponentData(entity, gameState);
+                entityManager.SetComponentData(uiStateEntity, uiState);
+            }
+            gameStateQuery.Dispose();
+        }
+
+        private void OnSettingsBackClicked()
+        {
+            if (!ecsInitialized) return;
+
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            if (!gameStateQuery.IsEmpty)
+            {
+                var entity = gameStateQuery.GetSingletonEntity();
+                var gameState = entityManager.GetComponentData<Components.GameState>(entity);
+                var uiStateEntity = uiStateQuery.GetSingletonEntity();
+                var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
+
+                // Return to main menu
+                gameState.CurrentMenu = MenuState.MainMenu;
+                gameState.MenuVisible = true;
+                uiState.ShowMainMenu = true;
+
+                entityManager.SetComponentData(entity, gameState);
+                entityManager.SetComponentData(uiStateEntity, uiState);
+            }
+            gameStateQuery.Dispose();
+        }
+
+        private void OnMainMenuClicked()
+        {
+            if (!ecsInitialized) return;
+
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            if (!gameStateQuery.IsEmpty)
+            {
+                var entity = gameStateQuery.GetSingletonEntity();
+                var gameState = entityManager.GetComponentData<Components.GameState>(entity);
+                var uiStateEntity = uiStateQuery.GetSingletonEntity();
+                var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
+
+                // Go to main menu
+                gameState.CurrentMenu = MenuState.MainMenu;
+                gameState.MenuVisible = true;
+                gameState.IsPaused = true;
+                gameState.TimeScale = 0f;
+                gameState.CrashPhase = CrashFlowPhase.None;
+
+                uiState.ShowPauseMenu = false;
+                uiState.ShowCrashOverlay = false;
+                uiState.ShowScoreSummary = false;
+                uiState.ShowModeSelect = false;
+                uiState.ShowMainMenu = true;
+                uiState.OverlayAlpha = 0f;
+
+                entityManager.SetComponentData(entity, gameState);
+                entityManager.SetComponentData(uiStateEntity, uiState);
+            }
+            gameStateQuery.Dispose();
+        }
+
+        private void DismissPressStart()
+        {
+            // Show the menu items by dismissing "Press Start" state
+            var mainMenuQuery = entityManager.CreateEntityQuery(typeof(MainMenuState));
+            if (!mainMenuQuery.IsEmpty)
+            {
+                var entity = mainMenuQuery.GetSingletonEntity();
+                var mainMenuState = entityManager.GetComponentData<MainMenuState>(entity);
+                mainMenuState.InputReceived = true;
+                entityManager.SetComponentData(entity, mainMenuState);
+            }
+            mainMenuQuery.Dispose();
+
+            // Show menu items visually
+            if (mainMenuItems != null)
+            {
+                mainMenuItems.RemoveFromClassList("hidden");
+            }
+            if (pressStartText != null)
+            {
+                pressStartText.AddToClassList("hidden");
+            }
+        }
+
+        private int selectedModeIndex = 0;
+
+        private void SelectMode(int modeIndex)
+        {
+            selectedModeIndex = modeIndex;
+
+            // Update visual selection
+            var modeCards = new[] { "mode-nightflow", "mode-redline", "mode-ghost", "mode-freeflow" };
+            for (int i = 0; i < modeCards.Length; i++)
+            {
+                var card = root.Q<VisualElement>(modeCards[i]);
+                if (card != null)
+                {
+                    if (i == modeIndex)
+                        card.AddToClassList("selected");
+                    else
+                        card.RemoveFromClassList("selected");
+                }
+            }
+        }
+
+        private void OnModeStartClicked()
+        {
+            if (!ecsInitialized) return;
+
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            if (!gameStateQuery.IsEmpty)
+            {
+                var entity = gameStateQuery.GetSingletonEntity();
+                var gameState = entityManager.GetComponentData<Components.GameState>(entity);
+                var uiStateEntity = uiStateQuery.GetSingletonEntity();
+                var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
+
+                // Start the game
+                gameState.CurrentMenu = MenuState.None;
+                gameState.MenuVisible = false;
+                gameState.IsPaused = false;
+                gameState.TimeScale = 1f;
+                gameState.PlayerControlActive = true;
+
+                uiState.ShowMainMenu = false;
+                uiState.ShowModeSelect = false;
+                uiState.OverlayAlpha = 0f;
+
+                entityManager.SetComponentData(entity, gameState);
+                entityManager.SetComponentData(uiStateEntity, uiState);
+            }
+            gameStateQuery.Dispose();
+        }
+
+        private void OnModeBackClicked()
+        {
+            if (!ecsInitialized) return;
+
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            if (!gameStateQuery.IsEmpty)
+            {
+                var entity = gameStateQuery.GetSingletonEntity();
+                var gameState = entityManager.GetComponentData<Components.GameState>(entity);
+                var uiStateEntity = uiStateQuery.GetSingletonEntity();
+                var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
+
+                // Return to main menu
+                gameState.CurrentMenu = MenuState.MainMenu;
+                uiState.ShowModeSelect = false;
+                uiState.ShowMainMenu = true;
+
+                entityManager.SetComponentData(entity, gameState);
+                entityManager.SetComponentData(uiStateEntity, uiState);
+            }
+            gameStateQuery.Dispose();
+        }
+
+        private void OnLeaderboardBackClicked()
+        {
+            if (!ecsInitialized) return;
+
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            if (!gameStateQuery.IsEmpty)
+            {
+                var entity = gameStateQuery.GetSingletonEntity();
+                var gameState = entityManager.GetComponentData<Components.GameState>(entity);
+                var uiStateEntity = uiStateQuery.GetSingletonEntity();
+                var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
+
+                // Return to main menu
+                gameState.CurrentMenu = MenuState.MainMenu;
+                uiState.ShowMainMenu = true;
+
+                entityManager.SetComponentData(entity, gameState);
+                entityManager.SetComponentData(uiStateEntity, uiState);
+            }
+            gameStateQuery.Dispose();
         }
 
         private void RequestUnpause()

@@ -257,6 +257,63 @@
         </ui:VisualElement>
     </ui:VisualElement>
 
+    <!-- Mode Select Overlay -->
+    <ui:VisualElement name="mode-select-overlay" class="overlay hidden">
+        <ui:VisualElement name="mode-select-panel" class="menu-panel mode-select-panel">
+            <ui:Label name="mode-select-title" text="SELECT MODE" class="mode-select-title" />
+            <ui:VisualElement name="mode-grid" class="mode-grid">
+                <ui:VisualElement name="mode-nightflow" class="mode-card nightflow selected">
+                    <ui:Label text="NIGHTFLOW" class="mode-name nightflow" />
+                    <ui:Label text="Classic arcade racing through neon-lit streets" class="mode-description" />
+                </ui:VisualElement>
+                <ui:VisualElement name="mode-redline" class="mode-card redline">
+                    <ui:Label text="REDLINE" class="mode-name redline" />
+                    <ui:Label text="Push your speed to the absolute limit" class="mode-description" />
+                </ui:VisualElement>
+                <ui:VisualElement name="mode-ghost" class="mode-card ghost">
+                    <ui:Label text="GHOST" class="mode-name ghost" />
+                    <ui:Label text="Race against your best time" class="mode-description" />
+                </ui:VisualElement>
+                <ui:VisualElement name="mode-freeflow" class="mode-card freeflow">
+                    <ui:Label text="FREEFLOW" class="mode-name freeflow" />
+                    <ui:Label text="Relaxed driving with no pressure" class="mode-description" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="mode-buttons" class="settings-buttons">
+                <ui:Button name="mode-start" text="START" class="menu-button primary" />
+                <ui:Button name="mode-back" text="BACK" class="menu-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- Leaderboard Overlay -->
+    <ui:VisualElement name="leaderboard-overlay" class="overlay hidden">
+        <ui:VisualElement name="leaderboard-panel" class="leaderboard-panel">
+            <ui:VisualElement name="leaderboard-header" class="leaderboard-header">
+                <ui:Label name="leaderboard-title" text="HIGH SCORES" class="leaderboard-title" />
+                <ui:Label name="leaderboard-subtitle" text="TOP 10 PLAYERS" class="leaderboard-subtitle" />
+            </ui:VisualElement>
+            <ui:VisualElement name="leaderboard-filters" class="leaderboard-filters">
+                <ui:Button name="filter-all" text="ALL" class="filter-tab active" />
+                <ui:Button name="filter-nightflow" text="NIGHTFLOW" class="filter-tab nightflow" />
+                <ui:Button name="filter-redline" text="REDLINE" class="filter-tab redline" />
+            </ui:VisualElement>
+            <ui:VisualElement name="leaderboard-table" class="leaderboard-table">
+                <ui:VisualElement name="leaderboard-table-header" class="leaderboard-table-header">
+                    <ui:Label text="RANK" class="header-rank" />
+                    <ui:Label text="NAME" class="header-name" />
+                    <ui:Label text="SCORE" class="header-score" />
+                    <ui:Label text="STATS" class="header-stats" />
+                </ui:VisualElement>
+                <!-- Entries will be populated dynamically -->
+                <ui:VisualElement name="leaderboard-entries" class="leaderboard-entries" />
+            </ui:VisualElement>
+            <ui:VisualElement name="leaderboard-footer" class="leaderboard-footer">
+                <ui:Button name="leaderboard-back" text="BACK" class="leaderboard-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+
     <!-- Pause Menu Overlay -->
     <ui:VisualElement name="pause-overlay" class="overlay hidden">
         <ui:VisualElement name="pause-panel" class="menu-panel">
