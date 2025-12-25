@@ -51,10 +51,25 @@ namespace Nightflow.Systems
         private const float DriftExitYaw = 0.1f;          // radians
         private const float DriftExitRate = 0.5f;         // rad/s
 
+        // Redline mode parameters
+        private const float RedlineReferenceSpeed = 50f;      // Speed at which acceleration is halved
+        private const float RedlineBaseAcceleration = 20f;    // Higher base accel for Redline
+        private const float RedlineDragCoefficient = 0.005f;  // Lower drag for higher speeds
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             float deltaTime = SystemAPI.Time.DeltaTime;
+
+            // Get current game mode
+            GameMode currentMode = GameMode.Nightflow;
+            foreach (var modeState in SystemAPI.Query<RefRO<GameModeState>>())
+            {
+                currentMode = modeState.ValueRO.CurrentMode;
+                break;
+            }
+
+            bool isRedlineMode = currentMode == GameMode.Redline;
 
             foreach (var (velocity, input, driftState, damage, transform, laneFollower) in
                 SystemAPI.Query<RefRW<Velocity>, RefRO<PlayerInput>, RefRW<DriftState>,
@@ -71,10 +86,26 @@ namespace Nightflow.Systems
                 float throttle = input.ValueRO.Throttle;
                 float brake = input.ValueRO.Brake;
 
-                // Accelerate
+                // Accelerate - with mode-specific behavior
                 if (throttle > 0.01f)
                 {
-                    vel.Forward += throttle * Acceleration * deltaTime;
+                    if (isRedlineMode)
+                    {
+                        // REDLINE MODE: No top speed, but acceleration decreases asymptotically
+                        // Formula: effectiveAccel = baseAccel / (1 + speed/referenceSpeed)
+                        // At 0 m/s: full acceleration
+                        // At 50 m/s: half acceleration
+                        // At 100 m/s: 1/3 acceleration
+                        // At 150 m/s: 1/4 acceleration ... and so on
+                        float accelModifier = 1f / (1f + vel.Forward / RedlineReferenceSpeed);
+                        float effectiveAccel = RedlineBaseAcceleration * accelModifier;
+                        vel.Forward += throttle * effectiveAccel * deltaTime;
+                    }
+                    else
+                    {
+                        // Normal mode acceleration
+                        vel.Forward += throttle * Acceleration * deltaTime;
+                    }
                 }
 
                 // Brake
@@ -83,16 +114,21 @@ namespace Nightflow.Systems
                     vel.Forward -= brake * BrakeDeceleration * deltaTime;
                 }
 
-                // Natural deceleration (aerodynamic drag)
-                vel.Forward -= vel.Forward * DragCoefficient;
+                // Natural deceleration (aerodynamic drag) - reduced in Redline mode
+                float drag = isRedlineMode ? RedlineDragCoefficient : DragCoefficient;
+                vel.Forward -= vel.Forward * drag;
 
                 // =============================================================
                 // Forward Velocity Constraint (CRITICAL)
                 // =============================================================
                 // v_f >= v_min - spins never stall the run
                 // This is the core design rule that allows 360° spins
+                //
+                // In Redline mode: No upper limit! Push your speed to the limit.
+                // In other modes: Capped at MaxForwardSpeed
 
-                vel.Forward = math.clamp(vel.Forward, MinForwardSpeed, MaxForwardSpeed);
+                float maxSpeed = isRedlineMode ? float.MaxValue : MaxForwardSpeed;
+                vel.Forward = math.clamp(vel.Forward, MinForwardSpeed, maxSpeed);
 
                 // =============================================================
                 // Yaw Dynamics: ψ̈ = τ_steer + τ_drift - c_ψ·ψ̇

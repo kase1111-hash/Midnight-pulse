@@ -593,3 +593,226 @@
 .flash {
     animation: flash 0.5s infinite;
 }
+
+/* ============================================================================
+   Game Mode Selection
+   ============================================================================ */
+.mode-select-panel {
+    min-width: 500px;
+    background-color: rgba(10, 10, 20, 0.85);
+}
+
+.mode-select-title {
+    font-size: 28px;
+    color: var(--color-cyan);
+    -unity-font-style: bold;
+    text-shadow: var(--glow-cyan);
+    margin-bottom: var(--spacing-lg);
+    letter-spacing: 3px;
+}
+
+.mode-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: var(--spacing-lg);
+}
+
+.mode-card {
+    width: 200px;
+    height: 140px;
+    margin: var(--spacing-sm);
+    background-color: rgba(20, 20, 35, 0.9);
+    border-width: 2px;
+    border-color: rgba(0, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: var(--spacing-md);
+    align-items: center;
+    justify-content: space-between;
+    transition-duration: 0.2s;
+}
+
+.mode-card:hover {
+    border-color: var(--color-cyan);
+    background-color: rgba(0, 255, 255, 0.1);
+    scale: 1.05 1.05;
+}
+
+.mode-card.selected {
+    border-color: var(--color-magenta);
+    background-color: rgba(255, 0, 255, 0.15);
+}
+
+.mode-card.nightflow {
+    border-color: rgba(0, 255, 255, 0.5);
+}
+
+.mode-card.redline {
+    border-color: rgba(255, 50, 50, 0.5);
+}
+
+.mode-card.redline:hover,
+.mode-card.redline.selected {
+    border-color: #FF3333;
+    background-color: rgba(255, 50, 50, 0.15);
+}
+
+.mode-card.ghost {
+    border-color: rgba(100, 200, 255, 0.5);
+}
+
+.mode-card.ghost:hover,
+.mode-card.ghost.selected {
+    border-color: #66CCFF;
+    background-color: rgba(100, 200, 255, 0.15);
+}
+
+.mode-card.freeflow {
+    border-color: rgba(100, 255, 150, 0.5);
+}
+
+.mode-card.freeflow:hover,
+.mode-card.freeflow.selected {
+    border-color: #66FF99;
+    background-color: rgba(100, 255, 150, 0.15);
+}
+
+.mode-name {
+    font-size: 18px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    margin-bottom: var(--spacing-xs);
+}
+
+.mode-name.nightflow { color: var(--color-cyan); }
+.mode-name.redline { color: #FF3333; }
+.mode-name.ghost { color: #66CCFF; }
+.mode-name.freeflow { color: #66FF99; }
+
+.mode-description {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    text-align: center;
+    white-space: normal;
+}
+
+.mode-icon {
+    font-size: 32px;
+    margin-bottom: var(--spacing-sm);
+}
+
+/* Ghost Mode Seed Input */
+.seed-input-container {
+    flex-direction: row;
+    align-items: center;
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-sm);
+    background-color: rgba(100, 200, 255, 0.1);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(100, 200, 255, 0.3);
+}
+
+.seed-label {
+    font-size: 12px;
+    color: #66CCFF;
+    margin-right: var(--spacing-sm);
+    -unity-font-style: bold;
+}
+
+.seed-input {
+    width: 120px;
+    height: 24px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-width: 1px;
+    border-color: #66CCFF;
+    border-radius: 3px;
+    color: var(--color-white);
+    font-size: 14px;
+    padding: 2px 6px;
+    -unity-font-style: bold;
+}
+
+.seed-input:focus {
+    border-color: var(--color-cyan);
+    background-color: rgba(0, 50, 80, 0.5);
+}
+
+/* Redline Mode Stats Display */
+.redline-hud {
+    position: absolute;
+    top: 100px;
+    right: var(--spacing-lg);
+    align-items: flex-end;
+    padding: var(--spacing-md);
+    background-color: rgba(255, 50, 50, 0.1);
+    border-width: 1px;
+    border-color: rgba(255, 50, 50, 0.5);
+    border-radius: 8px;
+}
+
+.redline-speed {
+    font-size: 48px;
+    color: #FF3333;
+    -unity-font-style: bold;
+    text-shadow: 0 0 15px rgba(255, 50, 50, 0.8);
+}
+
+.redline-peak {
+    font-size: 14px;
+    color: rgba(255, 100, 100, 0.8);
+    margin-top: var(--spacing-xs);
+}
+
+.redline-milestone {
+    font-size: 12px;
+    color: rgba(255, 150, 150, 0.6);
+    margin-top: var(--spacing-xs);
+}
+
+.redline-milestone.achieved {
+    color: #FFAA00;
+    -unity-font-style: bold;
+}
+
+/* Mode indicator in HUD */
+.mode-indicator {
+    position: absolute;
+    top: var(--spacing-md);
+    left: 50%;
+    translate: -50% 0;
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: 4px;
+    border-width: 1px;
+}
+
+.mode-indicator.nightflow {
+    background-color: rgba(0, 255, 255, 0.1);
+    border-color: rgba(0, 255, 255, 0.3);
+}
+
+.mode-indicator.redline {
+    background-color: rgba(255, 50, 50, 0.1);
+    border-color: rgba(255, 50, 50, 0.3);
+}
+
+.mode-indicator.ghost {
+    background-color: rgba(100, 200, 255, 0.1);
+    border-color: rgba(100, 200, 255, 0.3);
+}
+
+.mode-indicator.freeflow {
+    background-color: rgba(100, 255, 150, 0.1);
+    border-color: rgba(100, 255, 150, 0.3);
+}
+
+.mode-indicator-text {
+    font-size: 10px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+}
+
+.mode-indicator-text.nightflow { color: var(--color-cyan); }
+.mode-indicator-text.redline { color: #FF3333; }
+.mode-indicator-text.ghost { color: #66CCFF; }
+.mode-indicator-text.freeflow { color: #66FF99; }

@@ -4,6 +4,7 @@
 
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Collections;
 
 namespace Nightflow.Components
 {
@@ -200,4 +201,157 @@ namespace Nightflow.Components
     /// Singleton tag for main UI controller entity.
     /// </summary>
     public struct UIControllerTag : IComponentData { }
+
+    // ============================================================================
+    // Game Mode Components
+    // ============================================================================
+
+    /// <summary>
+    /// Available game modes.
+    /// </summary>
+    public enum GameMode : byte
+    {
+        /// <summary>
+        /// Standard gameplay with all features enabled.
+        /// Normal speed limits, hazards, traffic, and scoring.
+        /// </summary>
+        Nightflow = 0,
+
+        /// <summary>
+        /// No top speed limit - acceleration diminishes asymptotically.
+        /// Challenge mode for pushing speed limits. The faster you go,
+        /// the harder it is to go faster. Tests driver skill at extreme velocities.
+        /// Formula: acceleration = baseAccel / (1 + speed/referenceSpeed)
+        /// </summary>
+        Redline = 1,
+
+        /// <summary>
+        /// Race against a ghost of your previous run.
+        /// Input a seed to replay and compete against your past self.
+        /// Ghost vehicle shows your previous path in real-time.
+        /// </summary>
+        Ghost = 2,
+
+        /// <summary>
+        /// Relaxed driving with no hazards or damage.
+        /// Perfect for enjoying the scenery and practicing controls.
+        /// No scoring pressure, just the open road.
+        /// </summary>
+        Freeflow = 3
+    }
+
+    /// <summary>
+    /// Current game mode state singleton.
+    /// Controls gameplay rules and modifiers based on selected mode.
+    /// </summary>
+    public struct GameModeState : IComponentData
+    {
+        /// <summary>Currently active game mode.</summary>
+        public GameMode CurrentMode;
+
+        /// <summary>Whether mode selection menu is active.</summary>
+        public bool ModeSelectActive;
+
+        /// <summary>Session seed for ghost recording/playback.</summary>
+        public uint SessionSeed;
+
+        /// <summary>Whether currently recording for ghost mode.</summary>
+        public bool IsRecording;
+
+        /// <summary>Whether playing back a ghost run.</summary>
+        public bool IsPlayingGhost;
+
+        /// <summary>Current speed record for Redline mode (m/s).</summary>
+        public float RedlineMaxSpeed;
+
+        /// <summary>Best speed ever achieved in Redline mode (m/s).</summary>
+        public float RedlinePersonalBest;
+
+        /// <summary>Time spent above 100 m/s in current Redline run.</summary>
+        public float RedlineExtreme;
+    }
+
+    /// <summary>
+    /// Configuration for ghost mode racing.
+    /// </summary>
+    public struct GhostModeConfig : IComponentData
+    {
+        /// <summary>Seed for deterministic run generation.</summary>
+        public uint RunSeed;
+
+        /// <summary>Whether ghost vehicle is visible.</summary>
+        public bool ShowGhost;
+
+        /// <summary>Ghost vehicle transparency (0-1).</summary>
+        public float GhostAlpha;
+
+        /// <summary>Color tint for ghost vehicle.</summary>
+        public float4 GhostColor;
+
+        /// <summary>Time offset for ghost (negative = ghost ahead).</summary>
+        public float TimeOffset;
+
+        /// <summary>Whether to show ghost trail.</summary>
+        public bool ShowTrail;
+    }
+
+    /// <summary>
+    /// Redline mode statistics for the current run.
+    /// </summary>
+    public struct RedlineStats : IComponentData
+    {
+        /// <summary>Peak speed reached this run (m/s).</summary>
+        public float PeakSpeed;
+
+        /// <summary>Current speed (m/s).</summary>
+        public float CurrentSpeed;
+
+        /// <summary>Time to reach 100 m/s.</summary>
+        public float TimeTo100;
+
+        /// <summary>Time to reach 150 m/s.</summary>
+        public float TimeTo150;
+
+        /// <summary>Time to reach 200 m/s.</summary>
+        public float TimeTo200;
+
+        /// <summary>Total distance traveled this run.</summary>
+        public float TotalDistance;
+
+        /// <summary>Whether 100 m/s milestone was reached.</summary>
+        public bool Reached100;
+
+        /// <summary>Whether 150 m/s milestone was reached.</summary>
+        public bool Reached150;
+
+        /// <summary>Whether 200 m/s milestone was reached.</summary>
+        public bool Reached200;
+    }
+
+    /// <summary>
+    /// Mode-specific display data for UI.
+    /// </summary>
+    public struct ModeDisplayState : IComponentData
+    {
+        /// <summary>Mode name to display.</summary>
+        public FixedString32Bytes ModeName;
+
+        /// <summary>Mode description for UI.</summary>
+        public FixedString128Bytes ModeDescription;
+
+        /// <summary>Whether to show speed-focused HUD (Redline).</summary>
+        public bool ShowSpeedHUD;
+
+        /// <summary>Whether to show ghost comparison (Ghost mode).</summary>
+        public bool ShowGhostComparison;
+
+        /// <summary>Whether to show relaxed HUD (Freeflow).</summary>
+        public bool ShowRelaxedHUD;
+
+        /// <summary>Time difference vs ghost (positive = ahead).</summary>
+        public float GhostTimeDelta;
+
+        /// <summary>Distance difference vs ghost (positive = ahead).</summary>
+        public float GhostDistanceDelta;
+    }
 }
