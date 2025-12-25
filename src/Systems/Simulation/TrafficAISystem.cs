@@ -8,6 +8,7 @@ using Unity.Burst;
 using Unity.Mathematics;
 using Unity.Collections;
 using Nightflow.Components;
+using Nightflow.Components.Signaling;
 using Nightflow.Buffers;
 using Nightflow.Tags;
 using Nightflow.Utilities;
@@ -118,6 +119,37 @@ namespace Nightflow.Systems
             }
 
             // =============================================================
+            // Build Hazard Position List for Avoidance Scoring
+            // =============================================================
+
+            var hazardData = new NativeList<HazardPositionData>(Allocator.Temp);
+
+            foreach (var (transform, hazard) in
+                SystemAPI.Query<RefRO<WorldTransform>, RefRO<Hazard>>()
+                    .WithAll<HazardTag>())
+            {
+                // Skip already-hit hazards
+                if (hazard.ValueRO.Hit) continue;
+
+                // Estimate lane from X position
+                float3 hazardPos = transform.ValueRO.Position;
+                int hazardLane = (int)math.round((hazardPos.x / LaneWidth) + 1.5f);
+                hazardLane = math.clamp(hazardLane, 0, 3);
+
+                // Determine if lethal (barrier or crashed car)
+                bool isLethal = hazard.ValueRO.Type == HazardType.Barrier ||
+                               hazard.ValueRO.Type == HazardType.CrashedCar;
+
+                hazardData.Add(new HazardPositionData
+                {
+                    Position = hazardPos,
+                    Lane = hazardLane,
+                    Severity = hazard.ValueRO.Severity,
+                    IsLethal = isLethal
+                });
+            }
+
+            // =============================================================
             // Process Each Traffic Vehicle
             // =============================================================
 
@@ -174,7 +206,7 @@ namespace Nightflow.Systems
                         lane, currentLane, myPos,
                         playerPos, playerLane, playerSpeed,
                         emergencyPos, emergencyLane, emergencyApproaching,
-                        ref trafficData, trafficAI.ValueRO.TargetSpeed
+                        ref trafficData, ref hazardData, trafficAI.ValueRO.TargetSpeed
                     );
 
                     // Cache scores
@@ -237,6 +269,45 @@ namespace Nightflow.Systems
                     }
                 }
 
+                // =============================================================
+                // Hazard Avoidance Speed Control
+                // Slow down when approaching hazards in current lane
+                // =============================================================
+
+                for (int i = 0; i < hazardData.Length; i++)
+                {
+                    var hazard = hazardData[i];
+
+                    // Only consider hazards in current lane
+                    if (hazard.Lane != currentLane) continue;
+
+                    float dz = hazard.Position.z - myPos.z;
+
+                    // Only hazards ahead
+                    if (dz <= 0 || dz > LookAheadDistance) continue;
+
+                    // Calculate reaction distance based on current speed
+                    float reactionDist = velocity.ValueRO.Forward * 1.5f; // 1.5 second reaction time
+
+                    if (dz < reactionDist)
+                    {
+                        // Need to slow down - hazard is within reaction distance
+                        float brakeUrgency = math.saturate(1f - (dz / reactionDist));
+
+                        // Lethal hazards require harder braking
+                        if (hazard.IsLethal)
+                        {
+                            brakeUrgency = math.max(brakeUrgency, 0.5f);
+                            targetSpeed *= (1f - 0.6f * brakeUrgency);
+                        }
+                        else
+                        {
+                            // Non-lethal: moderate slowdown
+                            targetSpeed *= (1f - 0.3f * brakeUrgency * hazard.Severity);
+                        }
+                    }
+                }
+
                 trafficAI.ValueRW.TargetSpeed = math.max(targetSpeed, MinSpeed);
 
                 // =============================================================
@@ -247,6 +318,7 @@ namespace Nightflow.Systems
             }
 
             trafficData.Dispose();
+            hazardData.Dispose();
         }
 
         private float CalculateLaneScore(
@@ -254,6 +326,7 @@ namespace Nightflow.Systems
             float3 playerPos, int playerLane, float playerSpeed,
             float3 emergencyPos, int emergencyLane, bool emergencyApproaching,
             ref NativeList<TrafficPositionData> trafficData,
+            ref NativeList<HazardPositionData> hazardData,
             float targetSpeed)
         {
             float score = 0f;
@@ -322,10 +395,64 @@ namespace Nightflow.Systems
             // =============================================================
             // S_hazard: Hazard Avoidance
             // S_hazard = clamp(d_h/d_safe, 0, 1)
+            // Weight by severity: lethal hazards get stronger avoidance
             // =============================================================
 
-            // TODO: Query actual hazards
             float hazardScore = 1f;
+            float nearestHazardDist = float.MaxValue;
+            float worstSeverity = 0f;
+            bool hasLethalHazard = false;
+
+            for (int i = 0; i < hazardData.Length; i++)
+            {
+                var hazard = hazardData[i];
+
+                // Only consider hazards in this lane or adjacent
+                // (hazards can affect adjacent lanes slightly)
+                int laneDiff = math.abs(hazard.Lane - lane);
+                if (laneDiff > 1) continue;
+
+                // Calculate forward distance to hazard
+                float dz = hazard.Position.z - myPos.z;
+
+                // Only consider hazards ahead within look-ahead distance
+                if (dz <= 0 || dz > LookAheadDistance) continue;
+
+                // For adjacent lanes, hazard influence is reduced
+                float laneInfluence = laneDiff == 0 ? 1f : 0.3f;
+
+                // Track nearest relevant hazard
+                if (dz < nearestHazardDist && laneDiff == 0)
+                {
+                    nearestHazardDist = dz;
+                    worstSeverity = hazard.Severity;
+                    hasLethalHazard = hazard.IsLethal;
+                }
+
+                // Also track if any hazard in lane is lethal (extra avoidance)
+                if (laneDiff == 0 && hazard.IsLethal)
+                {
+                    hasLethalHazard = true;
+                }
+            }
+
+            if (nearestHazardDist < float.MaxValue)
+            {
+                // Base score: S_hazard = clamp(d_h/d_safe, 0, 1)
+                hazardScore = math.saturate(nearestHazardDist / SafeDistance);
+
+                // Severity modifier: more severe = lower score
+                // Score reduced by severity factor (0.2 to 1.0)
+                float severityPenalty = 1f - (worstSeverity * 0.5f);
+                hazardScore *= severityPenalty;
+
+                // Lethal hazards get extra penalty - avoid at all costs
+                if (hasLethalHazard)
+                {
+                    hazardScore *= 0.3f;
+                }
+            }
+
             score += WeightHazard * hazardScore;
 
             // =============================================================
@@ -377,6 +504,12 @@ namespace Nightflow.Systems
             public float Speed;
         }
 
-        private const float LookAheadDistance = 50f;
+        private struct HazardPositionData
+        {
+            public float3 Position;
+            public int Lane;
+            public float Severity;
+            public bool IsLethal;
+        }
     }
 }

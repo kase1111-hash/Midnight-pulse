@@ -70,8 +70,16 @@ namespace Nightflow.UI
         private VisualElement pauseOverlay;
         private VisualElement gameOverOverlay;
         private VisualElement fadeOverlay;
+        private VisualElement mainMenuOverlay;
+        private VisualElement creditsOverlay;
         private Label crashTitle;
         private Label highscoreLabel;
+
+        // Main menu elements
+        private Label gameTitle;
+        private Label pressStartText;
+        private VisualElement mainMenuItems;
+        private List<VisualElement> menuItemElements = new List<VisualElement>();
 
         // Score summary labels
         private Label summaryDistance;
@@ -187,8 +195,19 @@ namespace Nightflow.UI
             pauseOverlay = root.Q<VisualElement>("pause-overlay");
             gameOverOverlay = root.Q<VisualElement>("gameover-overlay");
             fadeOverlay = root.Q<VisualElement>("fade-overlay");
+            mainMenuOverlay = root.Q<VisualElement>("main-menu-overlay");
+            creditsOverlay = root.Q<VisualElement>("credits-overlay");
             crashTitle = root.Q<Label>("crash-title");
             highscoreLabel = root.Q<Label>("highscore-label");
+
+            // Main menu elements
+            gameTitle = root.Q<Label>("game-title");
+            pressStartText = root.Q<Label>("press-start-text");
+            mainMenuItems = root.Q<VisualElement>("main-menu-items");
+            if (mainMenuItems != null)
+            {
+                mainMenuItems.Query<VisualElement>(className: "main-menu-item").ForEach(item => menuItemElements.Add(item));
+            }
 
             // Score summary
             summaryDistance = root.Q<Label>("summary-distance");
@@ -210,10 +229,12 @@ namespace Nightflow.UI
             // Pause menu buttons
             var resumeButton = root.Q<Button>("resume-button");
             var restartButtonPause = root.Q<Button>("restart-button-pause");
+            var settingsButton = root.Q<Button>("settings-button");
             var quitButtonPause = root.Q<Button>("quit-button-pause");
 
             if (resumeButton != null) resumeButton.clicked += OnResumeClicked;
             if (restartButtonPause != null) restartButtonPause.clicked += OnRestartClicked;
+            if (settingsButton != null) settingsButton.clicked += OnSettingsClicked;
             if (quitButtonPause != null) quitButtonPause.clicked += OnQuitClicked;
 
             // Game over buttons
@@ -222,6 +243,16 @@ namespace Nightflow.UI
 
             if (restartButtonGameover != null) restartButtonGameover.clicked += OnRestartClicked;
             if (quitButtonGameover != null) quitButtonGameover.clicked += OnQuitClicked;
+        }
+
+        private void OnSettingsClicked()
+        {
+            // Find SettingsUIController and show it
+            var settingsController = FindAnyObjectByType<SettingsUIController>();
+            if (settingsController != null)
+            {
+                settingsController.Show();
+            }
         }
 
         private void Update()
@@ -560,6 +591,29 @@ namespace Nightflow.UI
 
         private void UpdateOverlays(UIState state)
         {
+            // Check for main menu
+            if (state.ShowMainMenu)
+            {
+                ShowMainMenu(state);
+            }
+            else if (mainMenuOverlay != null && !mainMenuOverlay.ClassListContains("hidden"))
+            {
+                mainMenuOverlay.AddToClassList("hidden");
+            }
+
+            // Check for credits
+            if (state.ShowCredits)
+            {
+                if (creditsOverlay != null)
+                {
+                    creditsOverlay.RemoveFromClassList("hidden");
+                }
+            }
+            else if (creditsOverlay != null && !creditsOverlay.ClassListContains("hidden"))
+            {
+                creditsOverlay.AddToClassList("hidden");
+            }
+
             // Check for pause menu
             if (state.ShowPauseMenu)
             {
@@ -599,6 +653,50 @@ namespace Nightflow.UI
         {
             if (pauseOverlay != null) pauseOverlay.AddToClassList("hidden");
             if (gameOverOverlay != null) gameOverOverlay.AddToClassList("hidden");
+            if (mainMenuOverlay != null) mainMenuOverlay.AddToClassList("hidden");
+            if (creditsOverlay != null) creditsOverlay.AddToClassList("hidden");
+        }
+
+        private void ShowMainMenu(UIState state)
+        {
+            if (mainMenuOverlay != null)
+            {
+                mainMenuOverlay.RemoveFromClassList("hidden");
+            }
+
+            // Update title animation
+            if (gameTitle != null)
+            {
+                gameTitle.AddToClassList("animated");
+            }
+
+            // Update "Press Start" blink
+            if (pressStartText != null)
+            {
+                if (state.ShowPressStart)
+                {
+                    pressStartText.style.display = DisplayStyle.Flex;
+                    pressStartText.AddToClassList("blink");
+                }
+                else
+                {
+                    pressStartText.RemoveFromClassList("blink");
+                }
+            }
+
+            // Update menu item selection
+            for (int i = 0; i < menuItemElements.Count; i++)
+            {
+                var item = menuItemElements[i];
+                if (i == state.MainMenuSelection)
+                {
+                    item.AddToClassList("selected");
+                }
+                else
+                {
+                    item.RemoveFromClassList("selected");
+                }
+            }
         }
 
         private void ShowPauseMenu()

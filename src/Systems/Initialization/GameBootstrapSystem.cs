@@ -192,6 +192,57 @@ namespace Nightflow.Systems
             ecb.AddBuffer<InputLogEntry>(playerEntity);
 
             // =============================================================
+            // Add Audio Components to Player
+            // =============================================================
+
+            ecb.AddComponent(playerEntity, new EngineAudio
+            {
+                IsActive = true,
+                RPM = 800f,
+                TargetRPM = 800f,
+                ThrottleInput = 0f,
+                Load = 0f,
+                IdleVolume = 0.5f,
+                LowRPMVolume = 0f,
+                MidRPMVolume = 0f,
+                HighRPMVolume = 0f,
+                BasePitch = 1f,
+                CurrentPitch = 1f,
+                State = EngineState.Idle,
+                StateTimer = 0f
+            });
+
+            ecb.AddComponent(playerEntity, new TireAudio
+            {
+                IsActive = true,
+                Speed = 0f,
+                SlipRatio = 0f,
+                SurfaceType = 0f,
+                RollVolume = 0f,
+                SkidVolume = 0f,
+                WheelSlip = float4.zero
+            });
+
+            ecb.AddComponent(playerEntity, new WindAudio
+            {
+                IsActive = true,
+                Speed = 0f,
+                Volume = 0f,
+                Pitch = 1f,
+                TurbulenceAmount = 0f
+            });
+
+            ecb.AddComponent(playerEntity, new ScrapeAudio
+            {
+                IsActive = false,
+                ContactPoint = float3.zero,
+                Intensity = 0f,
+                Volume = 0f,
+                Pitch = 1f,
+                Duration = 0f
+            });
+
+            // =============================================================
             // Create Camera
             // =============================================================
 
@@ -213,6 +264,175 @@ namespace Nightflow.Systems
             {
                 Position = playerPos - new float3(0, -3f, 8f),
                 Rotation = quaternion.identity
+            });
+
+            // Audio listener on camera
+            ecb.AddComponent(cameraEntity, new AudioListener
+            {
+                Position = playerPos - new float3(0, -3f, 8f),
+                Velocity = float3.zero,
+                Forward = new float3(0, 0, 1),
+                Up = new float3(0, 1, 0)
+            });
+
+            // =============================================================
+            // Create Audio Controller Entity
+            // =============================================================
+
+            Entity audioEntity = ecb.CreateEntity();
+
+            // Audio configuration singleton
+            ecb.AddComponent(audioEntity, new AudioConfig
+            {
+                MasterVolume = 1f,
+                MusicVolume = 0.7f,
+                SFXVolume = 0.8f,
+                EngineVolume = 0.8f,
+                AmbientVolume = 0.5f,
+                DopplerScale = 1f,
+                SpeedOfSound = 343f,
+                MinDistance = 2f,
+                MaxDistance = 100f,
+                RolloffFactor = 1f,
+                EngineRPMSmoothing = 5f,
+                EnginePitchRange = 1.2f,
+                MusicIntensitySmoothing = 2f,
+                MusicCrossfadeDuration = 2f
+            });
+
+            // Music state
+            ecb.AddComponent(audioEntity, new MusicState
+            {
+                IsPlaying = true,
+                CurrentTrack = MusicTrack.MainGameplay,
+                Intensity = 0.3f,
+                TargetIntensity = 0.3f,
+                IntensitySmoothing = 2f,
+                BaseLayerVolume = 0.8f,
+                LowIntensityVolume = 0f,
+                HighIntensityVolume = 0f,
+                StingerVolume = 0f,
+                BPM = 120f,
+                CurrentBeat = 0f,
+                MeasurePosition = 0f,
+                PendingTransition = MusicTransition.None,
+                TransitionProgress = 0f
+            });
+
+            // Ambient audio - start with open road
+            ecb.AddComponent(audioEntity, new AmbientAudio
+            {
+                IsActive = true,
+                Type = AmbientType.OpenRoad,
+                Volume = 0.3f,
+                TargetVolume = 0.3f,
+                FadeSpeed = 1f,
+                Pitch = 1f
+            });
+
+            // Audio event buffers
+            ecb.AddBuffer<UIAudioEvent>(audioEntity);
+            ecb.AddBuffer<OneShotAudioRequest>(audioEntity);
+            ecb.AddBuffer<CollisionAudioEvent>(audioEntity);
+            ecb.AddBuffer<MusicIntensityEvent>(audioEntity);
+
+            // =============================================================
+            // Create UI Controller Entity
+            // =============================================================
+
+            Entity uiEntity = ecb.CreateEntity();
+
+            ecb.AddComponent(uiEntity, new UIState
+            {
+                SpeedKmh = 0f,
+                SpeedMph = 0f,
+                SpeedTier = 0,
+                Score = 0f,
+                DisplayScore = 0f,
+                Multiplier = 1f,
+                HighestMultiplier = 1f,
+                MultiplierFlash = false,
+                RiskValue = 0f,
+                RiskCap = 1f,
+                RiskPercent = 0f,
+                DamageTotal = 0f,
+                DamageFront = 0f,
+                DamageRear = 0f,
+                DamageLeft = 0f,
+                DamageRight = 0f,
+                DamageFlash = false,
+                CriticalDamage = false,
+                WarningPriority = 0,
+                WarningFlash = false,
+                EmergencyDistance = 0f,
+                EmergencyETA = 0f,
+                DistanceKm = 0f,
+                TimeSurvived = 0f,
+                SignalCount = 0,
+                Signal0 = float4.zero,
+                Signal1 = float4.zero,
+                Signal2 = float4.zero,
+                Signal3 = float4.zero,
+                ShowPauseMenu = false,
+                ShowCrashOverlay = false,
+                ShowScoreSummary = false,
+                ShowModeSelect = false,
+                ShowMainMenu = true,      // Start at main menu
+                ShowCredits = false,
+                OverlayAlpha = 0f,
+                ShowPressStart = true,    // Show "Press Start" initially
+                MainMenuSelection = 0
+            });
+
+            ecb.AddComponent(uiEntity, new GameState
+            {
+                IsPaused = true,          // Game paused at main menu
+                PauseCooldown = 0f,
+                PauseCooldownMax = 5f,
+                CrashPhase = CrashFlowPhase.None,
+                CrashPhaseTimer = 0f,
+                FadeAlpha = 0f,
+                AutopilotQueued = false,
+                PlayerControlActive = false,  // No player control at menu
+                IdleTimer = 0f,
+                CurrentMenu = MenuState.MainMenu,  // Start at main menu
+                MenuVisible = true,
+                TimeScale = 0f            // Time stopped at menu
+            });
+
+            ecb.AddComponent<UIControllerTag>(uiEntity);
+            ecb.AddBuffer<HUDNotification>(uiEntity);
+
+            // Copy audio buffers to UI entity for event system access
+            ecb.AddBuffer<UIAudioEvent>(uiEntity);
+            ecb.AddBuffer<OneShotAudioRequest>(uiEntity);
+
+            // =============================================================
+            // Create Main Menu State Entity
+            // =============================================================
+
+            Entity menuEntity = ecb.CreateEntity();
+
+            ecb.AddComponent(menuEntity, new MainMenuState
+            {
+                SelectedIndex = 0,
+                ItemCount = 5,  // Play, Leaderboard, Settings, Credits, Quit
+                TitleAnimationComplete = false,
+                DisplayTime = 0f,
+                InputReceived = false,
+                BlinkTimer = 0f,
+                ShowPressStart = true
+            });
+
+            ecb.AddComponent(menuEntity, new GameSessionState
+            {
+                CurrentPhase = GameFlowPhase.TitleScreen,
+                PreviousPhase = GameFlowPhase.TitleScreen,
+                TransitionProgress = 0f,
+                SessionActive = false,
+                RunCount = 0,
+                CreditsViewed = false,
+                LastSelectedMode = GameMode.Nightflow
             });
 
             // Playback command buffer
