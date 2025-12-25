@@ -218,8 +218,7 @@ namespace Nightflow.Systems.Presentation
     /// Detects collisions and creates collision events for spark spawning.
     /// </summary>
     [BurstCompile]
-    [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateBefore(typeof(PresentationSystemGroup))]
+    [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
     public partial struct CollisionDetectionSystem : ISystem
     {
         public void OnCreate(ref SystemState state)

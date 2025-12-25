@@ -6,7 +6,6 @@
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Transforms;
 using Nightflow.Components;
 
 namespace Nightflow.Systems.Audio
@@ -56,8 +55,8 @@ namespace Nightflow.Systems.Audio
             AudioConfig config = SystemAPI.GetSingleton<AudioConfig>();
 
             // Update engine audio for all vehicles with engine audio
-            foreach (var (engineAudio, velocity, transform) in
-                SystemAPI.Query<RefRW<EngineAudio>, RefRO<VehicleVelocity>, RefRO<LocalTransform>>())
+            foreach (var (engineAudio, velocity) in
+                SystemAPI.Query<RefRW<EngineAudio>, RefRO<VehicleVelocity>>())
             {
                 if (!engineAudio.ValueRO.IsActive)
                     continue;
@@ -218,7 +217,7 @@ namespace Nightflow.Systems.Audio
 
             Entities
                 .WithoutBurst()
-                .ForEach((in EngineAudio engine, in LocalTransform transform) =>
+                .ForEach((in EngineAudio engine, in WorldTransform transform) =>
                 {
                     if (!engine.IsActive) return;
 

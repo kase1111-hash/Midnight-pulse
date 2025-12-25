@@ -86,7 +86,7 @@ namespace Nightflow.Systems
                 SirenVolume = 0f,
                 SirenPitch = 1f,
                 SirenActive = false,
-                CurrentZone = ReverbZone.OpenRoad,
+                CurrentZone = ReverbZoneType.OpenRoad,
                 ReverbMix = 0.1f,
                 ReverbDecay = 0.3f,
                 MusicIntensity = 0.5f,

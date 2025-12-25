@@ -238,7 +238,7 @@ namespace Nightflow.Systems
                 // =============================================================
 
                 // Detect current zone based on track segment type
-                ReverbZone currentZone = ReverbZone.OpenRoad;
+                ReverbZoneType currentZone = ReverbZoneType.OpenRoad;
                 float reverbMix = OpenRoadReverbMix;
                 float reverbDecay = OpenRoadReverbDecay;
 
@@ -254,13 +254,13 @@ namespace Nightflow.Systems
 
                         if (segType == 2) // Tunnel
                         {
-                            currentZone = ReverbZone.Tunnel;
+                            currentZone = ReverbZoneType.Tunnel;
                             reverbMix = TunnelReverbMix;
                             reverbDecay = TunnelReverbDecay;
                         }
                         else if (segType == 3) // Overpass
                         {
-                            currentZone = ReverbZone.Overpass;
+                            currentZone = ReverbZoneType.Overpass;
                             reverbMix = OverpassReverbMix;
                             reverbDecay = OverpassReverbDecay;
                         }
