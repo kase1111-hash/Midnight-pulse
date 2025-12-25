@@ -107,6 +107,8 @@ namespace Nightflow.Input
 
         #region Input Mode Detection
 
+        private float lastWheelInputTime;
+
         private void DetectInputMode()
         {
             if (currentInputMode != InputMode.Auto)
@@ -115,21 +117,34 @@ namespace Nightflow.Input
                 return;
             }
 
+            // Check for wheel input first (highest priority when connected)
+            if (HasWheelInput())
+            {
+                lastWheelInputTime = Time.unscaledTime;
+            }
+
             // Check for keyboard input
-            if (UnityEngine.Input.anyKeyDown && !IsGamepadInput())
+            if (UnityEngine.Input.anyKeyDown && !IsGamepadInput() && !IsWheelInput())
             {
                 lastKeyboardInputTime = Time.unscaledTime;
             }
 
             // Check for gamepad input
-            if (HasGamepadInput())
+            if (HasGamepadInput() && !IsWheelInput())
             {
                 lastGamepadInputTime = Time.unscaledTime;
             }
 
             // Switch mode based on most recent input
             InputMode newMode = detectedInputMode;
-            if (lastGamepadInputTime > lastKeyboardInputTime + InputModeSwapDelay)
+
+            // Wheel takes priority when connected and active
+            if (lastWheelInputTime > lastKeyboardInputTime + InputModeSwapDelay &&
+                lastWheelInputTime > lastGamepadInputTime + InputModeSwapDelay)
+            {
+                newMode = InputMode.Wheel;
+            }
+            else if (lastGamepadInputTime > lastKeyboardInputTime + InputModeSwapDelay)
             {
                 newMode = InputMode.Gamepad;
             }
@@ -143,6 +158,24 @@ namespace Nightflow.Input
                 detectedInputMode = newMode;
                 OnInputModeChanged?.Invoke(detectedInputMode);
             }
+        }
+
+        private bool IsWheelInput()
+        {
+            var wheelManager = WheelInputManager.Instance;
+            return wheelManager != null && wheelManager.IsWheelConnected;
+        }
+
+        private bool HasWheelInput()
+        {
+            var wheelManager = WheelInputManager.Instance;
+            if (wheelManager == null || !wheelManager.IsWheelConnected)
+                return false;
+
+            // Check for significant wheel input
+            return Mathf.Abs(wheelManager.Steering) > 0.1f ||
+                   wheelManager.Throttle > 0.1f ||
+                   wheelManager.Brake > 0.1f;
         }
 
         private bool IsGamepadInput()
@@ -296,6 +329,16 @@ namespace Nightflow.Input
         /// </summary>
         public float GetSteerAxis()
         {
+            // Use wheel steering when in wheel mode
+            if (detectedInputMode == InputMode.Wheel)
+            {
+                var wheelManager = WheelInputManager.Instance;
+                if (wheelManager != null && wheelManager.IsWheelConnected)
+                {
+                    return wheelManager.Steering;
+                }
+            }
+
             float left = GetActionAxis(InputAction.SteerLeft);
             float right = GetActionAxis(InputAction.SteerRight);
 
@@ -312,6 +355,54 @@ namespace Nightflow.Input
 
             float digital = right - left;
             return Mathf.Abs(analogSteer) > Mathf.Abs(digital) ? analogSteer : digital;
+        }
+
+        /// <summary>
+        /// Get throttle axis from wheel or standard input.
+        /// </summary>
+        public float GetWheelThrottle()
+        {
+            if (detectedInputMode == InputMode.Wheel)
+            {
+                var wheelManager = WheelInputManager.Instance;
+                if (wheelManager != null && wheelManager.IsWheelConnected)
+                {
+                    return wheelManager.Throttle;
+                }
+            }
+            return GetActionAxis(InputAction.Accelerate);
+        }
+
+        /// <summary>
+        /// Get brake axis from wheel or standard input.
+        /// </summary>
+        public float GetWheelBrake()
+        {
+            if (detectedInputMode == InputMode.Wheel)
+            {
+                var wheelManager = WheelInputManager.Instance;
+                if (wheelManager != null && wheelManager.IsWheelConnected)
+                {
+                    return wheelManager.Brake;
+                }
+            }
+            return GetActionAxis(InputAction.Brake);
+        }
+
+        /// <summary>
+        /// Get clutch axis from wheel (0 if not using wheel).
+        /// </summary>
+        public float GetWheelClutch()
+        {
+            if (detectedInputMode == InputMode.Wheel)
+            {
+                var wheelManager = WheelInputManager.Instance;
+                if (wheelManager != null && wheelManager.IsWheelConnected)
+                {
+                    return wheelManager.Clutch;
+                }
+            }
+            return 0f;
         }
 
         private InputBinding GetActiveBinding(InputAction action)

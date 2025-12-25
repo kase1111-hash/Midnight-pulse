@@ -231,6 +231,89 @@
 
     </ui:VisualElement>
 
+    <!-- Main Menu Overlay -->
+    <ui:VisualElement name="main-menu-overlay" class="overlay">
+        <ui:VisualElement name="main-menu-panel" class="menu-panel main-menu-panel">
+            <ui:Label name="game-title" text="MIDNIGHT PULSE" class="game-title" />
+            <ui:Label name="press-start-text" text="PRESS START" class="press-start-text blink" />
+            <ui:VisualElement name="main-menu-items" class="main-menu-items hidden">
+                <ui:Button name="menu-item-0" text="PLAY" class="menu-button main-menu-item selected" />
+                <ui:Button name="menu-item-1" text="LEADERBOARD" class="menu-button main-menu-item" />
+                <ui:Button name="menu-item-2" text="SETTINGS" class="menu-button main-menu-item" />
+                <ui:Button name="menu-item-3" text="CREDITS" class="menu-button main-menu-item" />
+                <ui:Button name="menu-item-4" text="QUIT" class="menu-button main-menu-item" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- Credits Overlay -->
+    <ui:VisualElement name="credits-overlay" class="overlay hidden">
+        <ui:VisualElement name="credits-panel" class="menu-panel credits-panel">
+            <ui:Label name="credits-title" text="CREDITS" class="menu-title" />
+            <ui:ScrollView name="credits-scroll" class="credits-scroll">
+                <ui:Label name="credits-content" text="MIDNIGHT PULSE\n\nA high-speed arcade racing experience\n\nDeveloped with Unity DOTS\n\nThank you for playing!" class="credits-content" />
+            </ui:ScrollView>
+            <ui:Button name="credits-back" text="BACK" class="menu-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- Mode Select Overlay -->
+    <ui:VisualElement name="mode-select-overlay" class="overlay hidden">
+        <ui:VisualElement name="mode-select-panel" class="menu-panel mode-select-panel">
+            <ui:Label name="mode-select-title" text="SELECT MODE" class="mode-select-title" />
+            <ui:VisualElement name="mode-grid" class="mode-grid">
+                <ui:VisualElement name="mode-nightflow" class="mode-card nightflow selected">
+                    <ui:Label text="NIGHTFLOW" class="mode-name nightflow" />
+                    <ui:Label text="Classic arcade racing through neon-lit streets" class="mode-description" />
+                </ui:VisualElement>
+                <ui:VisualElement name="mode-redline" class="mode-card redline">
+                    <ui:Label text="REDLINE" class="mode-name redline" />
+                    <ui:Label text="Push your speed to the absolute limit" class="mode-description" />
+                </ui:VisualElement>
+                <ui:VisualElement name="mode-ghost" class="mode-card ghost">
+                    <ui:Label text="GHOST" class="mode-name ghost" />
+                    <ui:Label text="Race against your best time" class="mode-description" />
+                </ui:VisualElement>
+                <ui:VisualElement name="mode-freeflow" class="mode-card freeflow">
+                    <ui:Label text="FREEFLOW" class="mode-name freeflow" />
+                    <ui:Label text="Relaxed driving with no pressure" class="mode-description" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="mode-buttons" class="settings-buttons">
+                <ui:Button name="mode-start" text="START" class="menu-button primary" />
+                <ui:Button name="mode-back" text="BACK" class="menu-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- Leaderboard Overlay -->
+    <ui:VisualElement name="leaderboard-overlay" class="overlay hidden">
+        <ui:VisualElement name="leaderboard-panel" class="leaderboard-panel">
+            <ui:VisualElement name="leaderboard-header" class="leaderboard-header">
+                <ui:Label name="leaderboard-title" text="HIGH SCORES" class="leaderboard-title" />
+                <ui:Label name="leaderboard-subtitle" text="TOP 10 PLAYERS" class="leaderboard-subtitle" />
+            </ui:VisualElement>
+            <ui:VisualElement name="leaderboard-filters" class="leaderboard-filters">
+                <ui:Button name="filter-all" text="ALL" class="filter-tab active" />
+                <ui:Button name="filter-nightflow" text="NIGHTFLOW" class="filter-tab nightflow" />
+                <ui:Button name="filter-redline" text="REDLINE" class="filter-tab redline" />
+            </ui:VisualElement>
+            <ui:VisualElement name="leaderboard-table" class="leaderboard-table">
+                <ui:VisualElement name="leaderboard-table-header" class="leaderboard-table-header">
+                    <ui:Label text="RANK" class="header-rank" />
+                    <ui:Label text="NAME" class="header-name" />
+                    <ui:Label text="SCORE" class="header-score" />
+                    <ui:Label text="STATS" class="header-stats" />
+                </ui:VisualElement>
+                <!-- Entries will be populated dynamically -->
+                <ui:VisualElement name="leaderboard-entries" class="leaderboard-entries" />
+            </ui:VisualElement>
+            <ui:VisualElement name="leaderboard-footer" class="leaderboard-footer">
+                <ui:Button name="leaderboard-back" text="BACK" class="leaderboard-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+
     <!-- Pause Menu Overlay -->
     <ui:VisualElement name="pause-overlay" class="overlay hidden">
         <ui:VisualElement name="pause-panel" class="menu-panel">
@@ -250,23 +333,27 @@
             <ui:VisualElement name="score-summary" class="score-summary">
                 <ui:VisualElement name="summary-row" class="summary-row">
                     <ui:Label text="FINAL SCORE" class="summary-label" />
-                    <ui:Label name="final-score" text="0" class="summary-value" />
+                    <ui:Label name="summary-finalscore" text="0" class="summary-value" />
                 </ui:VisualElement>
                 <ui:VisualElement name="summary-row" class="summary-row">
                     <ui:Label text="DISTANCE" class="summary-label" />
-                    <ui:Label name="final-distance" text="0.00 km" class="summary-value" />
+                    <ui:Label name="summary-distance" text="0.00 km" class="summary-value" />
                 </ui:VisualElement>
                 <ui:VisualElement name="summary-row" class="summary-row">
                     <ui:Label text="MAX SPEED" class="summary-label" />
-                    <ui:Label name="final-maxspeed" text="0 km/h" class="summary-value" />
+                    <ui:Label name="summary-maxspeed" text="0 km/h" class="summary-value" />
                 </ui:VisualElement>
                 <ui:VisualElement name="summary-row" class="summary-row">
-                    <ui:Label text="TIME" class="summary-label" />
-                    <ui:Label name="final-time" text="0:00" class="summary-value" />
+                    <ui:Label text="MAX MULTIPLIER" class="summary-label" />
+                    <ui:Label name="summary-maxmultiplier" text="x1.0" class="summary-value" />
                 </ui:VisualElement>
                 <ui:VisualElement name="summary-row" class="summary-row">
                     <ui:Label text="NEAR MISSES" class="summary-label" />
-                    <ui:Label name="final-nearmiss" text="0" class="summary-value" />
+                    <ui:Label name="summary-nearmisses" text="0" class="summary-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="summary-row" class="summary-row">
+                    <ui:Label text="PERFECT DODGES" class="summary-label" />
+                    <ui:Label name="summary-perfectdodges" text="0" class="summary-value" />
                 </ui:VisualElement>
             </ui:VisualElement>
 

@@ -81,6 +81,9 @@ namespace Nightflow.Save
         public InputBindingPreset KeyboardBindings;
         public InputBindingPreset GamepadBindings;
 
+        // Wheel settings (Logitech G920/G29)
+        public WheelSettings Wheel = new WheelSettings();
+
         public ControlSettings()
         {
             // Initialize with default bindings
@@ -141,6 +144,34 @@ namespace Nightflow.Save
         public bool MotionBlur = true;
         public bool Tutorials = true;
         public GameMode LastPlayedMode = GameMode.Nightflow;
+    }
+
+    /// <summary>
+    /// Steering wheel settings (Logitech G920/G29).
+    /// </summary>
+    [Serializable]
+    public class WheelSettings
+    {
+        // Force feedback
+        public bool ForceFeedbackEnabled = true;
+        [Range(0f, 1f)] public float ForceFeedbackStrength = 0.7f;
+        [Range(0f, 1f)] public float CollisionIntensity = 1.0f;
+        [Range(0f, 1f)] public float RoadSurfaceIntensity = 0.5f;
+        [Range(0f, 1f)] public float SpeedResistanceIntensity = 0.7f;
+
+        // Steering
+        [Range(0f, 0.1f)] public float SteeringDeadzone = 0.02f;
+        [Range(0.5f, 2f)] public float SteeringLinearity = 1.0f;
+        public bool InvertSteering = false;
+        [Range(180f, 900f)] public float WheelRotationDegrees = 900f;
+
+        // Pedals
+        [Range(0f, 0.2f)] public float PedalDeadzone = 0.05f;
+        public bool CombinedPedals = false;  // Some wheels have combined throttle/brake axis
+        public bool UseClutch = false;       // Whether to use clutch pedal
+
+        // Shifter
+        public bool UseHPatternShifter = false;
     }
 
     // ========================================================================
@@ -435,7 +466,8 @@ namespace Nightflow.Save
         Auto = 0,
         Keyboard = 1,
         Gamepad = 2,
-        Touch = 3
+        Touch = 3,
+        Wheel = 4
     }
 
     public enum SpeedUnit

@@ -137,12 +137,14 @@ namespace Nightflow.Systems
 
         /// <summary>
         /// Gets throttle input using InputBindingManager or legacy fallback.
+        /// Supports wheel pedals when in wheel mode.
         /// </summary>
         private float GetThrottleInput(InputBindingManager bindingManager)
         {
             if (bindingManager != null)
             {
-                return bindingManager.GetActionAxis(InputAction.Accelerate);
+                // Use wheel-aware throttle method
+                return bindingManager.GetWheelThrottle();
             }
 
             // Legacy fallback
@@ -158,12 +160,14 @@ namespace Nightflow.Systems
 
         /// <summary>
         /// Gets brake input using InputBindingManager or legacy fallback.
+        /// Supports wheel pedals when in wheel mode.
         /// </summary>
         private float GetBrakeInput(InputBindingManager bindingManager)
         {
             if (bindingManager != null)
             {
-                return bindingManager.GetActionAxis(InputAction.Brake);
+                // Use wheel-aware brake method
+                return bindingManager.GetWheelBrake();
             }
 
             // Legacy fallback
