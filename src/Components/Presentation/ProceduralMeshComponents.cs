@@ -134,4 +134,79 @@ namespace Nightflow.Components
         /// <summary>Half-extents of bounding box.</summary>
         public float3 Extents;
     }
+
+    /// <summary>
+    /// Tunnel geometry generation data.
+    /// </summary>
+    public struct TunnelGeometry : IComponentData
+    {
+        /// <summary>Reference to parent track segment entity.</summary>
+        public Entity ParentSegment;
+
+        /// <summary>Tunnel wall height from road surface.</summary>
+        public float WallHeight;
+
+        /// <summary>Lateral offset for walls from road center.</summary>
+        public float WallOffset;
+
+        /// <summary>Number of segments for the ceiling arch.</summary>
+        public int ArchSegments;
+
+        /// <summary>Number of segments along tunnel length.</summary>
+        public int LengthSegments;
+    }
+
+    /// <summary>
+    /// Overpass geometry generation data.
+    /// </summary>
+    public struct OverpassGeometry : IComponentData
+    {
+        /// <summary>Reference to parent track segment entity.</summary>
+        public Entity ParentSegment;
+
+        /// <summary>Maximum elevation amplitude for sinusoidal profile.</summary>
+        public float ElevationAmplitude;
+
+        /// <summary>Height of elevated section barriers.</summary>
+        public float BarrierHeight;
+
+        /// <summary>Number of segments along overpass length.</summary>
+        public int LengthSegments;
+    }
+
+    /// <summary>
+    /// Support pillar geometry data for overpasses.
+    /// </summary>
+    public struct PillarGeometry : IComponentData
+    {
+        /// <summary>Reference to parent track segment entity.</summary>
+        public Entity ParentSegment;
+
+        /// <summary>World position of pillar base.</summary>
+        public float3 Position;
+
+        /// <summary>Pillar height (from ground to road surface).</summary>
+        public float Height;
+
+        /// <summary>Pillar width/thickness.</summary>
+        public float Width;
+
+        /// <summary>Forward direction at pillar location.</summary>
+        public float3 Forward;
+
+        /// <summary>Right direction at pillar location.</summary>
+        public float3 Right;
+    }
+}
+
+namespace Nightflow.Tags
+{
+    /// <summary>Tag for tunnel mesh entities.</summary>
+    public struct TunnelMeshTag : IComponentData { }
+
+    /// <summary>Tag for overpass mesh entities.</summary>
+    public struct OverpassMeshTag : IComponentData { }
+
+    /// <summary>Tag for overpass support pillar entities.</summary>
+    public struct OverpassPillarTag : IComponentData { }
 }
