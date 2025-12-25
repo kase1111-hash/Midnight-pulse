@@ -16,9 +16,9 @@
     --color-white: #FFFFFF;
     --color-yellow: #FFFF00;
 
-    /* UI Colors */
-    --color-bg-dark: rgba(10, 10, 15, 0.8);
-    --color-bg-panel: rgba(20, 20, 30, 0.9);
+    /* UI Colors - transparent to see game action behind */
+    --color-bg-dark: rgba(10, 10, 15, 0.6);
+    --color-bg-panel: rgba(15, 15, 25, 0.75);
     --color-border: rgba(0, 255, 255, 0.5);
 
     /* Text */
@@ -449,19 +449,23 @@
     top: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.7);
+    /* Transparent overlay - game action visible behind */
+    background-color: rgba(0, 0, 0, 0.25);
     justify-content: center;
     align-items: center;
 }
 
 .menu-panel {
-    background-color: var(--color-bg-panel);
+    /* Semi-transparent panel for readability while seeing game behind */
+    background-color: rgba(15, 15, 25, 0.75);
     border-width: 2px;
     border-color: var(--color-cyan);
     border-radius: 12px;
     padding: var(--spacing-xl);
     min-width: 300px;
     align-items: center;
+    /* Subtle glow to make panel stand out from game background */
+    -unity-background-scale-mode: stretch-to-fill;
 }
 
 .menu-title {
@@ -512,6 +516,8 @@
    ============================================================================ */
 .gameover-panel {
     min-width: 400px;
+    /* Transparent panel - game visible behind score summary */
+    background-color: rgba(15, 15, 25, 0.7);
 }
 
 .score-summary {
