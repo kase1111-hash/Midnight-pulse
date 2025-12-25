@@ -81,7 +81,10 @@ namespace Nightflow.Components
         EmergencyClear = 3,
         DriftRecovery = 4,
         PerfectSegment = 5,
-        FullSpin = 6
+        FullSpin = 6,
+        LaneWeave = 7,
+        ThreadingNeedle = 8,
+        ComboChain = 9
     }
 
     /// <summary>
@@ -109,6 +112,15 @@ namespace Nightflow.Components
 
         /// <summary>Number of perfect segments (no damage).</summary>
         public int PerfectSegments;
+
+        /// <summary>Number of lane weave bonuses.</summary>
+        public int LaneWeaves;
+
+        /// <summary>Number of threading the needle events.</summary>
+        public int Threadings;
+
+        /// <summary>Highest combo chain reached.</summary>
+        public int HighestCombo;
 
         /// <summary>Time survived (seconds).</summary>
         public float TimeSurvived;
