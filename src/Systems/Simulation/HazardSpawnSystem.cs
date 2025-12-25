@@ -59,6 +59,19 @@ namespace Nightflow.Systems
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
+            // =============================================================
+            // Check Game Mode - Skip hazards in Freeflow mode
+            // =============================================================
+            GameMode currentMode = GameMode.Nightflow;
+            foreach (var modeState in SystemAPI.Query<RefRO<GameModeState>>())
+            {
+                currentMode = modeState.ValueRO.CurrentMode;
+                break;
+            }
+
+            // Freeflow mode = no hazards, just relaxed driving
+            bool spawnHazards = currentMode != GameMode.Freeflow;
+
             // Get player position and distance traveled
             float3 playerPos = float3.zero;
             float distanceTraveled = 0f;
@@ -102,7 +115,7 @@ namespace Nightflow.Systems
             }
 
             // =============================================================
-            // Spawn New Hazards Ahead
+            // Spawn New Hazards Ahead (skipped in Freeflow mode)
             // =============================================================
 
             // Initialize furthest spawned if needed
@@ -111,13 +124,13 @@ namespace Nightflow.Systems
                 _furthestSpawnedZ = playerPos.z + MinSpawnDistance;
             }
 
-            // Spawn hazards up to max distance
+            // Spawn hazards up to max distance (unless in Freeflow mode)
             float targetZ = playerPos.z + MaxSpawnDistance;
 
             while (_furthestSpawnedZ < targetZ)
             {
-                // Roll for spawn at this location
-                if (_random.NextFloat() < currentSpawnRate * SpawnCheckInterval)
+                // Roll for spawn at this location (only if hazards are enabled)
+                if (spawnHazards && _random.NextFloat() < currentSpawnRate * SpawnCheckInterval)
                 {
                     SpawnHazard(ref ecb, _furthestSpawnedZ);
                 }
