@@ -282,4 +282,89 @@ namespace Nightflow.Components
         /// <summary>Neutral star color (pure white).</summary>
         public float4 NeutralStarColor;
     }
+
+    // ============================================================================
+    // Moon Components
+    // ============================================================================
+
+    /// <summary>
+    /// Moon phase enumeration for rendering.
+    /// </summary>
+    public enum MoonPhase
+    {
+        NewMoon = 0,
+        WaxingCrescent = 1,
+        FirstQuarter = 2,
+        WaxingGibbous = 3,
+        FullMoon = 4,
+        WaningGibbous = 5,
+        LastQuarter = 6,
+        WaningCrescent = 7
+    }
+
+    /// <summary>
+    /// Singleton state for the moon.
+    /// Uses real system date/time for accurate phase calculation.
+    /// </summary>
+    public struct MoonState : IComponentData
+    {
+        /// <summary>Current moon phase (0-7).</summary>
+        public MoonPhase Phase;
+
+        /// <summary>Precise phase progress (0-1 through full lunar cycle).</summary>
+        public float PhaseProgress;
+
+        /// <summary>Illumination fraction (0=new, 1=full).</summary>
+        public float Illumination;
+
+        /// <summary>Azimuth angle for moon position (radians).</summary>
+        public float Azimuth;
+
+        /// <summary>Elevation angle above horizon (radians).</summary>
+        public float Elevation;
+
+        /// <summary>Whether moon is currently visible.</summary>
+        public bool IsVisible;
+
+        /// <summary>Last system time used for calculation (ticks).</summary>
+        public long LastUpdateTicks;
+    }
+
+    /// <summary>
+    /// Tag for the moon controller entity.
+    /// </summary>
+    public struct MoonTag : IComponentData { }
+
+    /// <summary>
+    /// Configuration for moon rendering.
+    /// </summary>
+    public struct MoonConfig : IComponentData
+    {
+        /// <summary>Angular size of moon (degrees).</summary>
+        public float AngularSize;
+
+        /// <summary>Distance to moon billboard (meters).</summary>
+        public float RenderDistance;
+
+        /// <summary>Base glow radius multiplier.</summary>
+        public float GlowRadius;
+
+        /// <summary>Glow intensity (0-1).</summary>
+        public float GlowIntensity;
+
+        /// <summary>Full moon halo ring radius multiplier.</summary>
+        public float HaloRadius;
+
+        /// <summary>Full moon halo intensity.</summary>
+        public float HaloIntensity;
+
+        /// <summary>Moon surface color.</summary>
+        public float4 MoonColor;
+
+        /// <summary>Glow color.</summary>
+        public float4 GlowColor;
+
+        /// <summary>Halo ring color (for full moon).</summary>
+        public float4 HaloColor;
+    }
 }
