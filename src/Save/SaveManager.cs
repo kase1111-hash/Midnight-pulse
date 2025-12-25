@@ -751,6 +751,240 @@ namespace Nightflow.Save
 
         #endregion
 
+        #region Challenges
+
+        /// <summary>
+        /// Get current challenge data.
+        /// </summary>
+        public ChallengeData GetChallenges()
+        {
+            return saveData?.Challenges ?? new ChallengeData();
+        }
+
+        /// <summary>
+        /// Update challenge data from ECS state.
+        /// Called when challenges change or on save.
+        /// </summary>
+        public void UpdateChallenges(ChallengeData challenges)
+        {
+            if (saveData == null) saveData = new NightflowSaveData();
+
+            saveData.Challenges = challenges;
+            isDirty = true;
+        }
+
+        /// <summary>
+        /// Update a single challenge's progress.
+        /// </summary>
+        public void UpdateChallengeProgress(int challengeId, float progress, bool completed)
+        {
+            if (saveData == null) return;
+
+            var challenges = saveData.Challenges;
+
+            // Check daily challenges
+            foreach (var c in challenges.DailyChallenges)
+            {
+                if (c.ChallengeId == challengeId)
+                {
+                    c.CurrentProgress = progress;
+                    c.Completed = completed;
+                    isDirty = true;
+                    return;
+                }
+            }
+
+            // Check weekly challenges
+            foreach (var c in challenges.WeeklyChallenges)
+            {
+                if (c.ChallengeId == challengeId)
+                {
+                    c.CurrentProgress = progress;
+                    c.Completed = completed;
+                    isDirty = true;
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Claim reward for a completed challenge.
+        /// </summary>
+        public int ClaimChallengeReward(int challengeId)
+        {
+            if (saveData == null) return 0;
+
+            var challenges = saveData.Challenges;
+
+            // Find and claim the challenge
+            SavedChallenge found = null;
+
+            foreach (var c in challenges.DailyChallenges)
+            {
+                if (c.ChallengeId == challengeId && c.Completed && !c.RewardClaimed)
+                {
+                    found = c;
+                    break;
+                }
+            }
+
+            if (found == null)
+            {
+                foreach (var c in challenges.WeeklyChallenges)
+                {
+                    if (c.ChallengeId == challengeId && c.Completed && !c.RewardClaimed)
+                    {
+                        found = c;
+                        break;
+                    }
+                }
+            }
+
+            if (found != null)
+            {
+                found.RewardClaimed = true;
+                challenges.TotalBonusEarned += found.ScoreReward;
+                isDirty = true;
+                return found.ScoreReward;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Sync challenge state from ECS to save data.
+        /// </summary>
+        public void SyncChallengesFromECS()
+        {
+            if (!ecsInitialized) return;
+
+            var challengeQuery = entityManager.CreateEntityQuery(
+                typeof(Nightflow.Components.DailyChallengeState),
+                typeof(Nightflow.Components.ChallengeManagerTag)
+            );
+
+            if (challengeQuery.IsEmpty) return;
+
+            var entity = challengeQuery.GetSingletonEntity();
+            var state = entityManager.GetComponentData<Nightflow.Components.DailyChallengeState>(entity);
+            var buffer = entityManager.GetBuffer<Nightflow.Components.ChallengeBuffer>(entity);
+
+            var challenges = saveData.Challenges;
+            challenges.LastGeneratedDay = state.LastGeneratedDay;
+            challenges.TotalCompleted = state.TotalCompleted;
+            challenges.CurrentStreak = state.CurrentStreak;
+            challenges.BestStreak = state.BestStreak;
+            challenges.LastCompletionDay = state.LastCompletionDay;
+            challenges.TotalBonusEarned = state.TotalBonusEarned;
+
+            // Clear and rebuild challenge lists
+            challenges.DailyChallenges.Clear();
+            challenges.WeeklyChallenges.Clear();
+
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                var c = buffer[i].Value;
+                var saved = new SavedChallenge(
+                    c.ChallengeId,
+                    (int)c.Type,
+                    (int)c.Difficulty,
+                    c.TargetValue,
+                    c.ScoreReward,
+                    c.ExpiresAt,
+                    c.IsWeekly
+                )
+                {
+                    CurrentProgress = c.CurrentProgress,
+                    Completed = c.Completed,
+                    RewardClaimed = c.RewardClaimed
+                };
+
+                if (c.IsWeekly)
+                {
+                    challenges.WeeklyChallenges.Add(saved);
+                }
+                else
+                {
+                    challenges.DailyChallenges.Add(saved);
+                }
+            }
+
+            isDirty = true;
+        }
+
+        /// <summary>
+        /// Load challenge state from save data into ECS.
+        /// Call after ECS world is initialized.
+        /// </summary>
+        public void LoadChallengesIntoECS()
+        {
+            if (!ecsInitialized) return;
+
+            var challengeQuery = entityManager.CreateEntityQuery(
+                typeof(Nightflow.Components.DailyChallengeState),
+                typeof(Nightflow.Components.ChallengeManagerTag)
+            );
+
+            if (challengeQuery.IsEmpty) return;
+
+            var entity = challengeQuery.GetSingletonEntity();
+            var challenges = saveData?.Challenges ?? new ChallengeData();
+
+            // Update state
+            var state = new Nightflow.Components.DailyChallengeState
+            {
+                DaySeed = Nightflow.Components.DailyChallengeState.GetDaySeed(challenges.LastGeneratedDay),
+                LastGeneratedDay = challenges.LastGeneratedDay,
+                TotalCompleted = challenges.TotalCompleted,
+                CurrentStreak = challenges.CurrentStreak,
+                BestStreak = challenges.BestStreak,
+                LastCompletionDay = challenges.LastCompletionDay,
+                TotalBonusEarned = challenges.TotalBonusEarned,
+                ActiveChallengeCount = challenges.DailyChallenges.Count + challenges.WeeklyChallenges.Count
+            };
+
+            entityManager.SetComponentData(entity, state);
+
+            // Load challenges into buffer
+            var buffer = entityManager.GetBuffer<Nightflow.Components.ChallengeBuffer>(entity);
+            buffer.Clear();
+
+            foreach (var saved in challenges.DailyChallenges)
+            {
+                buffer.Add(new Nightflow.Components.ChallengeBuffer
+                {
+                    Value = SavedToChallenge(saved)
+                });
+            }
+
+            foreach (var saved in challenges.WeeklyChallenges)
+            {
+                buffer.Add(new Nightflow.Components.ChallengeBuffer
+                {
+                    Value = SavedToChallenge(saved)
+                });
+            }
+        }
+
+        private Nightflow.Components.Challenge SavedToChallenge(SavedChallenge saved)
+        {
+            return new Nightflow.Components.Challenge
+            {
+                ChallengeId = saved.ChallengeId,
+                Type = (Nightflow.Components.ChallengeType)saved.Type,
+                Difficulty = (Nightflow.Components.ChallengeDifficulty)saved.Difficulty,
+                TargetValue = saved.TargetValue,
+                CurrentProgress = saved.CurrentProgress,
+                Completed = saved.Completed,
+                RewardClaimed = saved.RewardClaimed,
+                ScoreReward = saved.ScoreReward,
+                ExpiresAt = saved.ExpiresAt,
+                IsWeekly = saved.IsWeekly
+            };
+        }
+
+        #endregion
+
         #region Public Utilities
 
         /// <summary>

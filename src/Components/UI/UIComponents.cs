@@ -538,4 +538,87 @@ namespace Nightflow.Components
     /// Tag for leaderboard controller entity.
     /// </summary>
     public struct LeaderboardTag : IComponentData { }
+
+    // ============================================================================
+    // Performance Stats Components
+    // ============================================================================
+
+    /// <summary>
+    /// Performance statistics singleton for debug/stats HUD display.
+    /// Tracks FPS, entity counts, and other performance metrics.
+    /// </summary>
+    public struct PerformanceStats : IComponentData
+    {
+        /// <summary>Current frames per second.</summary>
+        public float FPS;
+
+        /// <summary>Smoothed FPS for stable display.</summary>
+        public float SmoothedFPS;
+
+        /// <summary>Current frame time in milliseconds.</summary>
+        public float FrameTimeMs;
+
+        /// <summary>Minimum frame time this session (best).</summary>
+        public float MinFrameTimeMs;
+
+        /// <summary>Maximum frame time this session (worst).</summary>
+        public float MaxFrameTimeMs;
+
+        /// <summary>Total entity count in the world.</summary>
+        public int EntityCount;
+
+        /// <summary>Number of traffic vehicles currently active.</summary>
+        public int TrafficCount;
+
+        /// <summary>Number of hazards currently active.</summary>
+        public int HazardCount;
+
+        /// <summary>Number of track segments currently loaded.</summary>
+        public int SegmentCount;
+
+        /// <summary>Player's current speed in m/s.</summary>
+        public float PlayerSpeed;
+
+        /// <summary>Player's current Z position (distance from origin).</summary>
+        public float PlayerZ;
+
+        /// <summary>Current game time elapsed.</summary>
+        public float GameTime;
+
+        /// <summary>Whether stats display is enabled.</summary>
+        public bool DisplayEnabled;
+
+        /// <summary>Whether to show extended stats (memory, etc).</summary>
+        public bool ShowExtended;
+
+        /// <summary>Running frame count for averaging.</summary>
+        public int FrameCount;
+
+        /// <summary>Accumulated frame time for averaging.</summary>
+        public float AccumulatedTime;
+
+        /// <summary>Creates default performance stats.</summary>
+        public static PerformanceStats CreateDefault()
+        {
+            return new PerformanceStats
+            {
+                FPS = 60f,
+                SmoothedFPS = 60f,
+                FrameTimeMs = 16.67f,
+                MinFrameTimeMs = float.MaxValue,
+                MaxFrameTimeMs = 0f,
+                EntityCount = 0,
+                TrafficCount = 0,
+                HazardCount = 0,
+                SegmentCount = 0,
+                PlayerSpeed = 0f,
+                PlayerZ = 0f,
+                GameTime = 0f,
+                DisplayEnabled = false,
+                ShowExtended = false,
+                FrameCount = 0,
+                AccumulatedTime = 0f
+            };
+        }
+    }
 }

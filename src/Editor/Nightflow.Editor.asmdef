@@ -1,19 +1,19 @@
 {
-    "name": "Nightflow",
-    "rootNamespace": "Nightflow",
+    "name": "Nightflow.Editor",
+    "rootNamespace": "Nightflow.Editor",
     "references": [
+        "Nightflow",
         "Unity.Entities",
-        "Unity.Entities.Hybrid",
-        "Unity.Burst",
-        "Unity.Collections",
+        "Unity.Entities.Editor",
         "Unity.Mathematics",
-        "Unity.Transforms",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime"
     ],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
-    "allowUnsafeCode": true,
+    "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,

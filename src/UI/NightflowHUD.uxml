@@ -84,6 +84,135 @@
             <!-- Dynamic notifications will be added here -->
         </ui:VisualElement>
 
+        <!-- Performance Stats Panel (Debug/Dev) -->
+        <ui:VisualElement name="perf-panel" class="perf-panel hidden">
+            <ui:Label name="perf-title" text="STATS" class="perf-title" />
+            <ui:VisualElement name="perf-stats" class="perf-stats">
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="FPS" class="perf-label" />
+                    <ui:Label name="perf-fps" text="60" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="FRAME" class="perf-label" />
+                    <ui:Label name="perf-frametime" text="16.7ms" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="MIN/MAX" class="perf-label" />
+                    <ui:Label name="perf-minmax" text="16.7/16.7" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="ENTITIES" class="perf-label" />
+                    <ui:Label name="perf-entities" text="0" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="TRAFFIC" class="perf-label" />
+                    <ui:Label name="perf-traffic" text="0" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="HAZARDS" class="perf-label" />
+                    <ui:Label name="perf-hazards" text="0" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="SEGMENTS" class="perf-label" />
+                    <ui:Label name="perf-segments" text="0" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="SPEED" class="perf-label" />
+                    <ui:Label name="perf-speed" text="0 m/s" class="perf-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="perf-row" class="perf-row">
+                    <ui:Label text="POS Z" class="perf-label" />
+                    <ui:Label name="perf-position" text="0m" class="perf-value" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Daily Challenges Panel -->
+        <ui:VisualElement name="challenge-panel" class="challenge-panel">
+            <ui:VisualElement name="challenge-header" class="challenge-header">
+                <ui:Label name="challenge-title" text="DAILY CHALLENGES" class="challenge-title" />
+                <ui:VisualElement name="streak-container" class="streak-container">
+                    <ui:Label name="streak-icon" text="🔥" class="streak-icon" />
+                    <ui:Label name="streak-value" text="0" class="streak-value" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement name="challenges-list" class="challenges-list">
+                <!-- Challenge 1 -->
+                <ui:VisualElement name="challenge-0" class="challenge-row">
+                    <ui:VisualElement name="challenge-0-icon" class="challenge-icon bronze" />
+                    <ui:VisualElement name="challenge-0-info" class="challenge-info">
+                        <ui:Label name="challenge-0-desc" text="Score 10,000 points" class="challenge-desc" />
+                        <ui:VisualElement name="challenge-0-progress-bar" class="challenge-progress-bar">
+                            <ui:VisualElement name="challenge-0-progress-fill" class="challenge-progress-fill" />
+                        </ui:VisualElement>
+                        <ui:Label name="challenge-0-progress" text="0 / 10,000" class="challenge-progress-text" />
+                    </ui:VisualElement>
+                    <ui:Label name="challenge-0-reward" text="+500" class="challenge-reward" />
+                    <ui:VisualElement name="challenge-0-check" class="challenge-check hidden">
+                        <ui:Label text="✓" class="check-icon" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- Challenge 2 -->
+                <ui:VisualElement name="challenge-1" class="challenge-row">
+                    <ui:VisualElement name="challenge-1-icon" class="challenge-icon silver" />
+                    <ui:VisualElement name="challenge-1-info" class="challenge-info">
+                        <ui:Label name="challenge-1-desc" text="Survive 2 minutes" class="challenge-desc" />
+                        <ui:VisualElement name="challenge-1-progress-bar" class="challenge-progress-bar">
+                            <ui:VisualElement name="challenge-1-progress-fill" class="challenge-progress-fill" />
+                        </ui:VisualElement>
+                        <ui:Label name="challenge-1-progress" text="0:00 / 2:00" class="challenge-progress-text" />
+                    </ui:VisualElement>
+                    <ui:Label name="challenge-1-reward" text="+1500" class="challenge-reward" />
+                    <ui:VisualElement name="challenge-1-check" class="challenge-check hidden">
+                        <ui:Label text="✓" class="check-icon" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- Challenge 3 -->
+                <ui:VisualElement name="challenge-2" class="challenge-row">
+                    <ui:VisualElement name="challenge-2-icon" class="challenge-icon gold" />
+                    <ui:VisualElement name="challenge-2-info" class="challenge-info">
+                        <ui:Label name="challenge-2-desc" text="Reach 4x multiplier" class="challenge-desc" />
+                        <ui:VisualElement name="challenge-2-progress-bar" class="challenge-progress-bar">
+                            <ui:VisualElement name="challenge-2-progress-fill" class="challenge-progress-fill" />
+                        </ui:VisualElement>
+                        <ui:Label name="challenge-2-progress" text="0.0x / 4.0x" class="challenge-progress-text" />
+                    </ui:VisualElement>
+                    <ui:Label name="challenge-2-reward" text="+5000" class="challenge-reward" />
+                    <ui:VisualElement name="challenge-2-check" class="challenge-check hidden">
+                        <ui:Label text="✓" class="check-icon" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- Weekly Challenge -->
+            <ui:VisualElement name="weekly-section" class="weekly-section">
+                <ui:Label text="WEEKLY" class="weekly-label" />
+                <ui:VisualElement name="weekly-challenge" class="challenge-row weekly">
+                    <ui:VisualElement name="weekly-icon" class="challenge-icon weekly" />
+                    <ui:VisualElement name="weekly-info" class="challenge-info">
+                        <ui:Label name="weekly-desc" text="Travel 50km total" class="challenge-desc" />
+                        <ui:VisualElement name="weekly-progress-bar" class="challenge-progress-bar">
+                            <ui:VisualElement name="weekly-progress-fill" class="challenge-progress-fill" />
+                        </ui:VisualElement>
+                        <ui:Label name="weekly-progress" text="0.0 / 50.0 km" class="challenge-progress-text" />
+                    </ui:VisualElement>
+                    <ui:Label name="weekly-reward" text="+10000" class="challenge-reward weekly" />
+                    <ui:VisualElement name="weekly-check" class="challenge-check hidden">
+                        <ui:Label text="✓" class="check-icon" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- Expiration Timer -->
+            <ui:VisualElement name="challenge-timer" class="challenge-timer">
+                <ui:Label text="Resets in:" class="timer-label" />
+                <ui:Label name="timer-value" text="23:59:59" class="timer-value" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
         <!-- Emergency Vehicle Warning Arrows -->
         <ui:VisualElement name="emergency-left" class="emergency-arrow left hidden">
             <ui:Label text="◀" class="arrow-icon" />
