@@ -1,0 +1,23 @@
+{
+    "name": "Nightflow.Editor",
+    "rootNamespace": "Nightflow.Editor",
+    "references": [
+        "Nightflow",
+        "Unity.Entities",
+        "Unity.Entities.Editor",
+        "Unity.Mathematics",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
