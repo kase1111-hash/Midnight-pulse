@@ -181,74 +181,8 @@ namespace Nightflow.Systems
             state.EntityManager.SetName(tunnelEntity, "TunnelLighting");
 #endif
 
-            // =============================================================
-            // Create UI State Singleton
-            // Bridges ECS data to MonoBehaviour HUD
-            // =============================================================
-
-            var uiEntity = state.EntityManager.CreateEntity();
-            state.EntityManager.AddComponentData(uiEntity, new UIState
-            {
-                SpeedKmh = 0f,
-                SpeedMph = 0f,
-                SpeedTier = 0,
-                Score = 0f,
-                DisplayScore = 0f,
-                Multiplier = 1f,
-                HighestMultiplier = 1f,
-                MultiplierFlash = false,
-                RiskValue = 0f,
-                RiskCap = 1f,
-                RiskPercent = 0f,
-                DamageTotal = 0f,
-                DamageFront = 0f,
-                DamageRear = 0f,
-                DamageLeft = 0f,
-                DamageRight = 0f,
-                DamageFlash = false,
-                CriticalDamage = false,
-                WarningPriority = 0,
-                WarningFlash = false,
-                EmergencyDistance = 0f,
-                EmergencyETA = 0f,
-                DistanceKm = 0f,
-                TimeSurvived = 0f,
-                SignalCount = 0,
-                ShowPauseMenu = false,
-                ShowCrashOverlay = false,
-                ShowScoreSummary = false,
-                OverlayAlpha = 0f
-            });
-
-#if UNITY_EDITOR
-            state.EntityManager.SetName(uiEntity, "UIState");
-#endif
-
-            // =============================================================
-            // Create Game State Singleton
-            // Manages pause, crash flow, and autopilot activation
-            // =============================================================
-
-            var gameStateEntity = state.EntityManager.CreateEntity();
-            state.EntityManager.AddComponentData(gameStateEntity, new GameState
-            {
-                IsPaused = false,
-                PauseCooldown = 0f,
-                PauseCooldownMax = 5f,          // 5 seconds per spec
-                CrashPhase = CrashFlowPhase.None,
-                CrashPhaseTimer = 0f,
-                FadeAlpha = 0f,
-                AutopilotQueued = true,         // Start with autopilot
-                PlayerControlActive = false,
-                IdleTimer = 0f,
-                CurrentMenu = MenuState.None,
-                MenuVisible = false,
-                TimeScale = 1f
-            });
-
-#if UNITY_EDITOR
-            state.EntityManager.SetName(gameStateEntity, "GameState");
-#endif
+            // NOTE: UIState and GameState singletons are created by GameBootstrapSystem
+            // with proper menu-based initialization (IsPaused=true, TimeScale=0f, CurrentMenu=MainMenu)
 
             // =============================================================
             // Create Replay System State Singleton
