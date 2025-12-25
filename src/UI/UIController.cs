@@ -229,10 +229,12 @@ namespace Nightflow.UI
             // Pause menu buttons
             var resumeButton = root.Q<Button>("resume-button");
             var restartButtonPause = root.Q<Button>("restart-button-pause");
+            var settingsButton = root.Q<Button>("settings-button");
             var quitButtonPause = root.Q<Button>("quit-button-pause");
 
             if (resumeButton != null) resumeButton.clicked += OnResumeClicked;
             if (restartButtonPause != null) restartButtonPause.clicked += OnRestartClicked;
+            if (settingsButton != null) settingsButton.clicked += OnSettingsClicked;
             if (quitButtonPause != null) quitButtonPause.clicked += OnQuitClicked;
 
             // Game over buttons
@@ -241,6 +243,16 @@ namespace Nightflow.UI
 
             if (restartButtonGameover != null) restartButtonGameover.clicked += OnRestartClicked;
             if (quitButtonGameover != null) quitButtonGameover.clicked += OnQuitClicked;
+        }
+
+        private void OnSettingsClicked()
+        {
+            // Find SettingsUIController and show it
+            var settingsController = FindAnyObjectByType<SettingsUIController>();
+            if (settingsController != null)
+            {
+                settingsController.Show();
+            }
         }
 
         private void Update()

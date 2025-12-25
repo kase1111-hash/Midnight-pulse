@@ -151,4 +151,225 @@
     <!-- Fade Overlay -->
     <ui:VisualElement name="fade-overlay" class="fade-overlay hidden" />
 
+    <!-- Settings Overlay -->
+    <ui:VisualElement name="settings-overlay" class="overlay settings-overlay hidden">
+        <ui:VisualElement name="settings-panel" class="settings-panel">
+            <ui:Label name="settings-title" text="SETTINGS" class="menu-title" />
+
+            <!-- Tab Navigation -->
+            <ui:VisualElement name="settings-tabs" class="settings-tabs">
+                <ui:Button name="tab-controls" text="CONTROLS" class="settings-tab selected" />
+                <ui:Button name="tab-audio" text="AUDIO" class="settings-tab" />
+                <ui:Button name="tab-display" text="DISPLAY" class="settings-tab" />
+                <ui:Button name="tab-gameplay" text="GAMEPLAY" class="settings-tab" />
+            </ui:VisualElement>
+
+            <!-- Settings Content Area -->
+            <ui:ScrollView name="settings-content" class="settings-content">
+
+                <!-- Controls Tab -->
+                <ui:VisualElement name="controls-tab-content" class="tab-content">
+                    <ui:Label text="KEYBOARD BINDINGS" class="settings-section-title" />
+
+                    <ui:VisualElement name="binding-accelerate" class="binding-row">
+                        <ui:Label text="ACCELERATE" class="binding-label" />
+                        <ui:Button name="bind-accelerate-primary" text="W" class="binding-key" />
+                        <ui:Button name="bind-accelerate-alt" text="↑" class="binding-key alt" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="binding-brake" class="binding-row">
+                        <ui:Label text="BRAKE" class="binding-label" />
+                        <ui:Button name="bind-brake-primary" text="S" class="binding-key" />
+                        <ui:Button name="bind-brake-alt" text="↓" class="binding-key alt" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="binding-steer-left" class="binding-row">
+                        <ui:Label text="STEER LEFT" class="binding-label" />
+                        <ui:Button name="bind-steer-left-primary" text="A" class="binding-key" />
+                        <ui:Button name="bind-steer-left-alt" text="←" class="binding-key alt" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="binding-steer-right" class="binding-row">
+                        <ui:Label text="STEER RIGHT" class="binding-label" />
+                        <ui:Button name="bind-steer-right-primary" text="D" class="binding-key" />
+                        <ui:Button name="bind-steer-right-alt" text="→" class="binding-key alt" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="binding-handbrake" class="binding-row">
+                        <ui:Label text="HANDBRAKE" class="binding-label" />
+                        <ui:Button name="bind-handbrake-primary" text="SPACE" class="binding-key" />
+                        <ui:Button name="bind-handbrake-alt" text="---" class="binding-key alt" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="binding-pause" class="binding-row">
+                        <ui:Label text="PAUSE" class="binding-label" />
+                        <ui:Button name="bind-pause-primary" text="ESC" class="binding-key" />
+                        <ui:Button name="bind-pause-alt" text="P" class="binding-key alt" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="binding-look-back" class="binding-row">
+                        <ui:Label text="LOOK BACK" class="binding-label" />
+                        <ui:Button name="bind-look-back-primary" text="Q" class="binding-key" />
+                        <ui:Button name="bind-look-back-alt" text="---" class="binding-key alt" />
+                    </ui:VisualElement>
+
+                    <ui:Label text="INPUT OPTIONS" class="settings-section-title" />
+
+                    <ui:VisualElement name="setting-sensitivity" class="settings-row">
+                        <ui:Label text="STEERING SENSITIVITY" class="settings-label" />
+                        <ui:Slider name="slider-sensitivity" low-value="0.5" high-value="2" value="1" class="settings-slider" />
+                        <ui:Label name="value-sensitivity" text="1.0" class="settings-value" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-deadzone" class="settings-row">
+                        <ui:Label text="STEERING DEADZONE" class="settings-label" />
+                        <ui:Slider name="slider-deadzone" low-value="0" high-value="0.5" value="0.1" class="settings-slider" />
+                        <ui:Label name="value-deadzone" text="0.10" class="settings-value" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-invert" class="settings-row toggle-row">
+                        <ui:Label text="INVERT STEERING" class="settings-label" />
+                        <ui:Toggle name="toggle-invert-steering" class="settings-toggle" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-vibration" class="settings-row toggle-row">
+                        <ui:Label text="VIBRATION" class="settings-label" />
+                        <ui:Toggle name="toggle-vibration" value="true" class="settings-toggle" />
+                    </ui:VisualElement>
+
+                    <ui:Button name="reset-controls" text="RESET TO DEFAULTS" class="settings-button reset" />
+                </ui:VisualElement>
+
+                <!-- Audio Tab -->
+                <ui:VisualElement name="audio-tab-content" class="tab-content hidden">
+                    <ui:Label text="VOLUME" class="settings-section-title" />
+
+                    <ui:VisualElement name="setting-master" class="settings-row">
+                        <ui:Label text="MASTER" class="settings-label" />
+                        <ui:Slider name="slider-master" low-value="0" high-value="1" value="1" class="settings-slider" />
+                        <ui:Label name="value-master" text="100%" class="settings-value" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-music" class="settings-row">
+                        <ui:Label text="MUSIC" class="settings-label" />
+                        <ui:Slider name="slider-music" low-value="0" high-value="1" value="0.7" class="settings-slider" />
+                        <ui:Label name="value-music" text="70%" class="settings-value" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-sfx" class="settings-row">
+                        <ui:Label text="SFX" class="settings-label" />
+                        <ui:Slider name="slider-sfx" low-value="0" high-value="1" value="1" class="settings-slider" />
+                        <ui:Label name="value-sfx" text="100%" class="settings-value" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-engine" class="settings-row">
+                        <ui:Label text="ENGINE" class="settings-label" />
+                        <ui:Slider name="slider-engine" low-value="0" high-value="1" value="0.8" class="settings-slider" />
+                        <ui:Label name="value-engine" text="80%" class="settings-value" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-ambient" class="settings-row">
+                        <ui:Label text="AMBIENT" class="settings-label" />
+                        <ui:Slider name="slider-ambient" low-value="0" high-value="1" value="0.5" class="settings-slider" />
+                        <ui:Label name="value-ambient" text="50%" class="settings-value" />
+                    </ui:VisualElement>
+
+                    <ui:Label text="OPTIONS" class="settings-section-title" />
+
+                    <ui:VisualElement name="setting-mute-bg" class="settings-row toggle-row">
+                        <ui:Label text="MUTE IN BACKGROUND" class="settings-label" />
+                        <ui:Toggle name="toggle-mute-bg" value="true" class="settings-toggle" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- Display Tab -->
+                <ui:VisualElement name="display-tab-content" class="tab-content hidden">
+                    <ui:Label text="RESOLUTION" class="settings-section-title" />
+
+                    <ui:VisualElement name="setting-fullscreen" class="settings-row toggle-row">
+                        <ui:Label text="FULLSCREEN" class="settings-label" />
+                        <ui:Toggle name="toggle-fullscreen" value="true" class="settings-toggle" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-vsync" class="settings-row toggle-row">
+                        <ui:Label text="V-SYNC" class="settings-label" />
+                        <ui:Toggle name="toggle-vsync" value="true" class="settings-toggle" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-quality" class="settings-row">
+                        <ui:Label text="QUALITY" class="settings-label" />
+                        <ui:DropdownField name="dropdown-quality" choices="Low,Medium,High,Ultra" index="2" class="settings-dropdown" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-fps" class="settings-row toggle-row">
+                        <ui:Label text="SHOW FPS" class="settings-label" />
+                        <ui:Toggle name="toggle-fps" class="settings-toggle" />
+                    </ui:VisualElement>
+
+                    <ui:Label text="HUD" class="settings-section-title" />
+
+                    <ui:VisualElement name="setting-speedometer" class="settings-row toggle-row">
+                        <ui:Label text="SPEEDOMETER" class="settings-label" />
+                        <ui:Toggle name="toggle-speedometer" value="true" class="settings-toggle" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-damage" class="settings-row toggle-row">
+                        <ui:Label text="DAMAGE INDICATOR" class="settings-label" />
+                        <ui:Toggle name="toggle-damage" value="true" class="settings-toggle" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-hud-scale" class="settings-row">
+                        <ui:Label text="HUD SCALE" class="settings-label" />
+                        <ui:DropdownField name="dropdown-hud-scale" choices="Small,Normal,Large" index="1" class="settings-dropdown" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- Gameplay Tab -->
+                <ui:VisualElement name="gameplay-tab-content" class="tab-content hidden">
+                    <ui:Label text="PREFERENCES" class="settings-section-title" />
+
+                    <ui:VisualElement name="setting-speed-unit" class="settings-row">
+                        <ui:Label text="SPEED UNIT" class="settings-label" />
+                        <ui:DropdownField name="dropdown-speed-unit" choices="km/h,mph" index="0" class="settings-dropdown" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-camera-shake" class="settings-row toggle-row">
+                        <ui:Label text="CAMERA SHAKE" class="settings-label" />
+                        <ui:Toggle name="toggle-camera-shake" value="true" class="settings-toggle" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-shake-intensity" class="settings-row">
+                        <ui:Label text="SHAKE INTENSITY" class="settings-label" />
+                        <ui:Slider name="slider-shake-intensity" low-value="0" high-value="1" value="1" class="settings-slider" />
+                        <ui:Label name="value-shake-intensity" text="100%" class="settings-value" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-motion-blur" class="settings-row toggle-row">
+                        <ui:Label text="MOTION BLUR" class="settings-label" />
+                        <ui:Toggle name="toggle-motion-blur" value="true" class="settings-toggle" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement name="setting-tutorials" class="settings-row toggle-row">
+                        <ui:Label text="SHOW TUTORIALS" class="settings-label" />
+                        <ui:Toggle name="toggle-tutorials" value="true" class="settings-toggle" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+            </ui:ScrollView>
+
+            <!-- Rebind Prompt -->
+            <ui:VisualElement name="rebind-prompt" class="rebind-prompt hidden">
+                <ui:Label name="rebind-text" text="Press a key to bind..." class="rebind-text" />
+                <ui:Label name="rebind-timer" text="10" class="rebind-timer" />
+                <ui:Label text="ESC to cancel" class="rebind-hint" />
+            </ui:VisualElement>
+
+            <!-- Bottom Buttons -->
+            <ui:VisualElement name="settings-buttons" class="settings-buttons">
+                <ui:Button name="settings-apply" text="APPLY" class="menu-button primary" />
+                <ui:Button name="settings-back" text="BACK" class="menu-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+
 </ui:UXML>
