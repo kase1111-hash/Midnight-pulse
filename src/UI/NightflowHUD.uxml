@@ -333,23 +333,27 @@
             <ui:VisualElement name="score-summary" class="score-summary">
                 <ui:VisualElement name="summary-row" class="summary-row">
                     <ui:Label text="FINAL SCORE" class="summary-label" />
-                    <ui:Label name="final-score" text="0" class="summary-value" />
+                    <ui:Label name="summary-finalscore" text="0" class="summary-value" />
                 </ui:VisualElement>
                 <ui:VisualElement name="summary-row" class="summary-row">
                     <ui:Label text="DISTANCE" class="summary-label" />
-                    <ui:Label name="final-distance" text="0.00 km" class="summary-value" />
+                    <ui:Label name="summary-distance" text="0.00 km" class="summary-value" />
                 </ui:VisualElement>
                 <ui:VisualElement name="summary-row" class="summary-row">
                     <ui:Label text="MAX SPEED" class="summary-label" />
-                    <ui:Label name="final-maxspeed" text="0 km/h" class="summary-value" />
+                    <ui:Label name="summary-maxspeed" text="0 km/h" class="summary-value" />
                 </ui:VisualElement>
                 <ui:VisualElement name="summary-row" class="summary-row">
-                    <ui:Label text="TIME" class="summary-label" />
-                    <ui:Label name="final-time" text="0:00" class="summary-value" />
+                    <ui:Label text="MAX MULTIPLIER" class="summary-label" />
+                    <ui:Label name="summary-maxmultiplier" text="x1.0" class="summary-value" />
                 </ui:VisualElement>
                 <ui:VisualElement name="summary-row" class="summary-row">
                     <ui:Label text="NEAR MISSES" class="summary-label" />
-                    <ui:Label name="final-nearmiss" text="0" class="summary-value" />
+                    <ui:Label name="summary-nearmisses" text="0" class="summary-value" />
+                </ui:VisualElement>
+                <ui:VisualElement name="summary-row" class="summary-row">
+                    <ui:Label text="PERFECT DODGES" class="summary-label" />
+                    <ui:Label name="summary-perfectdodges" text="0" class="summary-value" />
                 </ui:VisualElement>
             </ui:VisualElement>
 

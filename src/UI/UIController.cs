@@ -241,8 +241,8 @@ namespace Nightflow.UI
             creditsOverlay = root.Q<VisualElement>("credits-overlay");
             modeSelectOverlay = root.Q<VisualElement>("mode-select-overlay");
             leaderboardOverlay = root.Q<VisualElement>("leaderboard-overlay");
-            crashTitle = root.Q<Label>("crash-title");
-            highscoreLabel = root.Q<Label>("highscore-label");
+            crashTitle = root.Q<Label>("gameover-title");
+            highscoreLabel = root.Q<Label>("highscore-text");
 
             // Main menu elements
             gameTitle = root.Q<Label>("game-title");
