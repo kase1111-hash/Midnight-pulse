@@ -231,6 +231,32 @@
 
     </ui:VisualElement>
 
+    <!-- Main Menu Overlay -->
+    <ui:VisualElement name="main-menu-overlay" class="overlay">
+        <ui:VisualElement name="main-menu-panel" class="menu-panel main-menu-panel">
+            <ui:Label name="game-title" text="MIDNIGHT PULSE" class="game-title" />
+            <ui:Label name="press-start-text" text="PRESS START" class="press-start-text blink" />
+            <ui:VisualElement name="main-menu-items" class="main-menu-items hidden">
+                <ui:Button name="menu-item-0" text="PLAY" class="menu-button main-menu-item selected" />
+                <ui:Button name="menu-item-1" text="LEADERBOARD" class="menu-button main-menu-item" />
+                <ui:Button name="menu-item-2" text="SETTINGS" class="menu-button main-menu-item" />
+                <ui:Button name="menu-item-3" text="CREDITS" class="menu-button main-menu-item" />
+                <ui:Button name="menu-item-4" text="QUIT" class="menu-button main-menu-item" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+
+    <!-- Credits Overlay -->
+    <ui:VisualElement name="credits-overlay" class="overlay hidden">
+        <ui:VisualElement name="credits-panel" class="menu-panel credits-panel">
+            <ui:Label name="credits-title" text="CREDITS" class="menu-title" />
+            <ui:ScrollView name="credits-scroll" class="credits-scroll">
+                <ui:Label name="credits-content" text="MIDNIGHT PULSE\n\nA high-speed arcade racing experience\n\nDeveloped with Unity DOTS\n\nThank you for playing!" class="credits-content" />
+            </ui:ScrollView>
+            <ui:Button name="credits-back" text="BACK" class="menu-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+
     <!-- Pause Menu Overlay -->
     <ui:VisualElement name="pause-overlay" class="overlay hidden">
         <ui:VisualElement name="pause-panel" class="menu-panel">
