@@ -38,22 +38,28 @@ namespace Nightflow.Systems
         private const float LaneWidth = 3.6f;
         private const int NumLanes = 4;
 
-        // Hazard type distribution (cumulative)
-        private const float TireChance = 0.20f;           // 20% loose tire
-        private const float DebrisChance = 0.50f;         // 30% debris (cumulative 50%)
-        private const float ConeChance = 0.75f;           // 25% cones (cumulative 75%)
-        private const float BarrierChance = 0.92f;        // 17% barriers (cumulative 92%)
+        // Hazard type distribution (cumulative) - base values at normal difficulty
+        private const float BaseTireChance = 0.20f;       // 20% loose tire
+        private const float BaseDebrisChance = 0.50f;     // 30% debris (cumulative 50%)
+        private const float BaseConeChance = 0.75f;       // 25% cones (cumulative 75%)
+        private const float BaseBarrierChance = 0.92f;    // 17% barriers (cumulative 92%)
         // Remaining 8% = crashed car
+
+        // Adaptive lethal hazard scaling
+        private const float MinLethalChance = 0.05f;      // Minimum lethal hazard chance (easy)
+        private const float MaxLethalChance = 0.35f;      // Maximum lethal hazard chance (hard)
 
         // State tracking
         private Random _random;
         private float _furthestSpawnedZ;
+        private float _currentAdaptiveDifficulty;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             _random = new Random(42069);
             _furthestSpawnedZ = 0f;
+            _currentAdaptiveDifficulty = 1f;
         }
 
         [BurstCompile]
@@ -91,9 +97,22 @@ namespace Nightflow.Systems
             if (!playerActive)
                 return;
 
-            // Calculate current spawn rate based on difficulty
-            float difficultyMultiplier = 1f + DifficultyScale * (distanceTraveled / 100f);
-            float currentSpawnRate = BaseSpawnRate * difficultyMultiplier;
+            // =============================================================
+            // Get Adaptive Difficulty Modifier
+            // =============================================================
+
+            _currentAdaptiveDifficulty = 1f;
+            foreach (var profile in SystemAPI.Query<RefRO<DifficultyProfile>>())
+            {
+                _currentAdaptiveDifficulty = profile.ValueRO.DifficultyModifier;
+                break;
+            }
+
+            // Calculate current spawn rate based on distance + adaptive difficulty
+            // Distance scaling provides base progression
+            // Adaptive difficulty adjusts based on player skill
+            float distanceMultiplier = 1f + DifficultyScale * (distanceTraveled / 100f);
+            float currentSpawnRate = BaseSpawnRate * distanceMultiplier * _currentAdaptiveDifficulty;
 
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
@@ -190,13 +209,36 @@ namespace Nightflow.Systems
         {
             float roll = _random.NextFloat();
 
-            if (roll < TireChance)
+            // Adjust lethal hazard chance based on adaptive difficulty
+            // At difficulty 0.5 (easy): lethal chance reduced to MinLethalChance
+            // At difficulty 1.0 (normal): lethal chance at base rate (25%)
+            // At difficulty 2.0 (hard): lethal chance increased to MaxLethalChance
+            float difficultyFactor = math.saturate((_currentAdaptiveDifficulty - 0.5f) / 1.5f);
+            float lethalChance = math.lerp(MinLethalChance, MaxLethalChance, difficultyFactor);
+
+            // Non-lethal hazards take up the remaining probability
+            float nonLethalTotal = 1f - lethalChance;
+
+            // Scale non-lethal distributions to fill remaining space
+            // Original ratios: tire 20%, debris 30%, cone 25% = 75% non-lethal
+            float tireRatio = 0.20f / 0.75f;
+            float debrisRatio = 0.30f / 0.75f;
+            float coneRatio = 0.25f / 0.75f;
+
+            float tireChance = nonLethalTotal * tireRatio;
+            float debrisChance = tireChance + nonLethalTotal * debrisRatio;
+            float coneChance = debrisChance + nonLethalTotal * coneRatio;
+
+            // Lethal hazards: barrier vs crashed car ratio remains 17:8
+            float barrierRatio = 17f / 25f;
+
+            if (roll < tireChance)
                 return HazardType.LooseTire;
-            else if (roll < DebrisChance)
+            else if (roll < debrisChance)
                 return HazardType.Debris;
-            else if (roll < ConeChance)
+            else if (roll < coneChance)
                 return HazardType.Cone;
-            else if (roll < BarrierChance)
+            else if (roll < coneChance + lethalChance * barrierRatio)
                 return HazardType.Barrier;
             else
                 return HazardType.CrashedCar;

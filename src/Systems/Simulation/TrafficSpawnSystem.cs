@@ -67,9 +67,26 @@ namespace Nightflow.Systems
                 break;
             }
 
-            // Calculate target traffic count
+            // =============================================================
+            // Get Adaptive Difficulty Modifier
+            // =============================================================
+
+            float adaptiveDifficulty = 1f;
+            foreach (var profile in SystemAPI.Query<RefRO<DifficultyProfile>>())
+            {
+                adaptiveDifficulty = profile.ValueRO.DifficultyModifier;
+                break;
+            }
+
+            // Calculate target traffic count with adaptive scaling
+            // Distance provides base progression, adaptive adjusts density
             float distanceKm = distanceTraveled / 1000f;
-            int targetCount = (int)math.min(BaseTrafficCount + TrafficPerKm * distanceKm, MaxTrafficCount);
+            float baseTarget = BaseTrafficCount + TrafficPerKm * distanceKm;
+
+            // Apply adaptive modifier: struggling players get less traffic
+            // Skilled players get more traffic
+            float adaptiveTarget = baseTarget * adaptiveDifficulty;
+            int targetCount = (int)math.clamp(adaptiveTarget, BaseTrafficCount * 0.5f, MaxTrafficCount);
 
             // Count current traffic
             int currentCount = 0;
@@ -168,8 +185,8 @@ namespace Nightflow.Systems
                 if (!foundSegment)
                     continue;
 
-                // Spawn traffic vehicle
-                SpawnTrafficVehicle(ref ecb, candidatePos, spawnLane, distanceKm);
+                // Spawn traffic vehicle with adaptive difficulty
+                SpawnTrafficVehicle(ref ecb, candidatePos, spawnLane, distanceKm, adaptiveDifficulty);
                 trafficPositions.Add(candidatePos);
                 currentCount++;
             }
@@ -179,7 +196,7 @@ namespace Nightflow.Systems
             ecb.Dispose();
         }
 
-        private void SpawnTrafficVehicle(ref EntityCommandBuffer ecb, float3 position, int lane, float difficulty)
+        private void SpawnTrafficVehicle(ref EntityCommandBuffer ecb, float3 position, int lane, float distanceKm, float adaptiveDifficulty)
         {
             Entity entity = ecb.CreateEntity();
             _spawnCounter++;
@@ -188,8 +205,14 @@ namespace Nightflow.Systems
             float speedVariation = _random.NextFloat(-SpeedVariance, SpeedVariance);
             float targetSpeed = BaseFlowSpeed * (1f + speedVariation);
 
-            // Faster traffic at higher difficulty
-            targetSpeed += difficulty * 2f;
+            // Faster traffic at higher distance and difficulty
+            targetSpeed += distanceKm * 2f;
+
+            // Adaptive difficulty affects traffic aggressiveness
+            // Higher difficulty = faster traffic, more challenging
+            // Lower difficulty = slower traffic, more predictable
+            float speedModifier = math.lerp(0.85f, 1.15f, (adaptiveDifficulty - 0.5f) / 1.5f);
+            targetSpeed *= speedModifier;
 
             // Transform
             ecb.AddComponent(entity, new WorldTransform
