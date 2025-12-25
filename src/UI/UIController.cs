@@ -390,12 +390,166 @@ namespace Nightflow.UI
 
             var uiState = uiStateQuery.GetSingleton<UIState>();
 
+            // Handle input for menus and pause
+            HandleMenuInput();
+
             UpdateHUD(uiState);
             UpdateOverlays(uiState);
             UpdateAnimations(Time.deltaTime);
             ProcessNotifications();
             UpdatePerformanceStats();
             UpdateChallenges();
+        }
+
+        /// <summary>
+        /// Handle keyboard/controller input for menus and pause functionality.
+        /// </summary>
+        private void HandleMenuInput()
+        {
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            if (gameStateQuery.IsEmpty)
+            {
+                gameStateQuery.Dispose();
+                return;
+            }
+
+            var entity = gameStateQuery.GetSingletonEntity();
+            var gameState = entityManager.GetComponentData<Components.GameState>(entity);
+
+            // Handle Escape key for pause toggle
+            if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
+            {
+                HandleEscapeKey(ref gameState, entity);
+            }
+
+            // Handle "Press Start" dismissal on any key/button press
+            if (gameState.CurrentMenu == MenuState.MainMenu)
+            {
+                HandleMainMenuInput(ref gameState, entity);
+            }
+
+            gameStateQuery.Dispose();
+        }
+
+        /// <summary>
+        /// Handle Escape key press for pause and menu navigation.
+        /// </summary>
+        private void HandleEscapeKey(ref Components.GameState gameState, Entity gameStateEntity)
+        {
+            // If in a sub-menu, go back
+            if (gameState.CurrentMenu == MenuState.Credits)
+            {
+                OnCreditsBackClicked();
+                return;
+            }
+            if (gameState.CurrentMenu == MenuState.Settings)
+            {
+                OnSettingsBackClicked();
+                return;
+            }
+            if (gameState.CurrentMenu == MenuState.Leaderboard)
+            {
+                OnLeaderboardBackClicked();
+                return;
+            }
+            if (gameState.CurrentMenu == MenuState.ModeSelect)
+            {
+                OnModeBackClicked();
+                return;
+            }
+
+            // If in main menu, do nothing (or could quit)
+            if (gameState.CurrentMenu == MenuState.MainMenu)
+            {
+                return;
+            }
+
+            // If in score summary, dismiss it
+            if (gameState.CrashPhase == CrashFlowPhase.Summary)
+            {
+                gameState.CrashPhase = CrashFlowPhase.Reset;
+                gameState.CrashPhaseTimer = 0f;
+                entityManager.SetComponentData(gameStateEntity, gameState);
+                return;
+            }
+
+            // During gameplay, toggle pause
+            if (gameState.CurrentMenu == MenuState.None || gameState.CurrentMenu == MenuState.Pause)
+            {
+                // Can't pause during crash flow
+                if (gameState.CrashPhase != CrashFlowPhase.None)
+                    return;
+
+                // Check cooldown
+                if (gameState.PauseCooldown > 0f && !gameState.IsPaused)
+                    return;
+
+                // Toggle pause
+                gameState.IsPaused = !gameState.IsPaused;
+                gameState.TimeScale = gameState.IsPaused ? 0f : 1f;
+                gameState.CurrentMenu = gameState.IsPaused ? MenuState.Pause : MenuState.None;
+                gameState.MenuVisible = gameState.IsPaused;
+
+                if (gameState.IsPaused)
+                {
+                    gameState.PauseCooldown = 5f; // 5 second cooldown after unpausing
+                }
+
+                // Update UI state
+                var uiStateEntity = uiStateQuery.GetSingletonEntity();
+                var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
+                uiState.ShowPauseMenu = gameState.IsPaused;
+                entityManager.SetComponentData(uiStateEntity, uiState);
+                entityManager.SetComponentData(gameStateEntity, gameState);
+            }
+        }
+
+        /// <summary>
+        /// Handle input in main menu (dismiss "Press Start", navigate items).
+        /// </summary>
+        private void HandleMainMenuInput(ref Components.GameState gameState, Entity gameStateEntity)
+        {
+            var mainMenuQuery = entityManager.CreateEntityQuery(typeof(MainMenuState));
+            if (mainMenuQuery.IsEmpty)
+            {
+                mainMenuQuery.Dispose();
+                return;
+            }
+
+            var mainMenuEntity = mainMenuQuery.GetSingletonEntity();
+            var mainMenuState = entityManager.GetComponentData<MainMenuState>(mainMenuEntity);
+
+            // Check for any input to dismiss "Press Start"
+            if (!mainMenuState.InputReceived)
+            {
+                bool anyInput = UnityEngine.Input.anyKeyDown ||
+                                UnityEngine.Input.GetMouseButtonDown(0) ||
+                                UnityEngine.Input.GetMouseButtonDown(1);
+
+                if (anyInput)
+                {
+                    mainMenuState.InputReceived = true;
+                    entityManager.SetComponentData(mainMenuEntity, mainMenuState);
+
+                    // Update visuals
+                    if (mainMenuItems != null)
+                    {
+                        mainMenuItems.RemoveFromClassList("hidden");
+                    }
+                    if (pressStartText != null)
+                    {
+                        pressStartText.AddToClassList("hidden");
+                    }
+
+                    // Update UIState
+                    var uiStateEntity = uiStateQuery.GetSingletonEntity();
+                    var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
+                    uiState.ShowPressStart = false;
+                    entityManager.SetComponentData(uiStateEntity, uiState);
+                }
+            }
+
+            mainMenuQuery.Dispose();
         }
 
         private void UpdateHUD(UIState state)
