@@ -198,9 +198,53 @@ namespace Nightflow.Systems
                     uiState.ValueRW.ShowScoreSummary =
                         gameState.ValueRO.CrashPhase == CrashFlowPhase.Summary;
                     uiState.ValueRW.OverlayAlpha = gameState.ValueRO.FadeAlpha;
+
+                    // Update ScoreSummaryDisplay singleton when entering summary phase
+                    if (gameState.ValueRO.CrashPhase == CrashFlowPhase.Summary)
+                    {
+                        UpdateScoreSummaryDisplay(ref state);
+                    }
                     break;
                 }
 
+                break;
+            }
+        }
+
+        /// <summary>
+        /// Copies player's ScoreSummary to the ScoreSummaryDisplay singleton.
+        /// </summary>
+        private void UpdateScoreSummaryDisplay(ref SystemState state)
+        {
+            // Get player score summary
+            ScoreSummary playerSummary = default;
+            float playerMaxSpeed = 0f;
+            bool foundPlayer = false;
+
+            foreach (var (summary, velocity, session) in
+                SystemAPI.Query<RefRO<ScoreSummary>, RefRO<Velocity>, RefRO<ScoreSession>>()
+                    .WithAll<PlayerVehicleTag>())
+            {
+                playerSummary = summary.ValueRO;
+                playerMaxSpeed = summary.ValueRO.HighestSpeed * 3.6f; // Convert to km/h
+                foundPlayer = true;
+                break;
+            }
+
+            if (!foundPlayer) return;
+
+            // Update the display singleton
+            foreach (var display in SystemAPI.Query<RefRW<ScoreSummaryDisplay>>())
+            {
+                display.ValueRW.FinalScore = playerSummary.FinalScore;
+                display.ValueRW.TotalDistance = playerSummary.TotalDistance;
+                display.ValueRW.MaxSpeed = playerMaxSpeed;
+                display.ValueRW.TimeSurvived = playerSummary.TimeSurvived;
+                display.ValueRW.ClosePasses = playerSummary.ClosePasses;
+                display.ValueRW.HazardsDodged = playerSummary.HazardsDodged;
+                display.ValueRW.DriftRecoveries = playerSummary.DriftRecoveries;
+                display.ValueRW.EndReason = playerSummary.EndReason;
+                // IsNewHighScore and LeaderboardRank are updated by SaveManager
                 break;
             }
         }
