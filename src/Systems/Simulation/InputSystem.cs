@@ -7,41 +7,65 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Nightflow.Components;
 using Nightflow.Tags;
+using Nightflow.Input;
+using Nightflow.Save;
 using UnityEngine;
 
 namespace Nightflow.Systems
 {
     /// <summary>
     /// Reads hardware input and writes to PlayerInput component.
-    /// Supports keyboard, gamepad, and steering wheel input.
+    /// Uses InputBindingManager for rebindable controls.
     /// Disabled when Autopilot is active; player input re-enables control.
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
     public partial struct InputSystem : ISystem
     {
-        // Input configuration constants
-        private const float SteerDeadzone = 0.1f;
-        private const float TriggerDeadzone = 0.05f;
-        private const float SteerSensitivity = 1.0f;
-        private const float SteerExponent = 1.5f; // Non-linear sensitivity curve
+        // Input configuration - loaded from settings
+        private float steerDeadzone;
+        private float triggerDeadzone;
+        private float steerSensitivity;
+        private float steerExponent;
+        private bool invertSteering;
+        private bool settingsLoaded;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<PlayerVehicleTag>();
+            steerDeadzone = 0.1f;
+            triggerDeadzone = 0.05f;
+            steerSensitivity = 1.0f;
+            steerExponent = 1.5f;
+            invertSteering = false;
+            settingsLoaded = false;
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            // Read raw input from hardware
-            float rawSteer = Input.GetAxis("Horizontal");
-            float rawThrottle = GetThrottleInput();
-            float rawBrake = GetBrakeInput();
-            bool handbrake = Input.GetButton("Jump") || Input.GetKey(KeyCode.Space);
+            // Load settings from SaveManager if not yet loaded
+            if (!settingsLoaded && SaveManager.Instance != null)
+            {
+                LoadSettings();
+                settingsLoaded = true;
+            }
+
+            // Skip if InputBindingManager is rebinding
+            var bindingManager = InputBindingManager.Instance;
+            if (bindingManager != null && bindingManager.IsRebinding)
+            {
+                return;
+            }
+
+            // Read input from binding manager or fallback to legacy
+            float rawSteer = GetSteerInput(bindingManager);
+            float rawThrottle = GetThrottleInput(bindingManager);
+            float rawBrake = GetBrakeInput(bindingManager);
+            bool handbrake = GetHandbrakeInput(bindingManager);
 
             // Apply deadzone and sensitivity curves
             float processedSteer = ProcessSteerInput(rawSteer);
-            float processedThrottle = ApplyDeadzone(rawThrottle, TriggerDeadzone);
-            float processedBrake = ApplyDeadzone(rawBrake, TriggerDeadzone);
+            float processedThrottle = ApplyDeadzone(rawThrottle, triggerDeadzone);
+            float processedBrake = ApplyDeadzone(rawBrake, triggerDeadzone);
 
             // Check if player is providing meaningful input (to override autopilot)
             bool hasPlayerInput = math.abs(processedSteer) > 0.01f ||
@@ -86,66 +110,85 @@ namespace Nightflow.Systems
             }
         }
 
-        /// <summary>
-        /// Gets throttle input from multiple possible sources.
-        /// Supports: W key, Up arrow, RT trigger, positive vertical axis.
-        /// </summary>
-        private float GetThrottleInput()
+        private void LoadSettings()
         {
-            float keyboardThrottle = 0f;
+            var settings = SaveManager.Instance.GetSettings();
+            if (settings?.Controls != null)
+            {
+                steerDeadzone = settings.Controls.SteeringDeadzone;
+                steerSensitivity = settings.Controls.SteeringSensitivity;
+                invertSteering = settings.Controls.InvertSteering;
+            }
+        }
 
-            // Keyboard: W or Up arrow
-            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
+        /// <summary>
+        /// Gets steering input using InputBindingManager or legacy fallback.
+        /// </summary>
+        private float GetSteerInput(InputBindingManager bindingManager)
+        {
+            if (bindingManager != null)
+            {
+                return bindingManager.GetSteerAxis();
+            }
+
+            // Legacy fallback
+            return UnityEngine.Input.GetAxis("Horizontal");
+        }
+
+        /// <summary>
+        /// Gets throttle input using InputBindingManager or legacy fallback.
+        /// </summary>
+        private float GetThrottleInput(InputBindingManager bindingManager)
+        {
+            if (bindingManager != null)
+            {
+                return bindingManager.GetActionAxis(InputAction.Accelerate);
+            }
+
+            // Legacy fallback
+            float keyboardThrottle = 0f;
+            if (UnityEngine.Input.GetKey(KeyCode.W) || UnityEngine.Input.GetKey(KeyCode.UpArrow))
             {
                 keyboardThrottle = 1f;
             }
 
-            // Gamepad: Right trigger (mapped to "Accelerate" or positive Vertical)
-            float gamepadThrottle = math.max(0f, Input.GetAxis("Vertical"));
-
-            // Also check for dedicated trigger axis if configured
-            float triggerAxis = 0f;
-            try
-            {
-                triggerAxis = math.max(0f, Input.GetAxis("Accelerate"));
-            }
-            catch
-            {
-                // Axis not configured, ignore
-            }
-
-            return math.max(keyboardThrottle, math.max(gamepadThrottle, triggerAxis));
+            float gamepadThrottle = math.max(0f, UnityEngine.Input.GetAxis("Vertical"));
+            return math.max(keyboardThrottle, gamepadThrottle);
         }
 
         /// <summary>
-        /// Gets brake input from multiple possible sources.
-        /// Supports: S key, Down arrow, LT trigger.
+        /// Gets brake input using InputBindingManager or legacy fallback.
         /// </summary>
-        private float GetBrakeInput()
+        private float GetBrakeInput(InputBindingManager bindingManager)
         {
-            float keyboardBrake = 0f;
+            if (bindingManager != null)
+            {
+                return bindingManager.GetActionAxis(InputAction.Brake);
+            }
 
-            // Keyboard: S or Down arrow
-            if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
+            // Legacy fallback
+            float keyboardBrake = 0f;
+            if (UnityEngine.Input.GetKey(KeyCode.S) || UnityEngine.Input.GetKey(KeyCode.DownArrow))
             {
                 keyboardBrake = 1f;
             }
 
-            // Gamepad: Left trigger or negative Vertical
-            float gamepadBrake = math.max(0f, -Input.GetAxis("Vertical"));
+            float gamepadBrake = math.max(0f, -UnityEngine.Input.GetAxis("Vertical"));
+            return math.max(keyboardBrake, gamepadBrake);
+        }
 
-            // Also check for dedicated brake axis if configured
-            float triggerAxis = 0f;
-            try
+        /// <summary>
+        /// Gets handbrake input using InputBindingManager or legacy fallback.
+        /// </summary>
+        private bool GetHandbrakeInput(InputBindingManager bindingManager)
+        {
+            if (bindingManager != null)
             {
-                triggerAxis = math.max(0f, Input.GetAxis("Brake"));
-            }
-            catch
-            {
-                // Axis not configured, ignore
+                return bindingManager.IsActionPressed(InputAction.Handbrake);
             }
 
-            return math.max(keyboardBrake, math.max(gamepadBrake, triggerAxis));
+            // Legacy fallback
+            return UnityEngine.Input.GetButton("Jump") || UnityEngine.Input.GetKey(KeyCode.Space);
         }
 
         /// <summary>
@@ -154,17 +197,23 @@ namespace Nightflow.Systems
         /// </summary>
         private float ProcessSteerInput(float raw)
         {
+            // Apply inversion if enabled
+            if (invertSteering)
+            {
+                raw = -raw;
+            }
+
             // Apply deadzone
-            float deadzoned = ApplyDeadzone(raw, SteerDeadzone);
+            float deadzoned = ApplyDeadzone(raw, steerDeadzone);
 
             // Apply non-linear sensitivity curve: sign(x) * |x|^exponent
             // This gives fine control at small deflections, aggressive at full throw
             float sign = math.sign(deadzoned);
             float magnitude = math.abs(deadzoned);
-            float curved = sign * math.pow(magnitude, SteerExponent);
+            float curved = sign * math.pow(magnitude, steerExponent);
 
             // Apply sensitivity multiplier
-            return math.clamp(curved * SteerSensitivity, -1f, 1f);
+            return math.clamp(curved * steerSensitivity, -1f, 1f);
         }
 
         /// <summary>

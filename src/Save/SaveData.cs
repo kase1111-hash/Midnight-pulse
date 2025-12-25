@@ -75,6 +75,34 @@ namespace Nightflow.Save
 
         // Input mode
         public InputMode PreferredInputMode = InputMode.Auto;
+
+        // Input bindings
+        public InputBindingPreset KeyboardBindings;
+        public InputBindingPreset GamepadBindings;
+
+        public ControlSettings()
+        {
+            // Initialize with default bindings
+            KeyboardBindings = InputBindingPreset.CreateDefaultKeyboard();
+            GamepadBindings = InputBindingPreset.CreateDefaultGamepad();
+        }
+
+        /// <summary>
+        /// Reset all bindings to default.
+        /// </summary>
+        public void ResetBindingsToDefault()
+        {
+            KeyboardBindings = InputBindingPreset.CreateDefaultKeyboard();
+            GamepadBindings = InputBindingPreset.CreateDefaultGamepad();
+        }
+
+        /// <summary>
+        /// Get the active binding preset based on input mode.
+        /// </summary>
+        public InputBindingPreset GetActiveBindings(InputMode mode)
+        {
+            return mode == InputMode.Gamepad ? GamepadBindings : KeyboardBindings;
+        }
     }
 
     /// <summary>
@@ -356,5 +384,193 @@ namespace Nightflow.Save
         Redline = 1,
         Ghost = 2,
         Freeflow = 3
+    }
+
+    /// <summary>
+    /// Input actions that can be rebound.
+    /// </summary>
+    public enum InputAction
+    {
+        // Vehicle controls
+        Accelerate = 0,
+        Brake = 1,
+        SteerLeft = 2,
+        SteerRight = 3,
+        Handbrake = 4,
+
+        // Camera
+        LookBack = 5,
+        CameraToggle = 6,
+
+        // UI/Game
+        Pause = 7,
+        Confirm = 8,
+        Cancel = 9,
+        MenuUp = 10,
+        MenuDown = 11,
+        MenuLeft = 12,
+        MenuRight = 13
+    }
+
+    /// <summary>
+    /// Key binding for a single action. Supports primary and alternate bindings.
+    /// </summary>
+    [Serializable]
+    public class InputBinding
+    {
+        public InputAction Action;
+
+        // Keyboard bindings (stored as KeyCode int values for serialization)
+        public int PrimaryKey = -1;     // -1 = unbound
+        public int AlternateKey = -1;
+
+        // Gamepad bindings (stored as string for axis/button names)
+        public string GamepadButton = "";
+        public string GamepadAxis = "";
+        public bool GamepadAxisPositive = true;  // For axis direction
+
+        public InputBinding() { }
+
+        public InputBinding(InputAction action, KeyCode primary, KeyCode alternate = KeyCode.None)
+        {
+            Action = action;
+            PrimaryKey = (int)primary;
+            AlternateKey = alternate == KeyCode.None ? -1 : (int)alternate;
+        }
+
+        public InputBinding(InputAction action, string gamepadButton)
+        {
+            Action = action;
+            GamepadButton = gamepadButton;
+        }
+
+        public KeyCode GetPrimaryKeyCode() =>
+            PrimaryKey >= 0 ? (KeyCode)PrimaryKey : KeyCode.None;
+
+        public KeyCode GetAlternateKeyCode() =>
+            AlternateKey >= 0 ? (KeyCode)AlternateKey : KeyCode.None;
+
+        public bool IsKeyBound(KeyCode key)
+        {
+            int keyInt = (int)key;
+            return PrimaryKey == keyInt || AlternateKey == keyInt;
+        }
+
+        public void SetPrimaryKey(KeyCode key)
+        {
+            PrimaryKey = key == KeyCode.None ? -1 : (int)key;
+        }
+
+        public void SetAlternateKey(KeyCode key)
+        {
+            AlternateKey = key == KeyCode.None ? -1 : (int)key;
+        }
+    }
+
+    /// <summary>
+    /// Complete input binding preset (keyboard + gamepad).
+    /// </summary>
+    [Serializable]
+    public class InputBindingPreset
+    {
+        public string Name = "Custom";
+        public List<InputBinding> Bindings = new List<InputBinding>();
+
+        public InputBindingPreset() { }
+
+        public InputBindingPreset(string name)
+        {
+            Name = name;
+            Bindings = new List<InputBinding>();
+        }
+
+        /// <summary>
+        /// Get binding for a specific action.
+        /// </summary>
+        public InputBinding GetBinding(InputAction action)
+        {
+            foreach (var binding in Bindings)
+            {
+                if (binding.Action == action)
+                    return binding;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Set or update binding for an action.
+        /// </summary>
+        public void SetBinding(InputBinding binding)
+        {
+            for (int i = 0; i < Bindings.Count; i++)
+            {
+                if (Bindings[i].Action == binding.Action)
+                {
+                    Bindings[i] = binding;
+                    return;
+                }
+            }
+            Bindings.Add(binding);
+        }
+
+        /// <summary>
+        /// Create default keyboard bindings.
+        /// </summary>
+        public static InputBindingPreset CreateDefaultKeyboard()
+        {
+            var preset = new InputBindingPreset("Keyboard Default");
+
+            // Vehicle controls
+            preset.Bindings.Add(new InputBinding(InputAction.Accelerate, KeyCode.W, KeyCode.UpArrow));
+            preset.Bindings.Add(new InputBinding(InputAction.Brake, KeyCode.S, KeyCode.DownArrow));
+            preset.Bindings.Add(new InputBinding(InputAction.SteerLeft, KeyCode.A, KeyCode.LeftArrow));
+            preset.Bindings.Add(new InputBinding(InputAction.SteerRight, KeyCode.D, KeyCode.RightArrow));
+            preset.Bindings.Add(new InputBinding(InputAction.Handbrake, KeyCode.Space));
+
+            // Camera
+            preset.Bindings.Add(new InputBinding(InputAction.LookBack, KeyCode.Q));
+            preset.Bindings.Add(new InputBinding(InputAction.CameraToggle, KeyCode.C));
+
+            // UI
+            preset.Bindings.Add(new InputBinding(InputAction.Pause, KeyCode.Escape, KeyCode.P));
+            preset.Bindings.Add(new InputBinding(InputAction.Confirm, KeyCode.Return, KeyCode.Space));
+            preset.Bindings.Add(new InputBinding(InputAction.Cancel, KeyCode.Escape, KeyCode.Backspace));
+            preset.Bindings.Add(new InputBinding(InputAction.MenuUp, KeyCode.W, KeyCode.UpArrow));
+            preset.Bindings.Add(new InputBinding(InputAction.MenuDown, KeyCode.S, KeyCode.DownArrow));
+            preset.Bindings.Add(new InputBinding(InputAction.MenuLeft, KeyCode.A, KeyCode.LeftArrow));
+            preset.Bindings.Add(new InputBinding(InputAction.MenuRight, KeyCode.D, KeyCode.RightArrow));
+
+            return preset;
+        }
+
+        /// <summary>
+        /// Create default gamepad bindings.
+        /// </summary>
+        public static InputBindingPreset CreateDefaultGamepad()
+        {
+            var preset = new InputBindingPreset("Gamepad Default");
+
+            // Vehicle controls - use axis for analog input
+            preset.Bindings.Add(new InputBinding(InputAction.Accelerate, "RightTrigger") { GamepadAxis = "Vertical", GamepadAxisPositive = true });
+            preset.Bindings.Add(new InputBinding(InputAction.Brake, "LeftTrigger") { GamepadAxis = "Vertical", GamepadAxisPositive = false });
+            preset.Bindings.Add(new InputBinding(InputAction.SteerLeft, "") { GamepadAxis = "Horizontal", GamepadAxisPositive = false });
+            preset.Bindings.Add(new InputBinding(InputAction.SteerRight, "") { GamepadAxis = "Horizontal", GamepadAxisPositive = true });
+            preset.Bindings.Add(new InputBinding(InputAction.Handbrake, "ButtonA"));
+
+            // Camera
+            preset.Bindings.Add(new InputBinding(InputAction.LookBack, "LeftBumper"));
+            preset.Bindings.Add(new InputBinding(InputAction.CameraToggle, "RightStickClick"));
+
+            // UI
+            preset.Bindings.Add(new InputBinding(InputAction.Pause, "Start"));
+            preset.Bindings.Add(new InputBinding(InputAction.Confirm, "ButtonA"));
+            preset.Bindings.Add(new InputBinding(InputAction.Cancel, "ButtonB"));
+            preset.Bindings.Add(new InputBinding(InputAction.MenuUp, "") { GamepadAxis = "DPadVertical", GamepadAxisPositive = true });
+            preset.Bindings.Add(new InputBinding(InputAction.MenuDown, "") { GamepadAxis = "DPadVertical", GamepadAxisPositive = false });
+            preset.Bindings.Add(new InputBinding(InputAction.MenuLeft, "") { GamepadAxis = "DPadHorizontal", GamepadAxisPositive = false });
+            preset.Bindings.Add(new InputBinding(InputAction.MenuRight, "") { GamepadAxis = "DPadHorizontal", GamepadAxisPositive = true });
+
+            return preset;
+        }
     }
 }
