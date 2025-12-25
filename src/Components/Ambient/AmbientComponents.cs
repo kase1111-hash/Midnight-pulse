@@ -367,4 +367,96 @@ namespace Nightflow.Components
         /// <summary>Halo ring color (for full moon).</summary>
         public float4 HaloColor;
     }
+
+    // ============================================================================
+    // Ground Fog Components
+    // ============================================================================
+
+    /// <summary>
+    /// Ground-level fog state singleton.
+    /// Creates dense fog layer that the track dips through.
+    /// </summary>
+    public struct GroundFogState : IComponentData
+    {
+        /// <summary>Base height of fog layer (meters).</summary>
+        public float BaseHeight;
+
+        /// <summary>Fog layer thickness (meters).</summary>
+        public float Thickness;
+
+        /// <summary>Maximum fog density (0-1).</summary>
+        public float MaxDensity;
+
+        /// <summary>Fog visibility distance at max density (meters).</summary>
+        public float VisibilityDistance;
+
+        /// <summary>Time accumulator for fog animation.</summary>
+        public float AnimationTime;
+
+        /// <summary>Whether fog is currently active.</summary>
+        public bool IsActive;
+    }
+
+    /// <summary>
+    /// Tag for the ground fog controller entity.
+    /// </summary>
+    public struct GroundFogTag : IComponentData { }
+
+    /// <summary>
+    /// Configuration for ground fog rendering.
+    /// </summary>
+    public struct GroundFogConfig : IComponentData
+    {
+        /// <summary>Primary fog color.</summary>
+        public float4 FogColor;
+
+        /// <summary>Secondary fog color for variation.</summary>
+        public float4 FogColorAlt;
+
+        /// <summary>How much fog color shifts over time.</summary>
+        public float ColorShiftIntensity;
+
+        /// <summary>Speed of fog drift animation.</summary>
+        public float DriftSpeed;
+
+        /// <summary>Turbulence intensity for fog movement.</summary>
+        public float Turbulence;
+
+        /// <summary>Vertical falloff sharpness (higher = sharper edge).</summary>
+        public float FalloffSharpness;
+
+        /// <summary>Distance fade start (meters from camera).</summary>
+        public float FadeStartDistance;
+
+        /// <summary>Distance fade end (meters from camera).</summary>
+        public float FadeEndDistance;
+
+        /// <summary>Noise scale for fog density variation.</summary>
+        public float NoiseScale;
+
+        /// <summary>Whether to add subtle glow at fog surface.</summary>
+        public bool EnableSurfaceGlow;
+
+        /// <summary>Surface glow color.</summary>
+        public float4 GlowColor;
+
+        /// <summary>Surface glow intensity.</summary>
+        public float GlowIntensity;
+    }
+
+    /// <summary>
+    /// Per-segment fog density override.
+    /// Allows track sections to have varying fog intensity.
+    /// </summary>
+    public struct FogDensityOverride : IComponentData
+    {
+        /// <summary>Density multiplier for this segment (0-2).</summary>
+        public float DensityMultiplier;
+
+        /// <summary>Height offset for this segment.</summary>
+        public float HeightOffset;
+
+        /// <summary>Blend distance for transitioning.</summary>
+        public float BlendDistance;
+    }
 }
