@@ -39,8 +39,6 @@ namespace Nightflow.Systems.Presentation
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            float deltaTime = SystemAPI.Time.DeltaTime;
-
             // Get player state
             float playerSpeed = 0f;
             float playerDamage = 0f;
@@ -55,10 +53,11 @@ namespace Nightflow.Systems.Presentation
             }
 
             // Update render state
+            float elapsedTime = (float)SystemAPI.Time.ElapsedTime;
             foreach (var renderState in SystemAPI.Query<RefRW<RenderState>>())
             {
                 UpdateSpeedEffects(ref renderState.ValueRW, playerSpeed);
-                UpdateDamageEffects(ref renderState.ValueRW, playerDamage, deltaTime);
+                UpdateDamageEffects(ref renderState.ValueRW, playerDamage, elapsedTime);
             }
         }
 
@@ -84,7 +83,7 @@ namespace Nightflow.Systems.Presentation
         }
 
         [BurstCompile]
-        private void UpdateDamageEffects(ref RenderState state, float damage, float deltaTime)
+        private void UpdateDamageEffects(ref RenderState state, float damage, float elapsedTime)
         {
             // Vignette pulse based on damage
             if (damage > DamageVignetteStart)
@@ -95,8 +94,8 @@ namespace Nightflow.Systems.Presentation
                 // Pulse faster at critical damage
                 float pulseSpeed = damage > CriticalDamageThreshold ? 8f : 3f;
 
-                // Calculate pulse (using time directly isn't Burst-safe, approximated)
-                float pulse = math.sin(SystemAPI.Time.ElapsedTime * pulseSpeed) * 0.5f + 0.5f;
+                // Calculate pulse using passed-in elapsed time
+                float pulse = math.sin(elapsedTime * pulseSpeed) * 0.5f + 0.5f;
 
                 state.Vignette = 0.3f + damageRatio * pulse * 0.25f;
             }
@@ -207,6 +206,7 @@ namespace Nightflow.Systems.Presentation
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<PostProcessState>();
+            state.RequireForUpdate<PlayerVehicleTag>();
         }
 
         [BurstCompile]
