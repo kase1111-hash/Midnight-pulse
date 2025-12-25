@@ -356,4 +356,97 @@ namespace Nightflow.Components
         /// <summary>Distance difference vs ghost (positive = ahead).</summary>
         public float GhostDistanceDelta;
     }
+
+    // ============================================================================
+    // Leaderboard Components
+    // ============================================================================
+
+    /// <summary>
+    /// Single leaderboard entry - arcade style with 3-letter initials.
+    /// </summary>
+    public struct LeaderboardEntry : IBufferElementData
+    {
+        /// <summary>Rank position (1-10).</summary>
+        public int Rank;
+
+        /// <summary>Player initials - 3 characters, arcade style.</summary>
+        public FixedString32Bytes Initials;
+
+        /// <summary>Score achieved.</summary>
+        public int Score;
+
+        /// <summary>Max speed reached (m/s) for display.</summary>
+        public float MaxSpeed;
+
+        /// <summary>Distance traveled (km).</summary>
+        public float Distance;
+
+        /// <summary>Game mode this score was achieved in.</summary>
+        public GameMode Mode;
+
+        /// <summary>Unix timestamp when score was set.</summary>
+        public long Timestamp;
+
+        /// <summary>Whether this is the current player's entry (for highlighting).</summary>
+        public bool IsCurrentPlayer;
+    }
+
+    /// <summary>
+    /// Leaderboard state singleton.
+    /// </summary>
+    public struct LeaderboardState : IComponentData
+    {
+        /// <summary>Currently selected leaderboard filter.</summary>
+        public LeaderboardFilter CurrentFilter;
+
+        /// <summary>Whether leaderboard is currently visible.</summary>
+        public bool IsVisible;
+
+        /// <summary>Currently highlighted rank (for scrolling/selection).</summary>
+        public int SelectedRank;
+
+        /// <summary>Current player's best rank (-1 if not on board).</summary>
+        public int PlayerBestRank;
+
+        /// <summary>Total number of entries.</summary>
+        public int EntryCount;
+
+        /// <summary>Whether new score entry is being made.</summary>
+        public bool IsEnteringInitials;
+
+        /// <summary>Current initial being edited (0-2).</summary>
+        public int CurrentInitialIndex;
+
+        /// <summary>Pending initials during entry.</summary>
+        public FixedString32Bytes PendingInitials;
+
+        /// <summary>Score being entered.</summary>
+        public int PendingScore;
+    }
+
+    /// <summary>
+    /// Leaderboard filter options.
+    /// </summary>
+    public enum LeaderboardFilter : byte
+    {
+        /// <summary>All game modes combined.</summary>
+        AllModes = 0,
+
+        /// <summary>Nightflow mode only.</summary>
+        Nightflow = 1,
+
+        /// <summary>Redline mode only.</summary>
+        Redline = 2,
+
+        /// <summary>Ghost mode only.</summary>
+        Ghost = 3,
+
+        /// <summary>Freeflow mode only.</summary>
+        Freeflow = 4
+    }
+
+    /// <summary>
+    /// Tag for leaderboard controller entity.
+    /// </summary>
+    public struct LeaderboardTag : IComponentData { }
 }
