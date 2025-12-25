@@ -47,7 +47,7 @@ namespace Nightflow.Components
         public bool SirenActive;
 
         // Environment reverb
-        public ReverbZone CurrentZone;
+        public ReverbZoneType CurrentZone;
         public float ReverbMix;
         public float ReverbDecay;
 
@@ -58,8 +58,10 @@ namespace Nightflow.Components
 
     /// <summary>
     /// Environment reverb zone types.
+    /// Note: Named ReverbZoneType to avoid conflict with ReverbZone IComponentData struct
+    /// in Components/Audio/AudioComponents.cs.
     /// </summary>
-    public enum ReverbZone : byte
+    public enum ReverbZoneType : byte
     {
         OpenRoad = 0,     // Dry, minimal reverb
         Tunnel = 1,       // Boomy, long decay
