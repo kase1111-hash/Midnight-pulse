@@ -67,7 +67,13 @@ namespace Nightflow.Components
         public bool ShowCrashOverlay;
         public bool ShowScoreSummary;
         public bool ShowModeSelect;
+        public bool ShowMainMenu;
+        public bool ShowCredits;
         public float OverlayAlpha;
+
+        // Title screen state
+        public bool ShowPressStart;
+        public int MainMenuSelection;
     }
 
     /// <summary>
@@ -127,7 +133,90 @@ namespace Nightflow.Components
         ScoreSummary = 2,
         Settings = 3,
         Leaderboard = 4,
-        ModeSelect = 5
+        ModeSelect = 5,
+        MainMenu = 6,
+        Credits = 7
+    }
+
+    /// <summary>
+    /// Game flow phase for overall game state management.
+    /// </summary>
+    public enum GameFlowPhase : byte
+    {
+        /// <summary>Title screen / main menu - game not active.</summary>
+        TitleScreen = 0,
+
+        /// <summary>Mode selection before starting a run.</summary>
+        ModeSelection = 1,
+
+        /// <summary>Active gameplay in progress.</summary>
+        Playing = 2,
+
+        /// <summary>Game paused during active run.</summary>
+        Paused = 3,
+
+        /// <summary>Crash sequence in progress.</summary>
+        Crashing = 4,
+
+        /// <summary>Score summary display after crash.</summary>
+        Summary = 5,
+
+        /// <summary>Transitioning between states (fade).</summary>
+        Transitioning = 6
+    }
+
+    /// <summary>
+    /// Main menu navigation state for title screen.
+    /// </summary>
+    public struct MainMenuState : IComponentData
+    {
+        /// <summary>Currently highlighted menu item (0-based).</summary>
+        public int SelectedIndex;
+
+        /// <summary>Number of menu items.</summary>
+        public int ItemCount;
+
+        /// <summary>Whether title animation has completed.</summary>
+        public bool TitleAnimationComplete;
+
+        /// <summary>Time since title screen appeared.</summary>
+        public float DisplayTime;
+
+        /// <summary>Whether any input has been received.</summary>
+        public bool InputReceived;
+
+        /// <summary>"Press Start" blink timer.</summary>
+        public float BlinkTimer;
+
+        /// <summary>Whether currently showing "Press Start" prompt.</summary>
+        public bool ShowPressStart;
+    }
+
+    /// <summary>
+    /// Game session state - tracks current run and overall flow.
+    /// </summary>
+    public struct GameSessionState : IComponentData
+    {
+        /// <summary>Current game flow phase.</summary>
+        public GameFlowPhase CurrentPhase;
+
+        /// <summary>Previous phase for transition handling.</summary>
+        public GameFlowPhase PreviousPhase;
+
+        /// <summary>Transition progress (0-1).</summary>
+        public float TransitionProgress;
+
+        /// <summary>Whether a game session is currently active.</summary>
+        public bool SessionActive;
+
+        /// <summary>Total runs completed this session.</summary>
+        public int RunCount;
+
+        /// <summary>Whether player has seen credits.</summary>
+        public bool CreditsViewed;
+
+        /// <summary>Last selected game mode.</summary>
+        public GameMode LastSelectedMode;
     }
 
     /// <summary>

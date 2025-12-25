@@ -377,23 +377,27 @@ namespace Nightflow.Systems
                 ShowCrashOverlay = false,
                 ShowScoreSummary = false,
                 ShowModeSelect = false,
-                OverlayAlpha = 0f
+                ShowMainMenu = true,      // Start at main menu
+                ShowCredits = false,
+                OverlayAlpha = 0f,
+                ShowPressStart = true,    // Show "Press Start" initially
+                MainMenuSelection = 0
             });
 
             ecb.AddComponent(uiEntity, new GameState
             {
-                IsPaused = false,
+                IsPaused = true,          // Game paused at main menu
                 PauseCooldown = 0f,
                 PauseCooldownMax = 5f,
                 CrashPhase = CrashFlowPhase.None,
                 CrashPhaseTimer = 0f,
                 FadeAlpha = 0f,
                 AutopilotQueued = false,
-                PlayerControlActive = true,
+                PlayerControlActive = false,  // No player control at menu
                 IdleTimer = 0f,
-                CurrentMenu = MenuState.None,
-                MenuVisible = false,
-                TimeScale = 1f
+                CurrentMenu = MenuState.MainMenu,  // Start at main menu
+                MenuVisible = true,
+                TimeScale = 0f            // Time stopped at menu
             });
 
             ecb.AddComponent<UIControllerTag>(uiEntity);
@@ -402,6 +406,34 @@ namespace Nightflow.Systems
             // Copy audio buffers to UI entity for event system access
             ecb.AddBuffer<UIAudioEvent>(uiEntity);
             ecb.AddBuffer<OneShotAudioRequest>(uiEntity);
+
+            // =============================================================
+            // Create Main Menu State Entity
+            // =============================================================
+
+            Entity menuEntity = ecb.CreateEntity();
+
+            ecb.AddComponent(menuEntity, new MainMenuState
+            {
+                SelectedIndex = 0,
+                ItemCount = 5,  // Play, Leaderboard, Settings, Credits, Quit
+                TitleAnimationComplete = false,
+                DisplayTime = 0f,
+                InputReceived = false,
+                BlinkTimer = 0f,
+                ShowPressStart = true
+            });
+
+            ecb.AddComponent(menuEntity, new GameSessionState
+            {
+                CurrentPhase = GameFlowPhase.TitleScreen,
+                PreviousPhase = GameFlowPhase.TitleScreen,
+                TransitionProgress = 0f,
+                SessionActive = false,
+                RunCount = 0,
+                CreditsViewed = false,
+                LastSelectedMode = GameMode.Nightflow
+            });
 
             // Playback command buffer
             ecb.Playback(state.EntityManager);
