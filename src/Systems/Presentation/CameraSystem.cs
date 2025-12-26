@@ -290,11 +290,4 @@ namespace Nightflow.Systems
         }
     }
 
-    public enum CameraMode
-    {
-        Follow,
-        Drift,
-        Crash,
-        Replay
-    }
 }

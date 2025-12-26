@@ -94,35 +94,45 @@ namespace Nightflow.Components
 
     /// <summary>
     /// Camera rig state for chase camera.
+    /// Contains world-space position/rotation and follow parameters.
+    /// Updated by CameraSystem, read by CameraSyncBridge.
     /// </summary>
     public struct CameraState : IComponentData
     {
-        /// <summary>Current camera offset from vehicle.</summary>
-        public float3 Offset;
+        /// <summary>Current camera world position.</summary>
+        public float3 Position;
+
+        /// <summary>Current camera rotation.</summary>
+        public quaternion Rotation;
 
         /// <summary>Current field of view (degrees).</summary>
         public float FOV;
 
-        /// <summary>Target FOV based on speed.</summary>
-        public float TargetFOV;
+        /// <summary>Current follow distance behind vehicle (m).</summary>
+        public float FollowDistance;
 
-        /// <summary>Current shake intensity [0, 1].</summary>
-        public float ShakeIntensity;
+        /// <summary>Current follow height above vehicle (m).</summary>
+        public float FollowHeight;
 
-        /// <summary>Current shake offset.</summary>
-        public float3 ShakeOffset;
+        /// <summary>Current lateral offset from vehicle center (m).</summary>
+        public float LateralOffset;
 
-        /// <summary>Yaw follow offset (for drift whip).</summary>
-        public float YawOffset;
+        /// <summary>Current camera roll angle (radians).</summary>
+        public float Roll;
 
-        /// <summary>Distance offset from base follow distance.</summary>
-        public float DistanceOffset;
+        /// <summary>Current camera mode (Follow, Drift, Crash, Replay).</summary>
+        public CameraMode Mode;
+    }
 
-        /// <summary>Target look-at offset from vehicle center.</summary>
-        public float3 TargetOffset;
-
-        /// <summary>Current camera world position.</summary>
-        public float3 Position;
+    /// <summary>
+    /// Camera behavior modes.
+    /// </summary>
+    public enum CameraMode : byte
+    {
+        Follow = 0,
+        Drift = 1,
+        Crash = 2,
+        Replay = 3
     }
 
     /// <summary>
