@@ -291,6 +291,10 @@ namespace Nightflow.Editor
             // Audio Listener
             cameraGO.AddComponent<AudioListener>();
 
+            // Camera Sync Bridge - syncs ECS CameraState to Unity Camera transform
+            // This is essential for the game to render correctly!
+            cameraGO.AddComponent<CameraSyncBridge>();
+
             // Post Processing
             var postProcessGO = new GameObject("PostProcessing");
             postProcessGO.transform.SetParent(cameraGO.transform);
