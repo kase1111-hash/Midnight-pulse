@@ -117,9 +117,8 @@ namespace Nightflow.Save
             }
 
             // Update leaderboard state
-            var state = EntityManager.GetComponentData<LeaderboardState>(leaderboardEntity);
-            state.EntryCount = buffer.Length;
-            EntityManager.SetComponentData(leaderboardEntity, state);
+            var stateRW = SystemAPI.GetComponentRW<LeaderboardState>(leaderboardEntity);
+            stateRW.ValueRW.EntryCount = buffer.Length;
         }
 
         /// <summary>
