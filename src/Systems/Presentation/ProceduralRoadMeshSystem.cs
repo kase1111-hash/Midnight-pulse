@@ -680,43 +680,166 @@ namespace Nightflow.Systems
         public void OnUpdate(ref SystemState state)
         {
             // Road markings are generated as additional vertex data
-            // or as separate entities with their own mesh buffers
+            // overlaid on top of the existing road mesh buffers
 
-            foreach (var (meshData, segment, spline, entity) in
-                SystemAPI.Query<RefRO<ProceduralMeshData>, RefRO<TrackSegment>, RefRO<HermiteSpline>>()
+            foreach (var (meshData, segment, spline, vertices, triangles, subMeshes, entity) in
+                SystemAPI.Query<RefRW<ProceduralMeshData>, RefRO<TrackSegment>, RefRO<HermiteSpline>,
+                    DynamicBuffer<MeshVertex>, DynamicBuffer<MeshTriangle>, DynamicBuffer<SubMeshRange>>()
                     .WithAll<TrackSegmentTag>()
                     .WithEntityAccess())
             {
                 if (!meshData.ValueRO.IsGenerated)
                     continue;
 
+                // Skip if markings already generated for this segment
+                if (meshData.ValueRO.MarkingsGenerated)
+                    continue;
+
                 // Generate lane line vertices
                 // These overlay on top of the road surface
-                GenerateDashedLines(spline.ValueRO, segment.ValueRO);
+                GenerateDashedLines(vertices, triangles, subMeshes, spline.ValueRO, segment.ValueRO);
+
+                // Mark as generated
+                meshData.ValueRW.MarkingsGenerated = true;
             }
         }
 
-        private void GenerateDashedLines(HermiteSpline spline, TrackSegment segment)
+        private void GenerateDashedLines(
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            DynamicBuffer<SubMeshRange> subMeshes,
+            HermiteSpline spline,
+            TrackSegment segment)
         {
-            // Lane boundaries (from left to right):
-            // -1.5 * LaneWidth, -0.5 * LaneWidth, +0.5 * LaneWidth, +1.5 * LaneWidth
+            int startTriangleIndex = triangles.Length;
 
+            // Lane boundaries for 4 lanes (interior dividers at lane edges):
+            // Lane centers are at: -1.5, -0.5, +0.5, +1.5 lane widths
+            // So boundaries between lanes are at: -1.0, 0, +1.0 lane widths
             const float laneWidth = 3.6f;
-            float[] laneOffsets = { -1.5f * laneWidth, -0.5f * laneWidth, 0.5f * laneWidth, 1.5f * laneWidth };
+            float[] interiorOffsets = { -1.0f * laneWidth, 0f, 1.0f * laneWidth };
+            float[] edgeOffsets = { -2.0f * laneWidth, 2.0f * laneWidth };
 
             float totalLength = segment.Length;
-            float currentPos = 0f;
+            const float lineHeight = 0.02f; // Slightly above road surface
 
-            while (currentPos < totalLength)
+            // Generate interior dashed lane lines (white)
+            foreach (float laneOffset in interiorOffsets)
             {
-                float dashStart = currentPos;
-                float dashEnd = math.min(currentPos + DashLength, totalLength);
+                float currentPos = 0f;
+                bool isDash = true;
 
-                // For each lane boundary, generate a dash quad
-                // ...
+                while (currentPos < totalLength)
+                {
+                    float segmentLen = isDash ? DashLength : DashGap;
+                    float nextPos = math.min(currentPos + segmentLen, totalLength);
 
-                currentPos += DashLength + DashGap;
+                    if (isDash)
+                    {
+                        // Convert world positions to t parameter (0-1)
+                        float tStart = currentPos / totalLength;
+                        float tEnd = nextPos / totalLength;
+
+                        GenerateLineQuad(vertices, triangles, spline, tStart, tEnd,
+                            laneOffset, LaneLineWidth, lineHeight, WhiteLine);
+                    }
+
+                    currentPos = nextPos;
+                    isDash = !isDash;
+                }
             }
+
+            // Generate solid edge lines (yellow)
+            foreach (float edgeOffset in edgeOffsets)
+            {
+                GenerateLineQuad(vertices, triangles, spline, 0f, 1f,
+                    edgeOffset, EdgeLineWidth, lineHeight, YellowLine);
+            }
+
+            // Add sub-mesh range for the markings
+            int markingsIndexCount = triangles.Length - startTriangleIndex;
+            if (markingsIndexCount > 0)
+            {
+                subMeshes.Add(new SubMeshRange
+                {
+                    StartIndex = startTriangleIndex,
+                    IndexCount = markingsIndexCount,
+                    MaterialType = 2 // Lane marking material
+                });
+            }
+        }
+
+        private void GenerateLineQuad(
+            DynamicBuffer<MeshVertex> vertices,
+            DynamicBuffer<MeshTriangle> triangles,
+            HermiteSpline spline,
+            float tStart,
+            float tEnd,
+            float lateralOffset,
+            float lineWidth,
+            float height,
+            float4 color)
+        {
+            int baseIdx = vertices.Length;
+
+            // Start position
+            SplineUtilities.BuildFrameAtT(
+                spline.P0, spline.T0, spline.P1, spline.T1, tStart,
+                out float3 posStart, out float3 fwdStart, out float3 rightStart, out float3 upStart);
+
+            // End position
+            SplineUtilities.BuildFrameAtT(
+                spline.P0, spline.T0, spline.P1, spline.T1, tEnd,
+                out float3 posEnd, out float3 fwdEnd, out float3 rightEnd, out float3 upEnd);
+
+            float3 startCenter = posStart + rightStart * lateralOffset + upStart * height;
+            float3 endCenter = posEnd + rightEnd * lateralOffset + upEnd * height;
+
+            float halfWidth = lineWidth / 2f;
+
+            // Start left
+            vertices.Add(new MeshVertex
+            {
+                Position = startCenter - rightStart * halfWidth,
+                Normal = upStart,
+                UV = new float2(0f, 0f),
+                Color = color
+            });
+
+            // Start right
+            vertices.Add(new MeshVertex
+            {
+                Position = startCenter + rightStart * halfWidth,
+                Normal = upStart,
+                UV = new float2(1f, 0f),
+                Color = color
+            });
+
+            // End right
+            vertices.Add(new MeshVertex
+            {
+                Position = endCenter + rightEnd * halfWidth,
+                Normal = upEnd,
+                UV = new float2(1f, 1f),
+                Color = color
+            });
+
+            // End left
+            vertices.Add(new MeshVertex
+            {
+                Position = endCenter - rightEnd * halfWidth,
+                Normal = upEnd,
+                UV = new float2(0f, 1f),
+                Color = color
+            });
+
+            // Two triangles for the quad
+            triangles.Add(new MeshTriangle { Index = baseIdx + 0 });
+            triangles.Add(new MeshTriangle { Index = baseIdx + 1 });
+            triangles.Add(new MeshTriangle { Index = baseIdx + 2 });
+            triangles.Add(new MeshTriangle { Index = baseIdx + 0 });
+            triangles.Add(new MeshTriangle { Index = baseIdx + 2 });
+            triangles.Add(new MeshTriangle { Index = baseIdx + 3 });
         }
     }
 }
