@@ -97,7 +97,7 @@ namespace Nightflow.Systems.UI
 
                 // Critical damage warning
                 bool wasCritical = uiState.ValueRO.CriticalDamage;
-                uiState.ValueRW.CriticalDamage = damage.ValueRO.Total > 0.75f;
+                uiState.ValueRW.CriticalDamage = damage.ValueRO.Total > 75f;
                 if (!wasCritical && uiState.ValueRO.CriticalDamage)
                 {
                     uiState.ValueRW.DamageFlash = true;
