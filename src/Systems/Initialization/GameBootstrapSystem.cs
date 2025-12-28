@@ -123,13 +123,13 @@ namespace Nightflow.Systems
             ecb.AddComponent(playerEntity, new DamageState());
             ecb.AddComponent(playerEntity, new Crashable
             {
-                CrashThreshold = 1f,
+                CrashThreshold = 100f,
                 CrashSpeed = 50f,
                 YawFailThreshold = 2.5f
             });
             ecb.AddComponent(playerEntity, new CollisionShape
             {
-                HalfExtents = new float3(1f, 0.6f, 2.2f)
+                Size = new float3(1f, 0.6f, 2.2f)
             });
             ecb.AddComponent(playerEntity, new CollisionEvent());
             ecb.AddComponent(playerEntity, new ImpulseData());
@@ -625,7 +625,7 @@ namespace Nightflow.Systems
                     Forward = forward,
                     Right = right,
                     Up = up,
-                    T = t
+                    Parameter = t
                 });
             }
 

@@ -8,7 +8,6 @@ using Unity.Burst;
 using Unity.Mathematics;
 using Unity.Collections;
 using Nightflow.Components;
-using Nightflow.Components.Signaling;
 using Nightflow.Buffers;
 using Nightflow.Tags;
 using Nightflow.Utilities;
