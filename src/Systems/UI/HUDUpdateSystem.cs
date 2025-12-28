@@ -35,13 +35,13 @@ namespace Nightflow.Systems.UI
             RefRW<UIState> uiState = SystemAPI.GetSingletonRW<UIState>();
 
             // Find player vehicle and update UI
-            foreach (var (vehicle, velocity, damage, scoring, transform) in
-                SystemAPI.Query<RefRO<Vehicle>, RefRO<VehicleVelocity>, RefRO<DamageState>,
-                               RefRO<ScoringState>, RefRO<WorldTransform>>()
+            foreach (var (velocity, damage, scoring, transform) in
+                SystemAPI.Query<RefRO<Velocity>, RefRO<DamageState>,
+                               RefRO<ScoreSession>, RefRO<WorldTransform>>()
                     .WithAll<PlayerVehicleTag>())
             {
                 // Speed calculation
-                float speedMs = math.length(velocity.ValueRO.Linear);
+                float speedMs = velocity.ValueRO.Forward;
                 float speedKmh = speedMs * 3.6f;
                 float speedMph = speedMs * 2.237f;
 
@@ -57,7 +57,7 @@ namespace Nightflow.Systems.UI
                 };
 
                 // Score with smooth animation
-                float targetScore = scoring.ValueRO.TotalScore;
+                float targetScore = scoring.ValueRO.Score;
                 float displayScore = uiState.ValueRO.DisplayScore;
                 float scoreDiff = targetScore - displayScore;
 
@@ -89,22 +89,22 @@ namespace Nightflow.Systems.UI
                 }
 
                 // Damage state
-                uiState.ValueRW.DamageTotal = damage.ValueRO.TotalDamage;
-                uiState.ValueRW.DamageFront = damage.ValueRO.FrontDamage;
-                uiState.ValueRW.DamageRear = damage.ValueRO.RearDamage;
-                uiState.ValueRW.DamageLeft = damage.ValueRO.LeftDamage;
-                uiState.ValueRW.DamageRight = damage.ValueRO.RightDamage;
+                uiState.ValueRW.DamageTotal = damage.ValueRO.Total;
+                uiState.ValueRW.DamageFront = damage.ValueRO.Front;
+                uiState.ValueRW.DamageRear = damage.ValueRO.Rear;
+                uiState.ValueRW.DamageLeft = damage.ValueRO.Left;
+                uiState.ValueRW.DamageRight = damage.ValueRO.Right;
 
                 // Critical damage warning
                 bool wasCritical = uiState.ValueRO.CriticalDamage;
-                uiState.ValueRW.CriticalDamage = damage.ValueRO.TotalDamage > 0.75f;
+                uiState.ValueRW.CriticalDamage = damage.ValueRO.Total > 0.75f;
                 if (!wasCritical && uiState.ValueRO.CriticalDamage)
                 {
                     uiState.ValueRW.DamageFlash = true;
                 }
 
                 // Distance and time
-                uiState.ValueRW.DistanceKm = scoring.ValueRO.DistanceTraveled / 1000f;
+                uiState.ValueRW.DistanceKm = scoring.ValueRO.Distance / 1000f;
                 uiState.ValueRW.TimeSurvived += deltaTime;
 
                 break; // Only one player
