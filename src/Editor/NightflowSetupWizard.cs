@@ -357,6 +357,12 @@ namespace Nightflow.Editor
             // Rendering root
             var renderingRoot = new GameObject("[Rendering]");
 
+            // Procedural Mesh Renderer - CRITICAL for rendering ECS-generated geometry
+            // This bridges ECS mesh buffers to Unity rendering
+            var proceduralMeshGO = new GameObject("ProceduralMeshRenderer");
+            proceduralMeshGO.transform.SetParent(renderingRoot.transform);
+            proceduralMeshGO.AddComponent<ProceduralMeshRenderer>();
+
             // Star Field
             var starFieldGO = new GameObject("StarField");
             starFieldGO.transform.SetParent(renderingRoot.transform);
