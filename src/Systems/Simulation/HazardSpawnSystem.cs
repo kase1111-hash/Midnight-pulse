@@ -49,6 +49,9 @@ namespace Nightflow.Systems
         private const float MinLethalChance = 0.05f;      // Minimum lethal hazard chance (easy)
         private const float MaxLethalChance = 0.35f;      // Maximum lethal hazard chance (hard)
 
+        // Per-frame spawn limits to prevent entity explosion on lag spikes
+        private const int MaxHazardsPerFrame = 5;
+
         // State tracking
         private Random _random;
         private float _furthestSpawnedZ;
@@ -116,49 +119,71 @@ namespace Nightflow.Systems
 
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            // =============================================================
-            // Despawn Hazards Behind Player
-            // =============================================================
-
-            float despawnZ = playerPos.z - DespawnDistance;
-
-            foreach (var (hazard, transform, entity) in
-                SystemAPI.Query<RefRO<Hazard>, RefRO<WorldTransform>>()
-                    .WithAll<HazardTag>()
-                    .WithEntityAccess())
+            try
             {
-                if (transform.ValueRO.Position.z < despawnZ)
+                // =============================================================
+                // Despawn Hazards Behind Player
+                // =============================================================
+
+                float despawnZ = playerPos.z - DespawnDistance;
+
+                foreach (var (hazard, transform, entity) in
+                    SystemAPI.Query<RefRO<Hazard>, RefRO<WorldTransform>>()
+                        .WithAll<HazardTag>()
+                        .WithEntityAccess())
                 {
-                    ecb.DestroyEntity(entity);
-                }
-            }
-
-            // =============================================================
-            // Spawn New Hazards Ahead (skipped in Freeflow mode)
-            // =============================================================
-
-            // Initialize furthest spawned if needed
-            if (_furthestSpawnedZ < playerPos.z + MinSpawnDistance)
-            {
-                _furthestSpawnedZ = playerPos.z + MinSpawnDistance;
-            }
-
-            // Spawn hazards up to max distance (unless in Freeflow mode)
-            float targetZ = playerPos.z + MaxSpawnDistance;
-
-            while (_furthestSpawnedZ < targetZ)
-            {
-                // Roll for spawn at this location (only if hazards are enabled)
-                if (spawnHazards && _random.NextFloat() < currentSpawnRate * SpawnCheckInterval)
-                {
-                    SpawnHazard(ref ecb, _furthestSpawnedZ);
+                    if (transform.ValueRO.Position.z < despawnZ)
+                    {
+                        ecb.DestroyEntity(entity);
+                    }
                 }
 
-                _furthestSpawnedZ += SpawnCheckInterval;
-            }
+                // =============================================================
+                // Spawn New Hazards Ahead (skipped in Freeflow mode)
+                // =============================================================
 
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+                // Initialize furthest spawned if needed
+                if (_furthestSpawnedZ < playerPos.z + MinSpawnDistance)
+                {
+                    _furthestSpawnedZ = playerPos.z + MinSpawnDistance;
+                }
+
+                // Spawn hazards up to max distance (unless in Freeflow mode)
+                // Limit spawns per frame to prevent entity explosion on lag spikes
+                float targetZ = playerPos.z + MaxSpawnDistance;
+                int hazardsSpawnedThisFrame = 0;
+
+                while (_furthestSpawnedZ < targetZ && hazardsSpawnedThisFrame < MaxHazardsPerFrame)
+                {
+                    // Roll for spawn at this location (only if hazards are enabled)
+                    if (spawnHazards && _random.NextFloat() < currentSpawnRate * SpawnCheckInterval)
+                    {
+                        SpawnHazard(ref ecb, _furthestSpawnedZ);
+                        hazardsSpawnedThisFrame++;
+                    }
+
+                    _furthestSpawnedZ += SpawnCheckInterval;
+                }
+
+                // If we hit the spawn limit, cap furthestSpawnedZ to prevent runaway catch-up
+                // This ensures we don't accumulate a huge backlog during sustained lag
+                if (hazardsSpawnedThisFrame >= MaxHazardsPerFrame && _furthestSpawnedZ < targetZ)
+                {
+                    // Skip ahead to maintain reasonable spawn density rather than catching up
+                    float skipDistance = (targetZ - _furthestSpawnedZ) * 0.5f;
+                    if (skipDistance > SpawnCheckInterval * 3)
+                    {
+                        _furthestSpawnedZ += skipDistance;
+                    }
+                }
+
+                ecb.Playback(state.EntityManager);
+            }
+            finally
+            {
+                // Ensure ECB is always disposed, even on exception
+                ecb.Dispose();
+            }
         }
 
         private void SpawnHazard(ref EntityCommandBuffer ecb, float z)
@@ -287,18 +312,26 @@ namespace Nightflow.Systems
         private float3 GetHazardSize(HazardType type)
         {
             // Half-extents for collision box
+            // These must match the mesh dimensions in ProceduralHazardMeshSystem
             switch (type)
             {
                 case HazardType.LooseTire:
-                    return new float3(0.3f, 0.3f, 0.3f);
+                    // Mesh: Radius=0.35, Width=0.25 (tire lying flat)
+                    return new float3(0.35f, 0.35f, 0.125f);
                 case HazardType.Debris:
-                    return new float3(0.5f, 0.2f, 0.5f);
+                    // Mesh: Radius=0.4, flat debris pile
+                    return new float3(0.4f, 0.15f, 0.4f);
                 case HazardType.Cone:
-                    return new float3(0.25f, 0.4f, 0.25f);
+                    // Mesh: Height=0.7, BaseRadius=0.2
+                    return new float3(0.2f, 0.35f, 0.2f);
                 case HazardType.Barrier:
-                    return new float3(1.5f, 0.5f, 0.3f);
+                    // Mesh: Width=0.6, Height=0.9, Length=1.5
+                    // Half-extents: (Width/2, Height/2, Length/2)
+                    return new float3(0.3f, 0.45f, 0.75f);
                 case HazardType.CrashedCar:
-                    return new float3(1.0f, 0.7f, 2.2f);
+                    // Mesh: Width=1.8, Height=1.4, Length=4.5
+                    // Half-extents: (Width/2, Height/2, Length/2)
+                    return new float3(0.9f, 0.7f, 2.25f);
                 default:
                     return new float3(0.5f, 0.3f, 0.5f);
             }
