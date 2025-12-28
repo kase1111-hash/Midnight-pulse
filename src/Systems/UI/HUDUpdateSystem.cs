@@ -35,13 +35,13 @@ namespace Nightflow.Systems.UI
             RefRW<UIState> uiState = SystemAPI.GetSingletonRW<UIState>();
 
             // Find player vehicle and update UI
-            foreach (var (vehicle, velocity, damage, scoring, transform) in
-                SystemAPI.Query<RefRO<Vehicle>, RefRO<VehicleVelocity>, RefRO<DamageState>,
+            foreach (var (velocity, damage, scoring, transform) in
+                SystemAPI.Query<RefRO<Velocity>, RefRO<DamageState>,
                                RefRO<ScoreSession>, RefRO<WorldTransform>>()
                     .WithAll<PlayerVehicleTag>())
             {
                 // Speed calculation
-                float speedMs = math.length(velocity.ValueRO.Linear);
+                float speedMs = velocity.ValueRO.Forward;
                 float speedKmh = speedMs * 3.6f;
                 float speedMph = speedMs * 2.237f;
 
