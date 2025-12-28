@@ -131,47 +131,75 @@ namespace Nightflow.Systems
             float targetZ = playerZ + SegmentsAhead * SegmentLength;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            while (furthestZ < targetZ && furthestSegment != Entity.Null)
+            try
             {
-                // Get end state of furthest segment
-                float3 startPos = furthestSpline.P1;
-                float3 startTangent = SplineUtilities.EvaluateTangent(
-                    furthestSpline.P0, furthestSpline.T0,
-                    furthestSpline.P1, furthestSpline.T1, 1f);
-                startTangent = math.normalizesafe(startTangent);
-
-                // Generate new segment
-                furthestSpline = GenerateSegment(
-                    ref ecb,
-                    _nextSegmentIndex,
-                    startPos,
-                    startTangent,
-                    furthestZ
-                );
-
-                furthestZ += SegmentLength;
-                _nextSegmentIndex++;
-            }
-
-            // =============================================================
-            // Cull Segments Behind Player
-            // =============================================================
-
-            float cullZ = playerZ - SegmentsBehind * SegmentLength;
-
-            foreach (var (segment, entity) in
-                SystemAPI.Query<RefRO<TrackSegment>>()
-                    .WithAll<TrackSegmentTag>()
-                    .WithEntityAccess())
-            {
-                if (segment.ValueRO.EndZ < cullZ)
+                // Handle initial segment creation when no segments exist
+                if (furthestSegment == Entity.Null)
                 {
-                    ecb.DestroyEntity(entity);
-                }
-            }
+                    // Create the first segment with a valid initial spline
+                    float3 initialPos = new float3(0f, 0f, 0f);
+                    float3 initialTangent = new float3(0f, 0f, 1f); // Forward along Z-axis
 
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+                    furthestSpline = GenerateSegment(
+                        ref ecb,
+                        _nextSegmentIndex,
+                        initialPos,
+                        initialTangent,
+                        0f
+                    );
+
+                    furthestZ = SegmentLength;
+                    _nextSegmentIndex++;
+                    furthestSegment = Entity.Null; // Still null but we'll continue generating
+                }
+
+                // Continue generating segments until we reach target
+                while (furthestZ < targetZ)
+                {
+                    // Get end state of furthest segment
+                    float3 startPos = furthestSpline.P1;
+                    float3 startTangent = SplineUtilities.EvaluateTangent(
+                        furthestSpline.P0, furthestSpline.T0,
+                        furthestSpline.P1, furthestSpline.T1, 1f);
+                    startTangent = math.normalizesafe(startTangent);
+
+                    // Generate new segment
+                    furthestSpline = GenerateSegment(
+                        ref ecb,
+                        _nextSegmentIndex,
+                        startPos,
+                        startTangent,
+                        furthestZ
+                    );
+
+                    furthestZ += SegmentLength;
+                    _nextSegmentIndex++;
+                }
+
+                // =============================================================
+                // Cull Segments Behind Player
+                // =============================================================
+
+                float cullZ = playerZ - SegmentsBehind * SegmentLength;
+
+                foreach (var (segment, entity) in
+                    SystemAPI.Query<RefRO<TrackSegment>>()
+                        .WithAll<TrackSegmentTag>()
+                        .WithEntityAccess())
+                {
+                    if (segment.ValueRO.EndZ < cullZ)
+                    {
+                        ecb.DestroyEntity(entity);
+                    }
+                }
+
+                ecb.Playback(state.EntityManager);
+            }
+            finally
+            {
+                // Ensure ECB is always disposed, even if an exception occurs
+                ecb.Dispose();
+            }
         }
 
         private HermiteSpline GenerateSegment(
@@ -362,6 +390,17 @@ namespace Nightflow.Systems
                 Position = startPos,
                 Rotation = quaternion.LookRotation(startTangent, new float3(0, 1, 0))
             });
+
+            // =============================================================
+            // Add Mesh Buffers for ProceduralRoadMeshSystem
+            // =============================================================
+
+            // These buffers are required by ProceduralRoadMeshSystem.
+            // Without them, the query won't match and meshes won't generate.
+            ecb.AddBuffer<MeshVertex>(segmentEntity);
+            ecb.AddBuffer<MeshTriangle>(segmentEntity);
+            ecb.AddBuffer<SubMeshRange>(segmentEntity);
+            ecb.AddComponent(segmentEntity, new MeshBounds());
 
             // =============================================================
             // Pre-sample Spline for Fast Queries

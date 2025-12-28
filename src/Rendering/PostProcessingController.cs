@@ -64,8 +64,9 @@ namespace Nightflow.Rendering
         private LensDistortion _lensDistortion;
 
         [Header("ECS Integration")]
-        [Tooltip("Use PostProcessState component for effect values (more ECS-native)")]
-        [SerializeField] private bool usePostProcessState = true;
+        [Tooltip("Integration mode for reading game state. ECS-driven reads from PostProcessState singleton (recommended). " +
+            "Component-driven reads directly from player entity components.")]
+        [SerializeField] private PostProcessIntegrationMode integrationMode = PostProcessIntegrationMode.ECSDriven;
 
         // ECS access
         private EntityManager _entityManager;
@@ -272,17 +273,28 @@ namespace Nightflow.Rendering
                 return;
             }
 
-            // Read game state from ECS (choose integration mode)
-            if (usePostProcessState)
+            // Read game state from ECS based on configured integration mode
+            // Note: Only one mode is active at a time to prevent conflicting effect values
+            switch (integrationMode)
             {
-                ReadFromPostProcessState();
-            }
-            else
-            {
-                ReadGameState();
-                UpdateSpeedEffects();
-                UpdateDamageEffects();
-                UpdateCrashEffects();
+                case PostProcessIntegrationMode.ECSDriven:
+                    // ECS-driven mode: PostProcessState singleton computed by ECS systems
+                    // This is the recommended mode as it keeps logic in ECS
+                    ReadFromPostProcessState();
+                    break;
+
+                case PostProcessIntegrationMode.ComponentDriven:
+                    // Component-driven mode: Read directly from player entity components
+                    // Useful for debugging or when PostProcessState system isn't running
+                    ReadGameState();
+                    UpdateSpeedEffects();
+                    UpdateDamageEffects();
+                    UpdateCrashEffects();
+                    break;
+
+                case PostProcessIntegrationMode.Disabled:
+                    // Effects are static, only base config applied
+                    break;
             }
 
             // Smooth transitions
@@ -674,5 +686,30 @@ namespace Nightflow.Rendering
         Low,
         Medium,
         High
+    }
+
+    /// <summary>
+    /// Integration mode for PostProcessingController.
+    /// Determines how the controller reads game state to drive effects.
+    /// </summary>
+    public enum PostProcessIntegrationMode
+    {
+        /// <summary>
+        /// Read effect values from PostProcessState ECS singleton.
+        /// Recommended mode - keeps rendering logic in ECS systems.
+        /// </summary>
+        ECSDriven,
+
+        /// <summary>
+        /// Read directly from player entity components (Velocity, DamageState, etc).
+        /// Use for debugging or when PostProcessState system isn't available.
+        /// </summary>
+        ComponentDriven,
+
+        /// <summary>
+        /// Disable dynamic effects. Only base config settings are applied.
+        /// Use for performance testing or static scenes.
+        /// </summary>
+        Disabled
     }
 }

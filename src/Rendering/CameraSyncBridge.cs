@@ -32,6 +32,19 @@ namespace Nightflow.Rendering
         [Range(0f, 10f)]
         [SerializeField] private float fovSmoothing = 5f;
 
+        [Header("Fallback Settings")]
+        [Tooltip("Use fallback transform when CameraState entity is missing")]
+        [SerializeField] private bool useFallbackWhenMissing = true;
+
+        [Tooltip("Fallback position when no CameraState entity exists")]
+        [SerializeField] private Vector3 fallbackPosition = new Vector3(0, 5, -10);
+
+        [Tooltip("Fallback rotation when no CameraState entity exists")]
+        [SerializeField] private Vector3 fallbackEulerRotation = new Vector3(15, 0, 0);
+
+        [Tooltip("Fallback FOV when no CameraState entity exists")]
+        [SerializeField] private float fallbackFOV = 60f;
+
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = false;
 
@@ -40,6 +53,8 @@ namespace Nightflow.Rendering
         private EntityManager _entityManager;
         private EntityQuery _cameraStateQuery;
         private bool _ecsInitialized;
+        private bool _hasWarnedAboutMissingState;
+        private int _missingStateFrameCount;
 
         // Cached state for smoothing
         private Vector3 _currentPosition;
@@ -95,12 +110,27 @@ namespace Nightflow.Rendering
             // Get CameraState from ECS
             if (_cameraStateQuery.CalculateEntityCount() == 0)
             {
-                if (showDebugInfo)
+                _missingStateFrameCount++;
+
+                // Only warn once, and only after a few frames to allow ECS initialization
+                if (!_hasWarnedAboutMissingState && _missingStateFrameCount > 10)
                 {
-                    Debug.LogWarning("[CameraSyncBridge] No CameraState entity found");
+                    Debug.LogWarning("[CameraSyncBridge] No CameraState entity found. " +
+                        "Ensure GameBootstrapSystem creates the CameraState entity. " +
+                        (useFallbackWhenMissing ? "Using fallback position." : "Camera will stay at origin."));
+                    _hasWarnedAboutMissingState = true;
+                }
+
+                if (useFallbackWhenMissing)
+                {
+                    ApplyFallbackTransform();
                 }
                 return;
             }
+
+            // Reset warning state when CameraState is found
+            _missingStateFrameCount = 0;
+            _hasWarnedAboutMissingState = false;
 
             using var entities = _cameraStateQuery.ToEntityArray(Unity.Collections.Allocator.Temp);
             if (entities.Length == 0) return;
@@ -174,6 +204,51 @@ namespace Nightflow.Rendering
             {
                 Debug.Log($"[CameraSyncBridge] Pos: {_currentPosition}, FOV: {_currentFOV:F1}, Mode: {cameraState.Mode}");
             }
+        }
+
+        /// <summary>
+        /// Apply fallback transform values when CameraState entity is missing.
+        /// This ensures the camera is positioned sensibly during initialization.
+        /// </summary>
+        private void ApplyFallbackTransform()
+        {
+            Vector3 targetPosition = fallbackPosition;
+            Quaternion targetRotation = Quaternion.Euler(fallbackEulerRotation);
+            float targetFOV = fallbackFOV;
+
+            float deltaTime = Time.deltaTime;
+
+            // Apply smoothing if enabled
+            if (positionSmoothing > 0f)
+            {
+                _currentPosition = Vector3.Lerp(_currentPosition, targetPosition, positionSmoothing * deltaTime);
+            }
+            else
+            {
+                _currentPosition = targetPosition;
+            }
+
+            if (rotationSmoothing > 0f)
+            {
+                _currentRotation = Quaternion.Slerp(_currentRotation, targetRotation, rotationSmoothing * deltaTime);
+            }
+            else
+            {
+                _currentRotation = targetRotation;
+            }
+
+            if (fovSmoothing > 0f)
+            {
+                _currentFOV = Mathf.Lerp(_currentFOV, targetFOV, fovSmoothing * deltaTime);
+            }
+            else
+            {
+                _currentFOV = targetFOV;
+            }
+
+            transform.position = _currentPosition;
+            transform.rotation = _currentRotation;
+            _camera.fieldOfView = _currentFOV;
         }
 
         /// <summary>

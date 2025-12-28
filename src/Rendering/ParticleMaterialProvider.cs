@@ -98,21 +98,23 @@ namespace Nightflow.Rendering
 
         private Material CreateDefaultParticleMaterial(string name, Color color, float emission)
         {
-            // Try to use URP particle shader, fall back to standard
-            Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
-            if (shader == null)
-            {
-                shader = Shader.Find("Particles/Standard Unlit");
-            }
-            if (shader == null)
-            {
-                shader = Shader.Find("Unlit/Color");
-            }
+            // Try to use URP particle shader, fall back to standard with multiple options
+            Shader shader = FindBestAvailableShader();
 
             if (shader == null)
             {
-                Debug.LogWarning($"[ParticleMaterialProvider] Could not find particle shader for {name}");
-                return null;
+                Debug.LogError($"[ParticleMaterialProvider] Could not find any suitable shader for {name}. " +
+                    "Creating emergency fallback material. Particles may not render correctly.");
+                // Create an emergency fallback using the built-in error shader
+                shader = Shader.Find("Hidden/InternalErrorShader");
+                if (shader == null)
+                {
+                    // Last resort: create a material without a valid shader
+                    // This shouldn't happen but prevents null reference exceptions
+                    Debug.LogError("[ParticleMaterialProvider] Critical: No shaders available. " +
+                        "Check that URP package is properly installed.");
+                    return CreateEmergencyFallbackMaterial(name, color);
+                }
             }
 
             var mat = new Material(shader);
@@ -147,6 +149,67 @@ namespace Nightflow.Rendering
             mat.renderQueue = 3000; // Transparent queue
 
             return mat;
+        }
+
+        /// <summary>
+        /// Searches for the best available shader with comprehensive fallback chain.
+        /// </summary>
+        private Shader FindBestAvailableShader()
+        {
+            // Ordered list of shader fallbacks from most preferred to least
+            string[] shaderNames = new string[]
+            {
+                "Universal Render Pipeline/Particles/Unlit",
+                "Universal Render Pipeline/Particles/Lit",
+                "Particles/Standard Unlit",
+                "Particles/Standard Surface",
+                "Legacy Shaders/Particles/Additive",
+                "Legacy Shaders/Particles/Alpha Blended",
+                "Unlit/Color",
+                "Unlit/Transparent",
+                "Sprites/Default"
+            };
+
+            foreach (var shaderName in shaderNames)
+            {
+                var shader = Shader.Find(shaderName);
+                if (shader != null)
+                {
+                    return shader;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Creates an emergency fallback material when no shaders are available.
+        /// Returns a basic material that won't cause null reference exceptions.
+        /// </summary>
+        private Material CreateEmergencyFallbackMaterial(string name, Color color)
+        {
+            // Try to get any shader from existing materials in the project
+            var existingMaterials = Resources.FindObjectsOfTypeAll<Material>();
+            foreach (var existingMat in existingMaterials)
+            {
+                if (existingMat != null && existingMat.shader != null)
+                {
+                    var mat = new Material(existingMat.shader);
+                    mat.name = name + "_Emergency";
+                    mat.color = color;
+                    Debug.LogWarning($"[ParticleMaterialProvider] Using emergency fallback shader: {existingMat.shader.name}");
+                    return mat;
+                }
+            }
+
+            // Absolute last resort - this material won't render properly
+            // but prevents null reference crashes
+            Debug.LogError("[ParticleMaterialProvider] Creating invalid material as last resort. " +
+                "Particles will not render. Please check your render pipeline setup.");
+            var fallbackMat = new Material(Shader.Find("Hidden/InternalErrorShader") ?? Shader.Find("UI/Default"));
+            fallbackMat.name = name + "_Invalid";
+            fallbackMat.color = Color.magenta; // Visible error color
+            return fallbackMat;
         }
 
         private void OnDisable()

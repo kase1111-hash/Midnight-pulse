@@ -96,104 +96,111 @@ namespace Nightflow.Systems
             }
 
             var ecb = new EntityCommandBuffer(Allocator.Temp);
-
-            // =============================================================
-            // Despawn Traffic Behind Player
-            // =============================================================
-
-            float despawnZ = playerZ - DespawnBehind;
-
-            foreach (var (transform, entity) in
-                SystemAPI.Query<RefRO<WorldTransform>>()
-                    .WithAll<TrafficVehicleTag>()
-                    .WithEntityAccess())
-            {
-                if (transform.ValueRO.Position.z < despawnZ)
-                {
-                    ecb.DestroyEntity(entity);
-                    currentCount--;
-                }
-            }
-
-            // =============================================================
-            // Spawn New Traffic Ahead
-            // =============================================================
-
-            // Collect existing traffic positions for spacing check
             var trafficPositions = new NativeList<float3>(Allocator.Temp);
-            foreach (var transform in SystemAPI.Query<RefRO<WorldTransform>>().WithAll<TrafficVehicleTag>())
+
+            try
             {
-                trafficPositions.Add(transform.ValueRO.Position);
-            }
+                // =============================================================
+                // Despawn Traffic Behind Player
+                // =============================================================
 
-            int spawnAttempts = 0;
-            int maxAttempts = 5;
+                float despawnZ = playerZ - DespawnBehind;
 
-            while (currentCount < targetCount && spawnAttempts < maxAttempts)
-            {
-                spawnAttempts++;
-
-                // Random spawn position
-                float spawnZ = playerZ + _random.NextFloat(SpawnAheadMin, SpawnAheadMax);
-                int spawnLane = _random.NextInt(0, 4); // Lanes 0-3
-
-                // Check spacing
-                float3 candidatePos = new float3((spawnLane - 1.5f) * LaneWidth, 0.5f, spawnZ);
-                bool tooClose = false;
-
-                for (int i = 0; i < trafficPositions.Length; i++)
+                foreach (var (transform, entity) in
+                    SystemAPI.Query<RefRO<WorldTransform>>()
+                        .WithAll<TrafficVehicleTag>()
+                        .WithEntityAccess())
                 {
-                    if (math.distance(candidatePos, trafficPositions[i]) < MinSpacing)
+                    if (transform.ValueRO.Position.z < despawnZ)
+                    {
+                        ecb.DestroyEntity(entity);
+                        currentCount--;
+                    }
+                }
+
+                // =============================================================
+                // Spawn New Traffic Ahead
+                // =============================================================
+
+                // Collect existing traffic positions for spacing check
+                foreach (var transform in SystemAPI.Query<RefRO<WorldTransform>>().WithAll<TrafficVehicleTag>())
+                {
+                    trafficPositions.Add(transform.ValueRO.Position);
+                }
+
+                int spawnAttempts = 0;
+                int maxAttempts = 5;
+
+                while (currentCount < targetCount && spawnAttempts < maxAttempts)
+                {
+                    spawnAttempts++;
+
+                    // Random spawn position
+                    float spawnZ = playerZ + _random.NextFloat(SpawnAheadMin, SpawnAheadMax);
+                    int spawnLane = _random.NextInt(0, 4); // Lanes 0-3
+
+                    // Check spacing
+                    float3 candidatePos = new float3((spawnLane - 1.5f) * LaneWidth, 0.5f, spawnZ);
+                    bool tooClose = false;
+
+                    for (int i = 0; i < trafficPositions.Length; i++)
+                    {
+                        if (math.distance(candidatePos, trafficPositions[i]) < MinSpacing)
+                        {
+                            tooClose = true;
+                            break;
+                        }
+                    }
+
+                    // Don't spawn in player's lane too close
+                    if (spawnLane == playerLane && spawnZ - playerZ < SpawnAheadMin * 1.5f)
                     {
                         tooClose = true;
-                        break;
                     }
-                }
 
-                // Don't spawn in player's lane too close
-                if (spawnLane == playerLane && spawnZ - playerZ < SpawnAheadMin * 1.5f)
-                {
-                    tooClose = true;
-                }
+                    if (tooClose)
+                        continue;
 
-                if (tooClose)
-                    continue;
+                    // Find track segment for proper positioning
+                    HermiteSpline spline = default;
+                    bool foundSegment = false;
 
-                // Find track segment for proper positioning
-                HermiteSpline spline = default;
-                bool foundSegment = false;
-
-                foreach (var (segment, segSpline) in
-                    SystemAPI.Query<RefRO<TrackSegment>, RefRO<HermiteSpline>>()
-                        .WithAll<TrackSegmentTag>())
-                {
-                    if (spawnZ >= segment.ValueRO.StartZ && spawnZ <= segment.ValueRO.EndZ)
+                    foreach (var (segment, segSpline) in
+                        SystemAPI.Query<RefRO<TrackSegment>, RefRO<HermiteSpline>>()
+                            .WithAll<TrackSegmentTag>())
                     {
-                        spline = segSpline.ValueRO;
-                        float t = (spawnZ - segment.ValueRO.StartZ) /
-                                  (segment.ValueRO.EndZ - segment.ValueRO.StartZ);
+                        if (spawnZ >= segment.ValueRO.StartZ && spawnZ <= segment.ValueRO.EndZ)
+                        {
+                            spline = segSpline.ValueRO;
+                            float t = (spawnZ - segment.ValueRO.StartZ) /
+                                      (segment.ValueRO.EndZ - segment.ValueRO.StartZ);
 
-                        SplineUtilities.BuildFrameAtT(spline.P0, spline.T0, spline.P1, spline.T1, t,
-                            out float3 splinePos, out float3 forward, out float3 right, out float3 up);
+                            SplineUtilities.BuildFrameAtT(spline.P0, spline.T0, spline.P1, spline.T1, t,
+                                out float3 splinePos, out float3 forward, out float3 right, out float3 up);
 
-                        candidatePos = splinePos + right * ((spawnLane - 1.5f) * LaneWidth) + up * 0.5f;
-                        foundSegment = true;
-                        break;
+                            candidatePos = splinePos + right * ((spawnLane - 1.5f) * LaneWidth) + up * 0.5f;
+                            foundSegment = true;
+                            break;
+                        }
                     }
+
+                    if (!foundSegment)
+                        continue;
+
+                    // Spawn traffic vehicle with adaptive difficulty
+                    SpawnTrafficVehicle(ref ecb, candidatePos, spawnLane, distanceKm, adaptiveDifficulty);
+                    trafficPositions.Add(candidatePos);
+                    currentCount++;
                 }
 
-                if (!foundSegment)
-                    continue;
-
-                // Spawn traffic vehicle with adaptive difficulty
-                SpawnTrafficVehicle(ref ecb, candidatePos, spawnLane, distanceKm, adaptiveDifficulty);
-                trafficPositions.Add(candidatePos);
-                currentCount++;
+                ecb.Playback(state.EntityManager);
             }
-
-            trafficPositions.Dispose();
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+            finally
+            {
+                // Ensure native collections are always disposed, even on exception
+                trafficPositions.Dispose();
+                ecb.Dispose();
+            }
         }
 
         private void SpawnTrafficVehicle(ref EntityCommandBuffer ecb, float3 position, int lane, float distanceKm, float adaptiveDifficulty)
