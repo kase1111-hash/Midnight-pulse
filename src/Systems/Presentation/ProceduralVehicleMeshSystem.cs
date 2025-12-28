@@ -247,7 +247,7 @@ namespace Nightflow.Systems
             subMeshes.Add(new SubMeshRange
             {
                 StartIndex = bodyStartIndex,
-                IndexCount = bodyEndIndex,
+                IndexCount = bodyEndIndex - bodyStartIndex,
                 MaterialType = 6 // Vehicle body
             });
 

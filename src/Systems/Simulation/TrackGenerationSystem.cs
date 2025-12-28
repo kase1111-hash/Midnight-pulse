@@ -415,13 +415,16 @@ namespace Nightflow.Systems
                 SplineUtilities.BuildFrameAtT(startPos, t0, endPos, t1, t,
                     out float3 position, out float3 forward, out float3 right, out float3 up);
 
+                // Calculate arc length (approximate using segment fraction)
+                float arcLength = t * segmentLength;
+
                 buffer.Add(new SplineSample
                 {
                     Position = position,
                     Forward = forward,
                     Right = right,
-                    Up = up,
-                    T = t
+                    ArcLength = arcLength,
+                    Parameter = t
                 });
             }
 
