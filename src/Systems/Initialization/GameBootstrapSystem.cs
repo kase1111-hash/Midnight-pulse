@@ -90,6 +90,13 @@ namespace Nightflow.Systems
                 Angular = 0f
             });
 
+            // World-space velocity for audio/physics systems
+            ecb.AddComponent(playerEntity, new VehicleVelocity
+            {
+                Linear = new float3(0f, 0f, 20f),  // 20 m/s forward
+                Angular = float3.zero
+            });
+
             ecb.AddComponent(playerEntity, new PreviousTransform
             {
                 Position = playerPos,
