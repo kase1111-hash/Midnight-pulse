@@ -44,6 +44,15 @@ namespace Nightflow.Systems.Presentation
         private static readonly int ColorProperty = Shader.PropertyToID("_Colors");
         private static readonly int EmissionProperty = Shader.PropertyToID("_EmissionIntensity");
 
+        // Reusable arrays for batched rendering to reduce GC allocations
+        private Matrix4x4[] _batchMatricesBuffer;
+        private Vector4[] _batchColorsBuffer;
+        private const int BatchBufferSize = 1023; // Unity's maximum for DrawMeshInstanced
+
+        // Warning tracking
+        private bool _hasWarnedAboutMissingMaterials;
+        private int _missingMaterialFrameCount;
+
         protected override void OnCreate()
         {
             sparkMatrices = new NativeList<Matrix4x4>(1000, Allocator.Persistent);
@@ -54,6 +63,10 @@ namespace Nightflow.Systems.Presentation
             speedLineColors = new NativeList<Vector4>(200, Allocator.Persistent);
 
             propertyBlock = new MaterialPropertyBlock();
+
+            // Pre-allocate batch buffers to avoid per-frame allocations
+            _batchMatricesBuffer = new Matrix4x4[BatchBufferSize];
+            _batchColorsBuffer = new Vector4[BatchBufferSize];
 
             // Create default quad mesh for particles
             CreateParticleMeshes();
@@ -221,14 +234,39 @@ namespace Nightflow.Systems.Presentation
             // Get materials from config if not set
             if (sparkMaterial == null || smokeMaterial == null || speedLineMaterial == null)
             {
+                _missingMaterialFrameCount++;
+
                 // Try to find ParticleRenderConfig
                 if (SystemAPI.TryGetSingleton<ParticleRenderConfig>(out var config))
                 {
                     // Materials would be set from managed component
                 }
 
-                // Use fallback - in real implementation, materials would be assigned
+                // Warn about missing materials (only once, after allowing initialization time)
+                if (!_hasWarnedAboutMissingMaterials && _missingMaterialFrameCount > 30)
+                {
+                    int missingCount = 0;
+                    string missing = "";
+                    if (sparkMaterial == null) { missingCount++; missing += "spark, "; }
+                    if (smokeMaterial == null) { missingCount++; missing += "smoke, "; }
+                    if (speedLineMaterial == null) { missingCount++; missing += "speedLine, "; }
+                    missing = missing.TrimEnd(',', ' ');
+
+                    Debug.LogWarning($"[ParticleRenderSystem] Missing {missingCount} particle material(s): [{missing}]. " +
+                        "Ensure ParticleMaterialProvider component is in the scene and has valid materials assigned or " +
+                        "'Create Default Materials' is enabled. Particles will not render until materials are provided.");
+                    _hasWarnedAboutMissingMaterials = true;
+                }
+
                 return;
+            }
+
+            // Reset warning state when materials are available
+            _missingMaterialFrameCount = 0;
+            if (_hasWarnedAboutMissingMaterials)
+            {
+                Debug.Log("[ParticleRenderSystem] Particle materials are now available. Rendering enabled.");
+                _hasWarnedAboutMissingMaterials = false;
             }
 
             // Render sparks
@@ -252,24 +290,19 @@ namespace Nightflow.Systems.Presentation
 
         private void RenderBatch(Material material, Mesh mesh, NativeList<Matrix4x4> matrices, NativeList<Vector4> colors)
         {
-            const int batchSize = 1023; // Unity's maximum for DrawMeshInstanced
-
-            for (int i = 0; i < matrices.Length; i += batchSize)
+            for (int i = 0; i < matrices.Length; i += BatchBufferSize)
             {
-                int count = math.min(batchSize, matrices.Length - i);
+                int count = math.min(BatchBufferSize, matrices.Length - i);
 
-                // Copy to managed arrays for rendering
-                Matrix4x4[] batchMatrices = new Matrix4x4[count];
-                Vector4[] batchColors = new Vector4[count];
-
+                // Copy to pre-allocated managed arrays for rendering (avoids per-frame GC allocations)
                 for (int j = 0; j < count; j++)
                 {
-                    batchMatrices[j] = matrices[i + j];
-                    batchColors[j] = colors[i + j];
+                    _batchMatricesBuffer[j] = matrices[i + j];
+                    _batchColorsBuffer[j] = colors[i + j];
                 }
 
-                propertyBlock.SetVectorArray(ColorProperty, batchColors);
-                Graphics.DrawMeshInstanced(mesh, 0, material, batchMatrices, count, propertyBlock);
+                propertyBlock.SetVectorArray(ColorProperty, _batchColorsBuffer);
+                Graphics.DrawMeshInstanced(mesh, 0, material, _batchMatricesBuffer, count, propertyBlock);
             }
         }
 
