@@ -665,10 +665,9 @@ namespace Nightflow.Systems
         private const float LaneLineWidth = 0.15f;
         private const float EdgeLineWidth = 0.2f;
 
-        // Colors
-        private static readonly float4 WhiteLine = new float4(1f, 1f, 1f, 1f);
-        private static readonly float4 YellowLine = new float4(1f, 0.9f, 0.2f, 1f);
-        private static readonly float4 BlueLane = new float4(0.27f, 0.53f, 1f, 0.8f);
+        // Colors (matching neon wireframe aesthetic)
+        private static readonly float4 LaneLineColor = new float4(0.27f, 0.53f, 1f, 1f);    // Neon blue
+        private static readonly float4 EdgeLineColor = new float4(1f, 0.53f, 0f, 1f);       // Neon orange
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
@@ -723,7 +722,7 @@ namespace Nightflow.Systems
             float totalLength = segment.Length;
             const float lineHeight = 0.02f; // Slightly above road surface
 
-            // Generate interior dashed lane lines (white)
+            // Generate interior dashed lane lines (neon blue)
             foreach (float laneOffset in interiorOffsets)
             {
                 float currentPos = 0f;
@@ -741,7 +740,7 @@ namespace Nightflow.Systems
                         float tEnd = nextPos / totalLength;
 
                         GenerateLineQuad(vertices, triangles, spline, tStart, tEnd,
-                            laneOffset, LaneLineWidth, lineHeight, WhiteLine);
+                            laneOffset, LaneLineWidth, lineHeight, LaneLineColor);
                     }
 
                     currentPos = nextPos;
@@ -749,11 +748,11 @@ namespace Nightflow.Systems
                 }
             }
 
-            // Generate solid edge lines (yellow)
+            // Generate solid edge lines (neon orange)
             foreach (float edgeOffset in edgeOffsets)
             {
                 GenerateLineQuad(vertices, triangles, spline, 0f, 1f,
-                    edgeOffset, EdgeLineWidth, lineHeight, YellowLine);
+                    edgeOffset, EdgeLineWidth, lineHeight, EdgeLineColor);
             }
 
             // Add sub-mesh range for the markings
