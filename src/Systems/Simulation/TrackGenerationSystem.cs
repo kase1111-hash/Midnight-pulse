@@ -392,6 +392,17 @@ namespace Nightflow.Systems
             });
 
             // =============================================================
+            // Add Mesh Buffers for ProceduralRoadMeshSystem
+            // =============================================================
+
+            // These buffers are required by ProceduralRoadMeshSystem.
+            // Without them, the query won't match and meshes won't generate.
+            ecb.AddBuffer<MeshVertex>(segmentEntity);
+            ecb.AddBuffer<MeshTriangle>(segmentEntity);
+            ecb.AddBuffer<SubMeshRange>(segmentEntity);
+            ecb.AddComponent(segmentEntity, new MeshBounds());
+
+            // =============================================================
             // Pre-sample Spline for Fast Queries
             // =============================================================
 
