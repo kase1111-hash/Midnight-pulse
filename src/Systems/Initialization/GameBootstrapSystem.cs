@@ -471,6 +471,73 @@ namespace Nightflow.Systems
                 LastSelectedMode = GameMode.Nightflow
             });
 
+            // =============================================================
+            // Create Visual Effects Singleton Entities
+            // Required by presentation systems for proper boot
+            // =============================================================
+
+            // Crash Flash Effect - for screen flash on impact
+            Entity crashFlashEntity = ecb.CreateEntity();
+            ecb.AddComponent(crashFlashEntity, new CrashFlashEffect
+            {
+                IsActive = false,
+                Intensity = 0f,
+                Duration = 0.3f,
+                Timer = 0f,
+                FlashColor = new float4(1f, 0.3f, 0.2f, 1f),  // Red-orange flash
+                Phase = CrashFlashPhase.None
+            });
+
+            // Speed Line Effect - for speed streaks at high velocity
+            Entity speedLineEntity = ecb.CreateEntity();
+            ecb.AddComponent(speedLineEntity, new SpeedLineEffect
+            {
+                IsActive = false,
+                Intensity = 0f,
+                SpeedThreshold = 55.5f,     // ~200 km/h
+                LineLength = 2.0f,
+                LineDensity = 30f,
+                LineColor = new float4(0.7f, 0.9f, 1f, 0.6f),  // Cyan-white
+                FadeSpeed = 3.0f
+            });
+
+            // Particle System Config - global particle settings
+            Entity particleConfigEntity = ecb.CreateEntity();
+            ecb.AddComponent(particleConfigEntity, new ParticleSystemConfig
+            {
+                // Spark settings (orange-yellow sparks)
+                SparkColorStart = new float4(1f, 0.8f, 0.3f, 1f),
+                SparkColorEnd = new float4(1f, 0.4f, 0.1f, 0f),
+                SparkSizeMin = 0.02f,
+                SparkSizeMax = 0.08f,
+                SparkSpeedMin = 5f,
+                SparkSpeedMax = 15f,
+                SparkLifetime = 0.8f,
+                SparkGravity = 9.8f,
+
+                // Tire smoke settings (gray smoke)
+                SmokeColorStart = new float4(0.6f, 0.6f, 0.65f, 0.4f),
+                SmokeColorEnd = new float4(0.4f, 0.4f, 0.45f, 0f),
+                SmokeSizeStart = 0.3f,
+                SmokeSizeEnd = 1.5f,
+                SmokeSpeed = 2f,
+                SmokeLifetime = 1.5f,
+                SmokeDrag = 2f,
+
+                // Speed line settings
+                SpeedLineThreshold = 55.5f,
+                SpeedLineMaxIntensity = 1f,
+                SpeedLineColor = new float4(0.8f, 0.9f, 1f, 0.5f),
+
+                // Global settings
+                MaxTotalParticles = 500,
+                GlobalIntensityMultiplier = 1f
+            });
+
+            // City Skyline Controller - for background city rendering
+            Entity skylineEntity = ecb.CreateEntity();
+            ecb.AddComponent<CitySkylineTag>(skylineEntity);
+
             // Playback command buffer
             ecb.Playback(state.EntityManager);
             ecb.Dispose();
