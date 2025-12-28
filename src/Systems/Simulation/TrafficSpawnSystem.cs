@@ -275,7 +275,7 @@ namespace Nightflow.Systems
             // Collision shape
             ecb.AddComponent(entity, new CollisionShape
             {
-                HalfExtents = new float3(0.9f, 0.6f, 2f)
+                Size = new float3(0.9f, 0.6f, 2f)
             });
 
             // Light emitter for rendering
