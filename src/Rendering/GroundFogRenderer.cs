@@ -127,6 +127,13 @@ namespace Nightflow.Rendering
                 if (shader == null) shader = Shader.Find("Unlit/Transparent");
                 if (shader == null) shader = Shader.Find("Unlit/Color");
 
+                // Final fallback - should never happen in a properly configured project
+                if (shader == null)
+                {
+                    Debug.LogError("[GroundFogRenderer] No suitable shader found for fog material. Check that shaders are included in build.");
+                    shader = Shader.Find("Hidden/InternalErrorShader");
+                }
+
                 fogMaterial = new Material(shader);
 
                 // Configure for alpha blending

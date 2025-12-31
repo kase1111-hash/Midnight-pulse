@@ -11,6 +11,7 @@ using Nightflow.Components;
 using Nightflow.Buffers;
 using Nightflow.Tags;
 using Nightflow.Utilities;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -22,12 +23,8 @@ namespace Nightflow.Systems
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct TrackGenerationSystem : ISystem
     {
-        // Generation parameters
-        private const float SegmentLength = 200f;         // meters per segment
-        private const int SegmentsAhead = 5;              // buffer ahead of player
-        private const int SegmentsBehind = 2;             // keep behind before cull
-        private const float LaneWidth = 3.6f;             // meters
-        private const int NumLanes = 4;
+        // Generation parameters - using centralized GameConstants
+        // SegmentLength, SegmentsAhead, SegmentsBehind, LaneWidth, NumLanes are in GameConstants
 
         // Curvature limits
         private const float MinCurveRadius = 300f;        // minimum turn radius
@@ -128,7 +125,7 @@ namespace Nightflow.Systems
             // Generate New Segments Ahead
             // =============================================================
 
-            float targetZ = playerZ + SegmentsAhead * SegmentLength;
+            float targetZ = playerZ + GameConstants.SegmentsAhead * GameConstants.SegmentLength;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
             try
@@ -148,7 +145,7 @@ namespace Nightflow.Systems
                         0f
                     );
 
-                    furthestZ = SegmentLength;
+                    furthestZ = GameConstants.SegmentLength;
                     _nextSegmentIndex++;
                     furthestSegment = Entity.Null; // Still null but we'll continue generating
                 }
@@ -172,7 +169,7 @@ namespace Nightflow.Systems
                         furthestZ
                     );
 
-                    furthestZ += SegmentLength;
+                    furthestZ += GameConstants.SegmentLength;
                     _nextSegmentIndex++;
                 }
 
@@ -180,7 +177,7 @@ namespace Nightflow.Systems
                 // Cull Segments Behind Player
                 // =============================================================
 
-                float cullZ = playerZ - SegmentsBehind * SegmentLength;
+                float cullZ = playerZ - GameConstants.SegmentsBehind * GameConstants.SegmentLength;
 
                 foreach (var (segment, entity) in
                     SystemAPI.Query<RefRO<TrackSegment>>()
@@ -246,7 +243,7 @@ namespace Nightflow.Systems
                 SplineUtilities.Hash(segHash, 4),
                 0.8f, 1.2f
             );
-            float length = SegmentLength * lengthVariation;
+            float length = GameConstants.SegmentLength * lengthVariation;
 
             // =============================================================
             // Calculate Spline Points
@@ -360,7 +357,7 @@ namespace Nightflow.Systems
                 StartZ = startPos.z,
                 EndZ = endPos.z,
                 Length = length,
-                NumLanes = NumLanes,
+                NumLanes = GameConstants.DefaultNumLanes,
                 Difficulty = difficulty
             });
 
@@ -370,7 +367,7 @@ namespace Nightflow.Systems
                 IsGenerated = false,
                 VertexCount = 0,
                 TriangleCount = 0,
-                RoadWidth = LaneWidth * NumLanes,
+                RoadWidth = GameConstants.RoadWidth,
                 LengthSegments = 0,
                 WidthSegments = 0,
                 LODLevel = 0

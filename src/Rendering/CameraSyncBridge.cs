@@ -64,6 +64,12 @@ namespace Nightflow.Rendering
         private void Awake()
         {
             _camera = GetComponent<Camera>();
+            if (_camera == null)
+            {
+                Debug.LogError("[CameraSyncBridge] No Camera component found on this GameObject. This script requires a Camera component.");
+                enabled = false;
+                return;
+            }
             _currentPosition = transform.position;
             _currentRotation = transform.rotation;
             _currentFOV = _camera.fieldOfView;

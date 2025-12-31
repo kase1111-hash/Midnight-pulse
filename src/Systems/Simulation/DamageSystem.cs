@@ -8,6 +8,7 @@ using Unity.Burst;
 using Unity.Mathematics;
 using Nightflow.Components;
 using Nightflow.Tags;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -32,15 +33,14 @@ namespace Nightflow.Systems
     {
         // Damage parameters (from spec)
         private const float DamageScale = 0.04f;        // k_d
-        private const float MaxDamage = 100f;           // D_max
+        // MaxDamage uses GameConstants.MaxDamage
 
         // Handling degradation coefficients
         private const float FrontSteeringPenalty = 0.4f;
         private const float SideMagnetismPenalty = 0.5f;
         private const float RearSlipPenalty = 0.6f;
 
-        // Risk cap degradation
-        private const float BaseRiskCap = 2.0f;
+        // Risk cap degradation - uses GameConstants.BaseRiskCap
         private const float RiskCapDamageMultiplier = 0.7f; // Cap reduced by 70% of damage ratio
 
         [BurstCompile]
@@ -59,7 +59,7 @@ namespace Nightflow.Systems
                 // Get Hazard Severity from Entity
                 // =============================================================
 
-                float severity = 0.3f; // Default
+                float severity = GameConstants.DefaultDamageSeverity;
 
                 Entity hazardEntity = collision.ValueRO.OtherEntity;
                 if (hazardEntity != Entity.Null && SystemAPI.HasComponent<Hazard>(hazardEntity))
@@ -109,7 +109,7 @@ namespace Nightflow.Systems
                 }
 
                 // Apply damage to zones (normalized to [0, 1])
-                float normalizedDamage = Ed / MaxDamage;
+                float normalizedDamage = Ed / GameConstants.MaxDamage;
                 damage.ValueRW.Front += normalizedDamage * wFront;
                 damage.ValueRW.Rear += normalizedDamage * wRear;
                 damage.ValueRW.Left += normalizedDamage * wLeft;
@@ -146,14 +146,14 @@ namespace Nightflow.Systems
                 // =============================================================
 
                 // Risk cap reduces as damage accumulates
-                float damageRatio = damage.ValueRO.Total / MaxDamage;
+                float damageRatio = damage.ValueRO.Total / GameConstants.MaxDamage;
                 float riskCapReduction = damageRatio * RiskCapDamageMultiplier;
-                riskState.ValueRW.Cap = BaseRiskCap * (1f - riskCapReduction);
-                riskState.ValueRW.Cap = math.max(riskState.ValueRO.Cap, 0.5f); // Minimum cap
+                riskState.ValueRW.Cap = GameConstants.BaseRiskCap * (1f - riskCapReduction);
+                riskState.ValueRW.Cap = math.max(riskState.ValueRO.Cap, GameConstants.MinRiskCap);
 
                 // Rebuild rate also degrades with damage (faster decay when damaged)
                 riskState.ValueRW.RebuildRate = 1f - (damageRatio * 0.5f);
-                riskState.ValueRW.RebuildRate = math.max(riskState.ValueRO.RebuildRate, 0.3f);
+                riskState.ValueRW.RebuildRate = math.max(riskState.ValueRO.RebuildRate, GameConstants.MinRebuildRate);
 
                 // Clamp current risk to new cap
                 if (riskState.ValueRO.Value > riskState.ValueRO.Cap)
