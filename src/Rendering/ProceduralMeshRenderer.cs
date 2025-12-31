@@ -14,6 +14,7 @@ using Nightflow.Components;
 using Nightflow.Buffers;
 using Nightflow.Tags;
 using Nightflow.Systems;
+using Nightflow.Utilities;
 
 namespace Nightflow.Rendering
 {
@@ -128,7 +129,7 @@ namespace Nightflow.Rendering
 
             if (showDebugInfo)
             {
-                Debug.Log("[ProceduralMeshRenderer] Initialized with ECS world");
+                Log.System("ProceduralMeshRenderer", "Initialized with ECS world");
             }
         }
 
@@ -222,7 +223,7 @@ namespace Nightflow.Rendering
             // Final fallback - should never happen in a properly configured project
             if (shader == null)
             {
-                Debug.LogError("[ProceduralMeshRenderer] No suitable shader found for wireframe material. Check that URP or Standard shaders are included in build.");
+                Log.SystemError("ProceduralMeshRenderer", "No suitable shader found for wireframe material. Check that URP or Standard shaders are included in build.");
                 // Create a default material that will at least render something
                 return new Material(Shader.Find("Hidden/InternalErrorShader"));
             }
@@ -253,7 +254,7 @@ namespace Nightflow.Rendering
             // Final fallback - should never happen in a properly configured project
             if (shader == null)
             {
-                Debug.LogError("[ProceduralMeshRenderer] No suitable shader found for emissive material. Check that particle shaders are included in build.");
+                Log.SystemError("ProceduralMeshRenderer", "No suitable shader found for emissive material. Check that particle shaders are included in build.");
                 return new Material(Shader.Find("Hidden/InternalErrorShader"));
             }
 
@@ -431,7 +432,7 @@ namespace Nightflow.Rendering
                 !_entityManager.HasComponent<MeshTriangle>(entity))
             {
                 if (showDebugInfo)
-                    Debug.LogWarning($"[ProceduralMeshRenderer] Entity {entity.Index} missing mesh buffers");
+                    Log.SystemWarn("ProceduralMeshRenderer", $"Entity {entity.Index} missing mesh buffers");
                 return cachedMesh;
             }
 
@@ -444,7 +445,7 @@ namespace Nightflow.Rendering
             if (vertexBuffer.Length == 0)
             {
                 if (showDebugInfo)
-                    Debug.LogWarning($"[ProceduralMeshRenderer] Entity {entity.Index} has empty vertex buffer");
+                    Log.SystemWarn("ProceduralMeshRenderer", $"Entity {entity.Index} has empty vertex buffer");
                 return cachedMesh;
             }
 
@@ -522,7 +523,7 @@ namespace Nightflow.Rendering
 
             if (showDebugInfo)
             {
-                Debug.Log($"[ProceduralMeshRenderer] Built mesh for entity {entity.Index}: " +
+                Log.System("ProceduralMeshRenderer", $"Built mesh for entity {entity.Index}: " +
                          $"{_vertices.Count} verts, {triangleBuffer.Length / 3} tris, {subMeshCount} submeshes");
             }
 
@@ -660,7 +661,7 @@ namespace Nightflow.Rendering
 
             if (showDebugInfo)
             {
-                Debug.Log("[ProceduralMeshRenderer] Cleared all cached meshes");
+                Log.System("ProceduralMeshRenderer", "Cleared all cached meshes");
             }
         }
 

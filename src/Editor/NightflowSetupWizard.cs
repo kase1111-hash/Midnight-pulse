@@ -16,6 +16,7 @@ using Nightflow.Rendering;
 using Nightflow.Save;
 using Nightflow.UI;
 using Nightflow.Audio;
+using Nightflow.Utilities;
 
 namespace Nightflow.Editor
 {
@@ -200,7 +201,7 @@ namespace Nightflow.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log("[Nightflow] Config assets created successfully!");
+            Log.System("NightflowSetup", "Config assets created successfully!");
         }
 
         [MenuItem("Nightflow/Create/Main Scene", false, 101)]
@@ -231,7 +232,7 @@ namespace Nightflow.Editor
             // Add to build settings
             AddSceneToBuildSettings(scenePath);
 
-            Debug.Log("[Nightflow] Main scene created successfully!");
+            Log.System("NightflowSetup", "Main scene created successfully!");
         }
 
         private static void CreateManagersHierarchy(NightflowConfig masterConfig)
@@ -414,13 +415,13 @@ namespace Nightflow.Editor
             var existing = AssetDatabase.LoadAssetAtPath<T>(path);
             if (existing != null)
             {
-                Debug.Log($"[Nightflow] Asset already exists: {path}");
+                Log.System("NightflowSetup", $"Asset already exists: {path}");
                 return existing;
             }
 
             var asset = ScriptableObject.CreateInstance<T>();
             AssetDatabase.CreateAsset(asset, path);
-            Debug.Log($"[Nightflow] Created: {path}");
+            Log.System("NightflowSetup", $"Created: {path}");
             return asset;
         }
 
@@ -460,7 +461,7 @@ namespace Nightflow.Editor
             newScenes[scenes.Length] = new EditorBuildSettingsScene(scenePath, true);
             EditorBuildSettings.scenes = newScenes;
 
-            Debug.Log($"[Nightflow] Added {scenePath} to build settings");
+            Log.System("NightflowSetup", $"Added {scenePath} to build settings");
         }
     }
 }

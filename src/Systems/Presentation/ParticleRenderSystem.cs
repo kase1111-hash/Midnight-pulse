@@ -10,6 +10,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 using Nightflow.Components;
+using Nightflow.Utilities;
 
 namespace Nightflow.Systems.Presentation
 {
@@ -252,7 +253,7 @@ namespace Nightflow.Systems.Presentation
                     if (speedLineMaterial == null) { missingCount++; missing += "speedLine, "; }
                     missing = missing.TrimEnd(',', ' ');
 
-                    Debug.LogWarning($"[ParticleRenderSystem] Missing {missingCount} particle material(s): [{missing}]. " +
+                    Log.SystemWarn("ParticleRenderSystem", $"Missing {missingCount} particle material(s): [{missing}]. " +
                         "Ensure ParticleMaterialProvider component is in the scene and has valid materials assigned or " +
                         "'Create Default Materials' is enabled. Particles will not render until materials are provided.");
                     _hasWarnedAboutMissingMaterials = true;
@@ -265,7 +266,7 @@ namespace Nightflow.Systems.Presentation
             _missingMaterialFrameCount = 0;
             if (_hasWarnedAboutMissingMaterials)
             {
-                Debug.Log("[ParticleRenderSystem] Particle materials are now available. Rendering enabled.");
+                Log.System("ParticleRenderSystem", "Particle materials are now available. Rendering enabled.");
                 _hasWarnedAboutMissingMaterials = false;
             }
 

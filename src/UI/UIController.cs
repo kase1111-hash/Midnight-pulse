@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using Nightflow.Components;
 using Nightflow.Tags;
 using Nightflow.Save;
+using Nightflow.Utilities;
 
 namespace Nightflow.UI
 {
@@ -184,7 +185,7 @@ namespace Nightflow.UI
         {
             if (uiDocument == null || uiDocument.rootVisualElement == null)
             {
-                Debug.LogError("UIController: UIDocument or root element is null");
+                Log.SystemError("UIController", "UIDocument or root element is null");
                 return;
             }
 

@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Nightflow.Save;
 using Nightflow.Input;
+using Nightflow.Utilities;
 
 namespace Nightflow.UI
 {
@@ -118,7 +119,7 @@ namespace Nightflow.UI
 
             if (settingsOverlay == null)
             {
-                Debug.LogWarning("SettingsUIController: settings-overlay not found");
+                Log.SystemWarn("SettingsUIController", "settings-overlay not found");
                 return;
             }
 

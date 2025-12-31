@@ -6,6 +6,7 @@
 using UnityEngine;
 using UnityEditor;
 using System.IO;
+using Nightflow.Utilities;
 
 namespace Nightflow.Editor
 {
@@ -137,7 +138,7 @@ namespace Nightflow.Editor
             inputManager.ApplyModifiedProperties();
             AssetDatabase.SaveAssets();
 
-            Debug.Log("[Nightflow] Wheel input axes configured successfully!");
+            Log.System("WheelInputSetup", "Wheel input axes configured successfully!");
         }
 
         private static void AddAxisIfNotExists(SerializedProperty axesProperty, string axisName,
@@ -150,7 +151,7 @@ namespace Nightflow.Editor
                 SerializedProperty name = axis.FindPropertyRelative("m_Name");
                 if (name.stringValue == axisName)
                 {
-                    Debug.Log($"[Nightflow] Axis '{axisName}' already exists, skipping");
+                    Log.System("WheelInputSetup", $"Axis '{axisName}' already exists, skipping");
                     return;
                 }
             }
@@ -175,7 +176,7 @@ namespace Nightflow.Editor
             newAxis.FindPropertyRelative("axis").intValue = axisNumber - 1; // 0-indexed
             newAxis.FindPropertyRelative("joyNum").intValue = joystickNumber;
 
-            Debug.Log($"[Nightflow] Added axis: {axisName}");
+            Log.System("WheelInputSetup", $"Added axis: {axisName}");
         }
 
         private static string GetWheelDocumentation()
