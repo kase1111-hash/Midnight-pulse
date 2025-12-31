@@ -696,5 +696,33 @@ namespace Nightflow.Editor
             EditorUtility.DisplayDialog("Config Creation",
                 "All config assets have been created/verified.", "OK");
         }
+
+        [MenuItem("Nightflow/Auto-Setup/Run Setup Validation", false, 230)]
+        private static void RunSetupValidation()
+        {
+            var result = SetupValidator.ValidateAll();
+            string summary = result.GetSummary();
+
+            if (result.IsValid && result.Warnings.Count == 0)
+            {
+                EditorUtility.DisplayDialog("Setup Validation",
+                    "All validations passed! Your project is properly configured.", "OK");
+            }
+            else
+            {
+                // Show in console for copy/paste
+                if (!result.IsValid)
+                {
+                    Debug.LogError("Nightflow Setup Validation Failed:\n" + summary);
+                }
+                else
+                {
+                    Debug.LogWarning("Nightflow Setup Validation Warnings:\n" + summary);
+                }
+
+                EditorUtility.DisplayDialog("Setup Validation",
+                    summary + "\n\nSee Console for full details.", "OK");
+            }
+        }
     }
 }
