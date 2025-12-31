@@ -8,6 +8,7 @@ using Unity.Burst;
 using Unity.Mathematics;
 using Nightflow.Components;
 using Nightflow.Tags;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -101,8 +102,7 @@ namespace Nightflow.Systems
                     if (forwardDist > 0 && forwardDist < HazardDetectionRange)
                     {
                         // Check if in our lane (roughly)
-                        float laneWidth = 3.5f;
-                        if (math.abs(lateralDist) < laneWidth)
+                        if (math.abs(lateralDist) < GameConstants.LaneWidth)
                         {
                             float threat = hazard.ValueRO.Severity *
                                 (1f - forwardDist / HazardDetectionRange);
