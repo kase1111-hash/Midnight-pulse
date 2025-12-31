@@ -41,14 +41,34 @@
 
 ---
 
-## Future Scalability
+## Post-MVP TODO
 
-| Feature | Upgrade Path |
-|---------|--------------|
-| Phase 2 Damage | Swap to soft-body / component failure |
-| Raytracing | Replace lighting system with full RT |
-| Multiplayer | Replicate input logs + seeds |
-| Full City | Populate distant silhouettes with geometry |
+### Phase 2 Damage
+- [ ] Soft-body deformation system
+- [ ] Component failures (suspension, steering, tires)
+- [ ] Visual mesh deformation on impact
+- [ ] Progressive handling degradation per component
+- [ ] Swap `DamageEvaluationSystem` with soft-body implementation
+
+### Raytracing
+- [ ] Full RT for dynamic headlight reflections
+- [ ] Emergency vehicle light bouncing off wet roads
+- [ ] Tunnel light bounce and reflections
+- [ ] Screen-space fallback for non-RT hardware
+- [ ] Swap `LightingSystem` with RT implementation
+
+### Multiplayer
+- [ ] Network replication via input logs + deterministic seeds
+- [ ] Ghost racing (async multiplayer)
+- [ ] Live spectator mode
+- [ ] Leaderboard integration
+- [ ] Replicate ECS state deltas across network
+
+### Full City
+- [ ] Populate distant silhouettes with actual geometry
+- [ ] Procedural building generation
+- [ ] Dynamic city lights based on time/distance
+- [ ] LOD system for distant geometry
 
 ---
 
