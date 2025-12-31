@@ -11,6 +11,7 @@ using Nightflow.Components;
 using Nightflow.Buffers;
 using Nightflow.Tags;
 using Nightflow.Utilities;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -43,7 +44,7 @@ namespace Nightflow.Systems
         private const float HysteresisThreshold = 0.15f;  // θ - minimum ΔS to change
         private const float CommitmentLock = 1.2f;        // seconds locked during change
         private const float LookAheadDistance = 50f;      // gap detection range
-        private const float LaneWidth = 3.6f;
+        // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
 
         // Density parameters
         private const float DensityDecay = 0.5f;          // k_d for exponential decay
@@ -132,7 +133,7 @@ namespace Nightflow.Systems
 
                 // Estimate lane from X position
                 float3 hazardPos = transform.ValueRO.Position;
-                int hazardLane = (int)math.round((hazardPos.x / LaneWidth) + 1.5f);
+                int hazardLane = (int)math.round((hazardPos.x / GameConstants.LaneWidth) + 1.5f);
                 hazardLane = math.clamp(hazardLane, 0, 3);
 
                 // Determine if lethal (barrier or crashed car)
@@ -466,7 +467,7 @@ namespace Nightflow.Systems
             if (lane == playerLane && math.abs(dz) < LookAheadDistance)
             {
                 // Avoid crowding player's lane
-                playerScore = math.clamp(distToPlayer / (LaneWidth * 5f), 0.3f, 1f);
+                playerScore = math.clamp(distToPlayer / (GameConstants.LaneWidth * 5f), 0.3f, 1f);
             }
             score += WeightPlayer * playerScore;
 

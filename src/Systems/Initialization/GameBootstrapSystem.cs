@@ -10,6 +10,7 @@ using Nightflow.Components;
 using Nightflow.Buffers;
 using Nightflow.Tags;
 using Nightflow.Utilities;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -22,11 +23,8 @@ namespace Nightflow.Systems
     {
         private bool _initialized;
 
-        // Track parameters
+        // Track parameters - using GameConstants for SegmentLength, NumLanes, GameConstants.LaneWidth
         private const int InitialSegments = 5;
-        private const float SegmentLength = 200f;
-        private const int LanesPerSegment = 4;
-        private const float LaneWidth = 3.6f;
 
         // Player spawn
         private const float PlayerStartZ = 50f;
@@ -76,7 +74,7 @@ namespace Nightflow.Systems
             Entity playerEntity = ecb.CreateEntity();
 
             // Core transform - spawn on starting lane
-            float3 playerPos = new float3((PlayerStartLane - 1.5f) * LaneWidth, 0.5f, PlayerStartZ);
+            float3 playerPos = new float3((PlayerStartLane - 1.5f) * GameConstants.LaneWidth, 0.5f, PlayerStartZ);
             ecb.AddComponent(playerEntity, new WorldTransform
             {
                 Position = playerPos,

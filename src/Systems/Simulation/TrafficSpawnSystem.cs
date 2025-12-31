@@ -11,6 +11,7 @@ using Nightflow.Components;
 using Nightflow.Buffers;
 using Nightflow.Tags;
 using Nightflow.Utilities;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -31,7 +32,7 @@ namespace Nightflow.Systems
         private const float SpawnAheadMax = 250f;         // Max spawn distance ahead
         private const float DespawnBehind = 60f;          // Distance behind to despawn
         private const float MinSpacing = 15f;             // Min distance between vehicles
-        private const float LaneWidth = 3.6f;
+        // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
 
         // Speed parameters
         private const float BaseFlowSpeed = 22f;          // m/s base traffic speed
@@ -140,7 +141,7 @@ namespace Nightflow.Systems
                     int spawnLane = _random.NextInt(0, 4); // Lanes 0-3
 
                     // Check spacing
-                    float3 candidatePos = new float3((spawnLane - 1.5f) * LaneWidth, 0.5f, spawnZ);
+                    float3 candidatePos = new float3((spawnLane - 1.5f) * GameConstants.LaneWidth, 0.5f, spawnZ);
                     bool tooClose = false;
 
                     for (int i = 0; i < trafficPositions.Length; i++)
@@ -178,7 +179,7 @@ namespace Nightflow.Systems
                             SplineUtilities.BuildFrameAtT(spline.P0, spline.T0, spline.P1, spline.T1, t,
                                 out float3 splinePos, out float3 forward, out float3 right, out float3 up);
 
-                            candidatePos = splinePos + right * ((spawnLane - 1.5f) * LaneWidth) + up * 0.5f;
+                            candidatePos = splinePos + right * ((spawnLane - 1.5f) * GameConstants.LaneWidth) + up * 0.5f;
                             foundSegment = true;
                             break;
                         }

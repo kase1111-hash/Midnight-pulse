@@ -12,6 +12,7 @@ using Nightflow.Components;
 using Nightflow.Buffers;
 using Nightflow.Tags;
 using Nightflow.Utilities;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -24,12 +25,10 @@ namespace Nightflow.Systems
     [UpdateBefore(typeof(WireframeRenderSystem))]
     public partial struct ProceduralRoadMeshSystem : ISystem
     {
-        // Road geometry parameters
-        private const float LaneWidth = 3.6f;
-        private const int NumLanes = 4;
-        private const float RoadWidth = LaneWidth * NumLanes;       // 14.4m total
+        // Road geometry parameters - using GameConstants for GameConstants.LaneWidth and NumLanes
         private const float ShoulderWidth = 1.5f;                   // Each side
-        private const float TotalWidth = RoadWidth + ShoulderWidth * 2f; // 17.4m
+        // RoadWidth uses GameConstants.RoadWidth (14.4m total)
+        // TotalWidth = RoadWidth + ShoulderWidth * 2f (17.4m)
 
         // Mesh resolution
         private const int LengthSegmentsHigh = 40;                  // LOD 0
@@ -368,9 +367,9 @@ namespace Nightflow.Systems
             int startTriangleIndex = triangles.Length;
 
             // Lane boundaries (interior dashed lines)
-            float[] interiorOffsets = { -1.0f * LaneWidth, 0f, 1.0f * LaneWidth };
+            float[] interiorOffsets = { -1.0f * GameConstants.LaneWidth, 0f, 1.0f * GameConstants.LaneWidth };
             // Edge lines (solid)
-            float[] edgeOffsets = { -2.0f * LaneWidth, 2.0f * LaneWidth };
+            float[] edgeOffsets = { -2.0f * GameConstants.LaneWidth, 2.0f * GameConstants.LaneWidth };
 
             // Dashing parameters
             const float dashLength = 3.0f;
@@ -715,7 +714,7 @@ namespace Nightflow.Systems
             // Lane boundaries for 4 lanes (interior dividers at lane edges):
             // Lane centers are at: -1.5, -0.5, +0.5, +1.5 lane widths
             // So boundaries between lanes are at: -1.0, 0, +1.0 lane widths
-            const float laneWidth = 3.6f;
+            float laneWidth = GameConstants.LaneWidth;
             float[] interiorOffsets = { -1.0f * laneWidth, 0f, 1.0f * laneWidth };
             float[] edgeOffsets = { -2.0f * laneWidth, 2.0f * laneWidth };
 

@@ -8,6 +8,7 @@ using Unity.Burst;
 using Unity.Mathematics;
 using Nightflow.Components;
 using Nightflow.Tags;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -29,7 +30,7 @@ namespace Nightflow.Systems
         private const float EmergencySpeed = 45f;         // m/s - faster than traffic
         private const float DetectionDistance = 120f;     // meters behind player (d_max)
         private const float DetectionWidth = 7f;          // meters lateral
-        private const float LaneWidth = 3.6f;
+        // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
 
         // Avoidance parameters
         private const float AvoidStrength = 0.8f;         // k_a
@@ -227,12 +228,12 @@ namespace Nightflow.Systems
                 transform.ValueRW.Position += forward * velocity.ValueRO.Forward * deltaTime;
 
                 // Lateral movement for lane following
-                float targetLateral = (laneFollower.ValueRO.CurrentLane - 1.5f) * LaneWidth;
+                float targetLateral = (laneFollower.ValueRO.CurrentLane - 1.5f) * GameConstants.LaneWidth;
 
                 if (steeringState.ValueRO.ChangingLanes)
                 {
-                    float sourceLateral = (laneFollower.ValueRO.CurrentLane - 1.5f) * LaneWidth;
-                    float destLateral = (laneFollower.ValueRO.TargetLane - 1.5f) * LaneWidth;
+                    float sourceLateral = (laneFollower.ValueRO.CurrentLane - 1.5f) * GameConstants.LaneWidth;
+                    float destLateral = (laneFollower.ValueRO.TargetLane - 1.5f) * GameConstants.LaneWidth;
 
                     float t = steeringState.ValueRO.LaneChangeTimer /
                              steeringState.ValueRO.LaneChangeDuration;
@@ -296,7 +297,7 @@ namespace Nightflow.Systems
                                 dir = (emergencyLane.ValueRO.CurrentLane <= 1) ? 1f : -1f;
                             }
 
-                            float avoidOffset = dir * AvoidStrength * urgency * LaneWidth;
+                            float avoidOffset = dir * AvoidStrength * urgency * GameConstants.LaneWidth;
 
                             // Apply player steering override
                             float playerOverride = math.clamp(1f - math.abs(input.ValueRO.Steer),
