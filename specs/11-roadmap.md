@@ -44,14 +44,14 @@
 ## Post-MVP TODO
 
 ### Phase 2 Damage
-- [ ] Soft-body deformation system
+- [x] Soft-body deformation system
 - [x] Component failures (suspension, steering, tires, engine, transmission)
-- [ ] Visual mesh deformation on impact (enhanced)
+- [x] Visual mesh deformation on impact (enhanced)
 - [x] Progressive handling degradation per component
 - [ ] Swap `DamageEvaluationSystem` with soft-body implementation
 - [x] ComponentHealth tracking system
 - [x] ComponentFailureSystem with cascade failure detection
-- [ ] Suspension camera shake effects
+- [x] Suspension camera shake effects
 
 ### Raytracing
 - [ ] Full RT for dynamic headlight reflections
