@@ -37,19 +37,28 @@ namespace Nightflow.Config
 
             if (gameplay == null)
             {
-                Log.SystemError("NightflowConfig", "Gameplay config is not assigned!");
+                Log.SystemError("NightflowConfig",
+                    "GameplayConfig is not assigned!\n" +
+                    "→ FIX: Open NightflowConfig asset in Inspector and assign a GameplayConfig.\n" +
+                    "→ Create one via: Assets > Create > Nightflow > Gameplay Config");
                 valid = false;
             }
 
             if (audio == null)
             {
-                Log.SystemError("NightflowConfig", "Audio config is not assigned!");
-                valid = false;
+                Log.SystemWarning("NightflowConfig",
+                    "AudioConfig is not assigned (audio settings will use defaults).\n" +
+                    "→ FIX: Open NightflowConfig asset and assign an AudioConfig.\n" +
+                    "→ Create one via: Assets > Create > Nightflow > Audio Config");
+                // Audio is optional, don't fail validation
             }
 
             if (visual == null)
             {
-                Log.SystemError("NightflowConfig", "Visual config is not assigned!");
+                Log.SystemError("NightflowConfig",
+                    "VisualConfig is not assigned!\n" +
+                    "→ FIX: Open NightflowConfig asset in Inspector and assign a VisualConfig.\n" +
+                    "→ Create one via: Assets > Create > Nightflow > Visual Config");
                 valid = false;
             }
 
@@ -90,13 +99,20 @@ namespace Nightflow.Config
 
             if (masterConfig == null)
             {
-                Log.SystemError("ConfigManager", "Master config not assigned!");
+                Log.SystemError("ConfigManager",
+                    "Master config not assigned!\n" +
+                    "→ FIX: Assign a NightflowConfig asset to this ConfigManager in the Inspector.\n" +
+                    "→ Create one via: Assets > Create > Nightflow > Master Config\n" +
+                    "→ Or use: Nightflow > Auto-Setup > Force Setup Now");
                 return;
             }
 
             if (!masterConfig.Validate())
             {
-                Log.SystemError("ConfigManager", "Config validation failed!");
+                Log.SystemError("ConfigManager",
+                    "Config validation failed - some sub-configs are missing.\n" +
+                    "→ FIX: Check the Console for specific missing configs.\n" +
+                    "→ Or use: Nightflow > Auto-Setup > Create Missing Configs");
             }
 
             ApplyConfigs();

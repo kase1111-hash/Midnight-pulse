@@ -170,6 +170,14 @@ namespace Nightflow.Utilities
         }
 
         /// <summary>
+        /// Logs system-specific warning. Always included. (Alias for SystemWarn)
+        /// </summary>
+        public static void SystemWarning(string systemName, string message)
+        {
+            SystemWarn(systemName, message);
+        }
+
+        /// <summary>
         /// Logs system-specific error. Always included.
         /// </summary>
         public static void SystemError(string systemName, string message)
