@@ -16,6 +16,15 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $BuildOutput = Join-Path $ProjectRoot "Build\Windows"
 $GameName = "Nightflow"
 
+# Read version from VERSION file
+$VersionFile = Join-Path $ProjectRoot "VERSION"
+if (Test-Path $VersionFile) {
+    $GameVersion = (Get-Content $VersionFile -First 1).Trim()
+} else {
+    $GameVersion = "1.0.0"
+    Write-Host "WARNING: VERSION file not found, using default version $GameVersion" -ForegroundColor Yellow
+}
+
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "  Nightflow Windows Build System" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
@@ -57,7 +66,7 @@ if (-not (Test-Path $BuildOutput)) {
     New-Item -ItemType Directory -Path $BuildOutput -Force | Out-Null
 }
 
-Write-Host "Building $GameName for Windows ($Configuration)..." -ForegroundColor Green
+Write-Host "Building $GameName v$GameVersion for Windows ($Configuration)..." -ForegroundColor Green
 Write-Host "Project: $ProjectRoot"
 Write-Host "Output: $BuildOutput"
 Write-Host ""
@@ -125,7 +134,8 @@ if ($CreateInstaller) {
         exit 1
     }
 
-    $installerArgs = @("`"$issPath`"")
+    # Pass version to Inno Setup
+    $installerArgs = @("/DMyAppVersion=$GameVersion", "`"$issPath`"")
     $installerProcess = Start-Process -FilePath $innoSetupPath -ArgumentList $installerArgs -Wait -PassThru -NoNewWindow
 
     if ($installerProcess.ExitCode -ne 0) {
@@ -133,7 +143,9 @@ if ($CreateInstaller) {
         exit $installerProcess.ExitCode
     }
 
+    $installerOutput = Join-Path $ProjectRoot "Installer\Nightflow_Setup_$GameVersion.exe"
     Write-Host "Installer created successfully!" -ForegroundColor Green
+    Write-Host "Output: $installerOutput"
 }
 
 Write-Host ""

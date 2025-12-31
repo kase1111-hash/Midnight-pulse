@@ -4,8 +4,11 @@
 ; ============================================================================
 
 #define MyAppName "Nightflow"
-#define MyAppVersion "1.0.0"
-#define MyAppPublisher "Nightflow Games"
+; Version can be overridden from command line: ISCC /DMyAppVersion=x.x.x installer.iss
+#ifndef MyAppVersion
+  #define MyAppVersion "1.0.0"
+#endif
+#define MyAppPublisher "Kase Branham"
 #define MyAppURL "https://github.com/kase1111-hash/Midnight-pulse"
 #define MyAppExeName "Nightflow.exe"
 
@@ -128,8 +131,3 @@ begin
   end;
 end;
 
-// Provide directory exists check function
-function DirExists(DirName: String): Boolean;
-begin
-  Result := DirExists(DirName);
-end;

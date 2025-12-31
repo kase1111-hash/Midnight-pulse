@@ -1,0 +1,159 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a release'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+  UNITY_VERSION: 2022.3.0f1
+
+jobs:
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(cat VERSION | tr -d '\n\r')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
+
+      - name: Build with Unity
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: StandaloneWindows64
+          buildName: Nightflow
+          buildsPath: Build
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nightflow-Windows-v${{ steps.version.outputs.version }}
+          path: Build/StandaloneWindows64
+          retention-days: 14
+
+  # Create installer (only on tags or manual trigger)
+  create-installer:
+    name: Create Installer
+    needs: build-windows
+    runs-on: windows-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(cat VERSION | tr -d '\n\r')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Nightflow-Windows-v${{ steps.version.outputs.version }}
+          path: Build/Windows
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Create Installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ steps.version.outputs.version }} build\installer.iss
+
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nightflow-Installer-v${{ steps.version.outputs.version }}
+          path: Installer/*.exe
+          retention-days: 30
+
+  # Create GitHub Release (only on version tags)
+  release:
+    name: Create Release
+    needs: create-installer
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(cat VERSION | tr -d '\n\r')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download Installer
+        uses: actions/download-artifact@v4
+        with:
+          name: Nightflow-Installer-v${{ steps.version.outputs.version }}
+          path: installer
+
+      - name: Download Build
+        uses: actions/download-artifact@v4
+        with:
+          name: Nightflow-Windows-v${{ steps.version.outputs.version }}
+          path: build
+
+      - name: Create ZIP of build
+        run: |
+          cd build
+          zip -r ../Nightflow-Windows-v${{ steps.version.outputs.version }}.zip .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Nightflow v${{ steps.version.outputs.version }}
+          body: |
+            ## Nightflow v${{ steps.version.outputs.version }}
+
+            ### Downloads
+            - **Installer** - Recommended for most users
+            - **ZIP** - Portable version, no installation required
+
+            ### Requirements
+            - Windows 10/11 (64-bit)
+            - DirectX 12 compatible GPU
+          files: |
+            installer/*.exe
+            Nightflow-Windows-v${{ steps.version.outputs.version }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
