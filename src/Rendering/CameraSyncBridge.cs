@@ -7,6 +7,7 @@ using UnityEngine;
 using Unity.Entities;
 using Unity.Mathematics;
 using Nightflow.Components;
+using Nightflow.Utilities;
 
 namespace Nightflow.Rendering
 {
@@ -66,7 +67,7 @@ namespace Nightflow.Rendering
             _camera = GetComponent<Camera>();
             if (_camera == null)
             {
-                Debug.LogError("[CameraSyncBridge] No Camera component found on this GameObject. This script requires a Camera component.");
+                Log.SystemError("CameraSyncBridge", "No Camera component found on this GameObject. This script requires a Camera component.");
                 enabled = false;
                 return;
             }
@@ -101,7 +102,7 @@ namespace Nightflow.Rendering
 
             if (showDebugInfo)
             {
-                Debug.Log("[CameraSyncBridge] ECS initialized successfully");
+                Log.System("CameraSyncBridge", "ECS initialized successfully");
             }
         }
 
@@ -121,7 +122,7 @@ namespace Nightflow.Rendering
                 // Only warn once, and only after a few frames to allow ECS initialization
                 if (!_hasWarnedAboutMissingState && _missingStateFrameCount > 10)
                 {
-                    Debug.LogWarning("[CameraSyncBridge] No CameraState entity found. " +
+                    Log.SystemWarn("CameraSyncBridge", "No CameraState entity found. " +
                         "Ensure GameBootstrapSystem creates the CameraState entity. " +
                         (useFallbackWhenMissing ? "Using fallback position." : "Camera will stay at origin."));
                     _hasWarnedAboutMissingState = true;
@@ -208,7 +209,7 @@ namespace Nightflow.Rendering
 
             if (showDebugInfo)
             {
-                Debug.Log($"[CameraSyncBridge] Pos: {_currentPosition}, FOV: {_currentFOV:F1}, Mode: {cameraState.Mode}");
+                Log.System("CameraSyncBridge", $"Pos: {_currentPosition}, FOV: {_currentFOV:F1}, Mode: {cameraState.Mode}");
             }
         }
 

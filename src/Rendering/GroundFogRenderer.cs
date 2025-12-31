@@ -10,6 +10,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using System.Collections.Generic;
 using Nightflow.Components;
+using Nightflow.Utilities;
 
 namespace Nightflow.Rendering
 {
@@ -130,7 +131,7 @@ namespace Nightflow.Rendering
                 // Final fallback - should never happen in a properly configured project
                 if (shader == null)
                 {
-                    Debug.LogError("[GroundFogRenderer] No suitable shader found for fog material. Check that shaders are included in build.");
+                    Log.SystemError("GroundFogRenderer", "No suitable shader found for fog material. Check that shaders are included in build.");
                     shader = Shader.Find("Hidden/InternalErrorShader");
                 }
 

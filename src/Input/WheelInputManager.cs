@@ -6,6 +6,7 @@
 using System;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using Nightflow.Utilities;
 
 namespace Nightflow.Input
 {
@@ -140,13 +141,13 @@ namespace Nightflow.Input
             // Fire events on state change
             if (isWheelConnected && !wasConnected)
             {
-                Debug.Log($"WheelInputManager: Logitech wheel connected (Joystick {wheelJoystickIndex})");
+                Log.System("WheelInputManager", $"Logitech wheel connected (Joystick {wheelJoystickIndex})");
                 OnWheelConnected?.Invoke();
                 InitializeWheelAxes();
             }
             else if (!isWheelConnected && wasConnected)
             {
-                Debug.Log("WheelInputManager: Wheel disconnected");
+                Log.System("WheelInputManager", "Wheel disconnected");
                 OnWheelDisconnected?.Invoke();
                 StopAllForceFeedback();
             }
@@ -453,18 +454,18 @@ namespace Nightflow.Input
                         ffbInitialized = logiInit(false);
                         if (ffbInitialized)
                         {
-                            Debug.Log("WheelInputManager: Logitech Force Feedback initialized");
+                            Log.System("WheelInputManager", "Logitech Force Feedback initialized");
                         }
                     }
                 }
                 else
                 {
-                    Debug.Log("WheelInputManager: Logitech SDK not found, force feedback disabled");
+                    Log.System("WheelInputManager", "Logitech SDK not found, force feedback disabled");
                 }
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"WheelInputManager: FFB init failed: {e.Message}");
+                Log.SystemWarn("WheelInputManager", $"FFB init failed: {e.Message}");
             }
         }
 

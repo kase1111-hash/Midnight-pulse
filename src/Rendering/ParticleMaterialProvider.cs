@@ -6,6 +6,7 @@
 using UnityEngine;
 using Unity.Entities;
 using Nightflow.Systems.Presentation;
+using Nightflow.Utilities;
 
 namespace Nightflow.Rendering
 {
@@ -103,7 +104,7 @@ namespace Nightflow.Rendering
 
             if (shader == null)
             {
-                Debug.LogError($"[ParticleMaterialProvider] Could not find any suitable shader for {name}. " +
+                Log.SystemError("ParticleMaterialProvider", $"Could not find any suitable shader for {name}. " +
                     "Creating emergency fallback material. Particles may not render correctly.");
                 // Create an emergency fallback using the built-in error shader
                 shader = Shader.Find("Hidden/InternalErrorShader");
@@ -111,7 +112,7 @@ namespace Nightflow.Rendering
                 {
                     // Last resort: create a material without a valid shader
                     // This shouldn't happen but prevents null reference exceptions
-                    Debug.LogError("[ParticleMaterialProvider] Critical: No shaders available. " +
+                    Log.SystemError("ParticleMaterialProvider", "Critical: No shaders available. " +
                         "Check that URP package is properly installed.");
                     return CreateEmergencyFallbackMaterial(name, color);
                 }
@@ -197,14 +198,14 @@ namespace Nightflow.Rendering
                     var mat = new Material(existingMat.shader);
                     mat.name = name + "_Emergency";
                     mat.color = color;
-                    Debug.LogWarning($"[ParticleMaterialProvider] Using emergency fallback shader: {existingMat.shader.name}");
+                    Log.SystemWarn("ParticleMaterialProvider", $"Using emergency fallback shader: {existingMat.shader.name}");
                     return mat;
                 }
             }
 
             // Absolute last resort - this material won't render properly
             // but prevents null reference crashes
-            Debug.LogError("[ParticleMaterialProvider] Creating invalid material as last resort. " +
+            Log.SystemError("ParticleMaterialProvider", "Creating invalid material as last resort. " +
                 "Particles will not render. Please check your render pipeline setup.");
             var fallbackMat = new Material(Shader.Find("Hidden/InternalErrorShader") ?? Shader.Find("UI/Default"));
             fallbackMat.name = name + "_Invalid";

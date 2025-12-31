@@ -5,6 +5,7 @@
 
 using UnityEngine;
 using Nightflow.Save;
+using Nightflow.Utilities;
 
 namespace Nightflow.Input
 {
@@ -40,7 +41,7 @@ namespace Nightflow.Input
             {
                 var bindingGo = new GameObject("[InputBindingManager]");
                 bindingGo.AddComponent<InputBindingManager>();
-                Debug.Log("InputBootstrap: Created InputBindingManager");
+                Log.System("InputBootstrap", "Created InputBindingManager");
             }
 
             // Create WheelInputManager for Logitech G920/G29 support
@@ -48,7 +49,7 @@ namespace Nightflow.Input
             {
                 var wheelGo = new GameObject("[WheelInputManager]");
                 wheelGo.AddComponent<WheelInputManager>();
-                Debug.Log("InputBootstrap: Created WheelInputManager");
+                Log.System("InputBootstrap", "Created WheelInputManager");
             }
 
             // Create ForceFeedbackController for wheel force feedback effects
@@ -56,7 +57,7 @@ namespace Nightflow.Input
             {
                 var ffbGo = new GameObject("[ForceFeedbackController]");
                 ffbGo.AddComponent<ForceFeedbackController>();
-                Debug.Log("InputBootstrap: Created ForceFeedbackController");
+                Log.System("InputBootstrap", "Created ForceFeedbackController");
             }
         }
 

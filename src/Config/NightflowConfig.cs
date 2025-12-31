@@ -6,6 +6,7 @@
 using UnityEngine;
 using Unity.Entities;
 using System.IO;
+using Nightflow.Utilities;
 
 namespace Nightflow.Config
 {
@@ -36,19 +37,19 @@ namespace Nightflow.Config
 
             if (gameplay == null)
             {
-                Debug.LogError("NightflowConfig: Gameplay config is not assigned!");
+                Log.SystemError("NightflowConfig", "Gameplay config is not assigned!");
                 valid = false;
             }
 
             if (audio == null)
             {
-                Debug.LogError("NightflowConfig: Audio config is not assigned!");
+                Log.SystemError("NightflowConfig", "Audio config is not assigned!");
                 valid = false;
             }
 
             if (visual == null)
             {
-                Debug.LogError("NightflowConfig: Visual config is not assigned!");
+                Log.SystemError("NightflowConfig", "Visual config is not assigned!");
                 valid = false;
             }
 
@@ -89,13 +90,13 @@ namespace Nightflow.Config
 
             if (masterConfig == null)
             {
-                Debug.LogError("ConfigManager: Master config not assigned!");
+                Log.SystemError("ConfigManager", "Master config not assigned!");
                 return;
             }
 
             if (!masterConfig.Validate())
             {
-                Debug.LogError("ConfigManager: Config validation failed!");
+                Log.SystemError("ConfigManager", "Config validation failed!");
             }
 
             ApplyConfigs();
@@ -116,7 +117,7 @@ namespace Nightflow.Config
 
             if (masterConfig.verboseLogging)
             {
-                Debug.Log("ConfigManager: All configs applied successfully.");
+                Log.System("ConfigManager", "All configs applied successfully.");
             }
         }
 
@@ -183,7 +184,7 @@ namespace Nightflow.Config
             string json = JsonUtility.ToJson(exportData, true);
             File.WriteAllText(path, json);
 
-            Debug.Log($"ConfigManager: Exported config to {path}");
+            Log.System("ConfigManager", $"Exported config to {path}");
         }
 
         /// <summary>
