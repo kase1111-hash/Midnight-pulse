@@ -2,6 +2,13 @@
 
 Build scripts for creating Windows standalone builds and installers.
 
+## Versioning
+
+The game version is defined in the `VERSION` file at the project root. This single source of truth is used by:
+- Build scripts (build.ps1)
+- Installer (installer.iss)
+- GitHub Actions CI/CD
+
 ## Prerequisites
 
 - **Unity 2022.3 LTS** (or compatible version with Entities package)
@@ -74,15 +81,13 @@ Build/
 
 ```
 Installer/
-└── Nightflow_Setup_1.0.0.exe
+└── Nightflow_Setup_<version>.exe
 ```
 
 ## Customizing the Installer
 
 Edit `installer.iss` to customize:
 
-- **Version**: Update `MyAppVersion` define
-- **Publisher**: Update `MyAppPublisher` define
 - **Icons**: Add custom installer images
 - **License**: Add `LicenseFile` directive
 
@@ -123,28 +128,55 @@ build.bat --unity "C:\Program Files\Unity\Hub\Editor\2022.3.0f1\Editor\Unity.exe
 2. Verify build completed successfully first
 3. Check that all files exist in `Build\Windows\`
 
-## CI/CD Integration
+## CI/CD with GitHub Actions
 
-For automated builds, use:
+The project includes a GitHub Actions workflow (`.github/workflows/build.yml`) that:
+
+1. **On every push/PR**: Builds the game and uploads artifacts
+2. **On version tags**: Creates installer and GitHub Release
+
+### Setting Up GitHub Actions
+
+Add these secrets to your repository (Settings → Secrets → Actions):
+
+| Secret | Description |
+|--------|-------------|
+| `UNITY_LICENSE` | Unity license file content |
+| `UNITY_EMAIL` | Unity account email |
+| `UNITY_PASSWORD` | Unity account password |
+
+See [GameCI documentation](https://game.ci/docs/github/activation) for Unity license activation.
+
+### Creating a Release
+
+1. Update version in `VERSION` file:
+   ```
+   1.1.0
+   ```
+
+2. Commit the change:
+   ```bash
+   git add VERSION
+   git commit -m "Bump version to 1.1.0"
+   ```
+
+3. Create and push a version tag:
+   ```bash
+   git tag v1.1.0
+   git push origin main v1.1.0
+   ```
+
+4. GitHub Actions will automatically:
+   - Build the game
+   - Create the installer
+   - Publish a GitHub Release with both files
+
+### Manual Builds
+
+For local CI-style builds:
 
 ```powershell
 # Headless build for CI
 powershell -ExecutionPolicy Bypass -File build.ps1 -CleanBuild -CreateInstaller
 exit $LASTEXITCODE
 ```
-
-## Version Updates
-
-When releasing a new version:
-
-1. Update version in `installer.iss`:
-   ```iss
-   #define MyAppVersion "1.1.0"
-   ```
-
-2. Update version in Unity Player Settings
-
-3. Run full build with installer:
-   ```batch
-   build.bat --clean --installer
-   ```
