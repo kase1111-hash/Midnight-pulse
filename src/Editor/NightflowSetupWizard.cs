@@ -183,7 +183,7 @@ namespace Nightflow.Editor
                 $"{ConfigPath}/GameplayConfig.asset");
             var visualConfig = CreateAssetIfNotExists<VisualConfig>(
                 $"{ConfigPath}/VisualConfig.asset");
-            var audioConfig = CreateAssetIfNotExists<AudioConfig>(
+            var audioConfig = CreateAssetIfNotExists<AudioConfigAsset>(
                 $"{ConfigPath}/AudioConfig.asset");
 
             // Create master config and link them
