@@ -8,6 +8,7 @@ using Unity.Burst;
 using Unity.Mathematics;
 using Nightflow.Components;
 using Nightflow.Tags;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -55,14 +56,22 @@ namespace Nightflow.Systems
         private const float DamageWobbleFreq = 3f;        // wobble frequency
         private const float DamageWobbleMax = 0.15f;      // max wobble amplitude
 
+        // Phase 2: Suspension shake parameters
+        private const float SuspensionShakeBaseFreq = 12f;    // Base frequency of suspension bounce
+        private const float SuspensionShakeMaxAmp = 0.25f;    // Maximum shake amplitude
+        private const float SuspensionShakeSpeedScale = 0.01f;// Speed multiplier for shake intensity
+        private const float SuspensionFailedShakeAmp = 0.4f;  // Shake when suspension fully failed
+
         // State
         private float3 _recoilOffset;
         private float _wobblePhase;
+        private float _suspensionShakePhase;
 
         public void OnCreate(ref SystemState state)
         {
             _recoilOffset = float3.zero;
             _wobblePhase = 0f;
+            _suspensionShakePhase = 0f;
         }
 
         [BurstCompile]
@@ -81,6 +90,10 @@ namespace Nightflow.Systems
             float totalDamage = 0f;
             float impulseMagnitude = 0f;
             float3 impulseDirection = float3.zero;
+
+            // Phase 2: Component health for suspension shake
+            float suspensionHealth = 1f;
+            bool suspensionFailed = false;
 
             foreach (var (transform, velocity, driftState) in
                 SystemAPI.Query<RefRO<WorldTransform>, RefRO<Velocity>, RefRO<DriftState>>()
@@ -119,6 +132,16 @@ namespace Nightflow.Systems
                 break;
             }
 
+            // Phase 2: Get component health for suspension shake
+            foreach (var (health, failures) in
+                SystemAPI.Query<RefRO<ComponentHealth>, RefRO<ComponentFailureState>>()
+                    .WithAll<PlayerVehicleTag>())
+            {
+                suspensionHealth = health.ValueRO.Suspension;
+                suspensionFailed = failures.ValueRO.HasFailed(ComponentFailures.Suspension);
+                break;
+            }
+
             // =============================================================
             // Impact Recoil
             // =============================================================
@@ -143,6 +166,47 @@ namespace Nightflow.Systems
                 _wobblePhase += DamageWobbleFreq * deltaTime * math.PI * 2f;
                 float damageNorm = math.saturate(totalDamage / 100f);
                 wobbleAmount = math.sin(_wobblePhase) * DamageWobbleMax * damageNorm;
+            }
+
+            // =============================================================
+            // Phase 2: Suspension Shake
+            // =============================================================
+            // Damaged suspension causes vertical bouncing that increases with speed
+            // Failed suspension causes severe, erratic shaking
+
+            float3 suspensionShake = float3.zero;
+            float suspensionDamage = 1f - suspensionHealth;
+
+            if (suspensionDamage > 0.1f || suspensionFailed)
+            {
+                // Advance shake phase - faster with more damage
+                float shakeFreq = SuspensionShakeBaseFreq * (1f + suspensionDamage);
+                _suspensionShakePhase += shakeFreq * deltaTime * math.PI * 2f;
+
+                // Base amplitude from suspension damage
+                float baseAmp = suspensionFailed
+                    ? SuspensionFailedShakeAmp
+                    : suspensionDamage * SuspensionShakeMaxAmp;
+
+                // Increase with speed (damaged suspension bounces more at high speed)
+                float speedFactor = 1f + playerSpeed * SuspensionShakeSpeedScale;
+                float amplitude = baseAmp * speedFactor;
+
+                // Primary vertical bounce (sinusoidal)
+                float verticalBounce = math.sin(_suspensionShakePhase) * amplitude;
+
+                // Secondary horizontal sway (different frequency for asymmetry)
+                float horizontalSway = math.sin(_suspensionShakePhase * 0.7f) * amplitude * 0.3f;
+
+                // Add some chaos when failed (high frequency noise)
+                if (suspensionFailed)
+                {
+                    float noise = math.sin(_suspensionShakePhase * 3.7f) * 0.15f;
+                    verticalBounce += noise;
+                    horizontalSway += math.sin(_suspensionShakePhase * 2.3f) * 0.1f;
+                }
+
+                suspensionShake = new float3(horizontalSway, verticalBounce, 0f);
             }
 
             // =============================================================
@@ -251,6 +315,9 @@ namespace Nightflow.Systems
 
                 // Apply damage wobble (horizontal sway)
                 targetPos += right * wobbleAmount;
+
+                // Phase 2: Apply suspension shake (local space converted to world)
+                targetPos += up * suspensionShake.y + right * suspensionShake.x;
 
                 // Smooth follow (critically damped)
                 camera.ValueRW.Position = math.lerp(
