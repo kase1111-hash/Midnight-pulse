@@ -46,9 +46,127 @@ namespace Nightflow.Editor
             set => EditorPrefs.SetBool(SilentModePrefKey, value);
         }
 
+        private const string AutoCreateConfigsPrefKey = "Nightflow_AutoSetup_AutoCreateConfigs";
+
+        /// <summary>
+        /// Whether to auto-create config assets on editor startup. Default: true
+        /// </summary>
+        public static bool AutoCreateConfigs
+        {
+            get => EditorPrefs.GetBool(AutoCreateConfigsPrefKey, true);
+            set => EditorPrefs.SetBool(AutoCreateConfigsPrefKey, value);
+        }
+
         static NightflowAutoSetup()
         {
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+
+            // Delay the config check to ensure AssetDatabase is ready
+            EditorApplication.delayCall += OnEditorStartup;
+        }
+
+        private static void OnEditorStartup()
+        {
+            if (!AutoCreateConfigs)
+                return;
+
+            // Check if config assets exist, create if missing
+            EnsureConfigAssetsExist();
+        }
+
+        /// <summary>
+        /// Ensures all required config assets exist. Creates them if missing.
+        /// Called automatically on editor startup.
+        /// </summary>
+        public static void EnsureConfigAssetsExist()
+        {
+            bool created = false;
+
+            // Check master config
+            var masterConfig = AssetDatabase.LoadAssetAtPath<NightflowConfig>(
+                $"{ConfigPath}/NightflowConfig.asset");
+
+            if (masterConfig == null)
+            {
+                // Create all configs via setup wizard
+                NightflowSetupWizard.CreateAllConfigs();
+                created = true;
+            }
+            else
+            {
+                // Master exists, check sub-configs
+                bool needsUpdate = false;
+
+                if (masterConfig.gameplay == null)
+                {
+                    var gameplay = CreateConfigIfNotExists<GameplayConfig>("GameplayConfig");
+                    if (gameplay != null)
+                    {
+                        masterConfig.gameplay = gameplay;
+                        needsUpdate = true;
+                    }
+                }
+
+                if (masterConfig.visual == null)
+                {
+                    var visual = CreateConfigIfNotExists<VisualConfig>("VisualConfig");
+                    if (visual != null)
+                    {
+                        masterConfig.visual = visual;
+                        needsUpdate = true;
+                    }
+                }
+
+                if (masterConfig.audio == null)
+                {
+                    var audio = CreateConfigIfNotExists<AudioConfigAsset>("AudioConfig");
+                    if (audio != null)
+                    {
+                        masterConfig.audio = audio;
+                        needsUpdate = true;
+                    }
+                }
+
+                if (needsUpdate)
+                {
+                    EditorUtility.SetDirty(masterConfig);
+                    AssetDatabase.SaveAssets();
+                    created = true;
+                }
+            }
+
+            // Check AudioClipCollection
+            var clipCollection = AssetDatabase.LoadAssetAtPath<AudioClipCollection>(
+                $"{ConfigPath}/AudioClipCollection.asset");
+            if (clipCollection == null)
+            {
+                CreateAudioClipCollection();
+                created = true;
+            }
+
+            if (created)
+            {
+                Log.System("NightflowAutoSetup", "Config assets auto-created on editor startup");
+            }
+        }
+
+        private static T CreateConfigIfNotExists<T>(string name) where T : ScriptableObject
+        {
+            string path = $"{ConfigPath}/{name}.asset";
+            var existing = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (existing != null)
+                return existing;
+
+            // Ensure directory exists
+            if (!AssetDatabase.IsValidFolder(ConfigPath))
+            {
+                AssetDatabase.CreateFolder("Assets", "Config");
+            }
+
+            var asset = ScriptableObject.CreateInstance<T>();
+            AssetDatabase.CreateAsset(asset, path);
+            Log.System("NightflowAutoSetup", $"Created config: {path}");
+            return asset;
         }
 
         private static void OnPlayModeStateChanged(PlayModeStateChange state)
@@ -530,6 +648,20 @@ namespace Nightflow.Editor
             return true;
         }
 
+        [MenuItem("Nightflow/Auto-Setup/Auto-Create Configs on Startup", false, 215)]
+        private static void ToggleAutoCreateConfigs()
+        {
+            AutoCreateConfigs = !AutoCreateConfigs;
+            Log.System("NightflowAutoSetup", $"Auto-create configs: {(AutoCreateConfigs ? "enabled" : "disabled")}");
+        }
+
+        [MenuItem("Nightflow/Auto-Setup/Auto-Create Configs on Startup", true)]
+        private static bool ToggleAutoCreateConfigsValidate()
+        {
+            Menu.SetChecked("Nightflow/Auto-Setup/Auto-Create Configs on Startup", AutoCreateConfigs);
+            return true;
+        }
+
         [MenuItem("Nightflow/Auto-Setup/Validate Current Scene", false, 220)]
         private static void ValidateCurrentScene()
         {
@@ -555,6 +687,14 @@ namespace Nightflow.Editor
 
             EditorUtility.DisplayDialog("Auto-Setup Complete",
                 "Scene has been configured with all required components.", "OK");
+        }
+
+        [MenuItem("Nightflow/Auto-Setup/Create Missing Configs", false, 222)]
+        private static void CreateMissingConfigs()
+        {
+            EnsureConfigAssetsExist();
+            EditorUtility.DisplayDialog("Config Creation",
+                "All config assets have been created/verified.", "OK");
         }
     }
 }
