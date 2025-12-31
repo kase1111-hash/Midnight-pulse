@@ -10,6 +10,7 @@ using System.Linq;
 using UnityEngine;
 using Unity.Entities;
 using Nightflow.Components;
+using Nightflow.Utilities;
 
 namespace Nightflow.Save
 {
@@ -145,7 +146,7 @@ namespace Nightflow.Save
             }
             catch (Exception e)
             {
-                Debug.LogError($"SaveManager: Failed to create directories: {e.Message}");
+                Log.SystemError("SaveManager", $"Failed to create directories: {e.Message}");
             }
         }
 
@@ -183,16 +184,13 @@ namespace Nightflow.Save
                 isDirty = false;
                 autoSaveTimer = 0f;
 
-                if (debugLogging)
-                {
-                    Debug.Log($"SaveManager: Saved to {MainSavePath}");
-                }
+                Log.System("SaveManager", $"Saved to {MainSavePath}");
 
                 OnSaveCompleted?.Invoke();
             }
             catch (Exception e)
             {
-                Debug.LogError($"SaveManager: Failed to save: {e.Message}");
+                Log.SystemError("SaveManager", $"Failed to save: {e.Message}");
             }
         }
 
@@ -208,10 +206,7 @@ namespace Nightflow.Save
                     string json = File.ReadAllText(MainSavePath);
                     saveData = JsonUtility.FromJson<NightflowSaveData>(json);
 
-                    if (debugLogging)
-                    {
-                        Debug.Log($"SaveManager: Loaded from {MainSavePath}");
-                    }
+                    Log.System("SaveManager", $"Loaded from {MainSavePath}");
                 }
                 else
                 {
@@ -220,7 +215,7 @@ namespace Nightflow.Save
                     {
                         string json = File.ReadAllText(BackupPath);
                         saveData = JsonUtility.FromJson<NightflowSaveData>(json);
-                        Debug.Log("SaveManager: Loaded from backup");
+                        Log.System("SaveManager", "Loaded from backup");
                     }
                     else
                     {
@@ -228,10 +223,7 @@ namespace Nightflow.Save
                         saveData = new NightflowSaveData();
                         LoadSettingsFromPrefs();
 
-                        if (debugLogging)
-                        {
-                            Debug.Log("SaveManager: Created new save data");
-                        }
+                        Log.System("SaveManager", "Created new save data");
                     }
                 }
 
@@ -242,7 +234,7 @@ namespace Nightflow.Save
             }
             catch (Exception e)
             {
-                Debug.LogError($"SaveManager: Failed to load: {e.Message}");
+                Log.SystemError("SaveManager", $"Failed to load: {e.Message}");
                 saveData = new NightflowSaveData();
             }
         }
@@ -487,10 +479,7 @@ namespace Nightflow.Save
 
             isDirty = true;
 
-            if (debugLogging)
-            {
-                Debug.Log($"SaveManager: Added high score {entry.Score} for {entry.Initials}");
-            }
+            Log.System("SaveManager", $"Added high score {entry.Score} for {entry.Initials}");
 
             OnNewHighScore?.Invoke(entry);
         }
@@ -588,14 +577,11 @@ namespace Nightflow.Save
                 string json = JsonUtility.ToJson(ghost, false);
                 File.WriteAllText(ghostPath, json);
 
-                if (debugLogging)
-                {
-                    Debug.Log($"SaveManager: Saved ghost {ghost.Id} ({ghost.Inputs.Count} frames)");
-                }
+                Log.System("SaveManager", $"Saved ghost {ghost.Id} ({ghost.Inputs.Count} frames)");
             }
             catch (Exception e)
             {
-                Debug.LogError($"SaveManager: Failed to save ghost: {e.Message}");
+                Log.SystemError("SaveManager", $"Failed to save ghost: {e.Message}");
             }
 
             isDirty = true;
@@ -625,7 +611,7 @@ namespace Nightflow.Save
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError($"SaveManager: Failed to delete ghost file: {e.Message}");
+                    Log.SystemError("SaveManager", $"Failed to delete ghost file: {e.Message}");
                 }
 
                 isDirty = true;
@@ -659,14 +645,14 @@ namespace Nightflow.Save
                         }
                         catch (Exception e)
                         {
-                            Debug.LogWarning($"SaveManager: Failed to load ghost {file}: {e.Message}");
+                            Log.SystemWarn("SaveManager", $"Failed to load ghost {file}: {e.Message}");
                         }
                     }
                 }
             }
             catch (Exception e)
             {
-                Debug.LogError($"SaveManager: Failed to load ghost recordings: {e.Message}");
+                Log.SystemError("SaveManager", $"Failed to load ghost recordings: {e.Message}");
             }
         }
 
