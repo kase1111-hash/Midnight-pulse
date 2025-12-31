@@ -143,6 +143,7 @@ namespace Nightflow.Editor
             DrawStatusLine("GameplayConfig", AssetExists($"{ConfigPath}/GameplayConfig.asset"));
             DrawStatusLine("VisualConfig", AssetExists($"{ConfigPath}/VisualConfig.asset"));
             DrawStatusLine("AudioConfig", AssetExists($"{ConfigPath}/AudioConfig.asset"));
+            DrawStatusLine("AudioClipCollection", AssetExists($"{ConfigPath}/AudioClipCollection.asset"));
             DrawStatusLine("Main Scene", AssetExists($"{ScenesPath}/NightflowMain.unity"));
 
             EditorGUILayout.EndScrollView();
@@ -185,6 +186,10 @@ namespace Nightflow.Editor
                 $"{ConfigPath}/VisualConfig.asset");
             var audioConfig = CreateAssetIfNotExists<AudioConfigAsset>(
                 $"{ConfigPath}/AudioConfig.asset");
+
+            // Create audio clip collection for centralized clip management
+            CreateAssetIfNotExists<AudioClipCollection>(
+                $"{ConfigPath}/AudioClipCollection.asset");
 
             // Create master config and link them
             var masterConfig = CreateAssetIfNotExists<NightflowConfig>(

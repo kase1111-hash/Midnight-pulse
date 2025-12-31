@@ -110,6 +110,7 @@ namespace Nightflow.Editor
             public bool HasConfigManager;
             public bool HasConfigAssigned;
             public bool HasAudioManager;
+            public bool HasAudioClipCollection;
             public bool HasMainCamera;
             public bool HasCameraSyncBridge;
             public bool HasProceduralMeshRenderer;
@@ -122,6 +123,7 @@ namespace Nightflow.Editor
                 HasConfigManager &&
                 HasConfigAssigned &&
                 HasAudioManager &&
+                HasAudioClipCollection &&
                 HasMainCamera &&
                 HasCameraSyncBridge &&
                 HasProceduralMeshRenderer &&
@@ -137,6 +139,7 @@ namespace Nightflow.Editor
                     if (!HasConfigManager) items.Add("ConfigManager");
                     if (!HasConfigAssigned) items.Add("Config not assigned to ConfigManager");
                     if (!HasAudioManager) items.Add("AudioManager");
+                    if (!HasAudioClipCollection) items.Add("AudioClipCollection not assigned");
                     if (!HasMainCamera) items.Add("Main Camera");
                     if (!HasCameraSyncBridge) items.Add("CameraSyncBridge");
                     if (!HasProceduralMeshRenderer) items.Add("ProceduralMeshRenderer");
@@ -171,7 +174,21 @@ namespace Nightflow.Editor
                 result.HasConfigAssigned = configProp != null && configProp.objectReferenceValue != null;
             }
 
-            result.HasAudioManager = Object.FindFirstObjectByType<AudioManager>() != null;
+            var audioManager = Object.FindFirstObjectByType<AudioManager>();
+            result.HasAudioManager = audioManager != null;
+
+            // Check if audio clip collection is assigned
+            if (audioManager != null)
+            {
+                var so = new SerializedObject(audioManager);
+                var clipCollectionProp = so.FindProperty("clipCollection");
+                result.HasAudioClipCollection = clipCollectionProp != null && clipCollectionProp.objectReferenceValue != null;
+            }
+            else
+            {
+                result.HasAudioClipCollection = false;
+            }
+
             result.HasMainCamera = Camera.main != null;
             result.HasCameraSyncBridge = Object.FindFirstObjectByType<CameraSyncBridge>() != null;
             result.HasProceduralMeshRenderer = Object.FindFirstObjectByType<ProceduralMeshRenderer>() != null;
@@ -210,6 +227,14 @@ namespace Nightflow.Editor
             var visualConfig = AssetDatabase.LoadAssetAtPath<VisualConfig>(
                 $"{ConfigPath}/VisualConfig.asset");
 
+            // Ensure AudioClipCollection exists
+            var audioClipCollection = AssetDatabase.LoadAssetAtPath<AudioClipCollection>(
+                $"{ConfigPath}/AudioClipCollection.asset");
+            if (audioClipCollection == null)
+            {
+                audioClipCollection = CreateAudioClipCollection();
+            }
+
             // Step 2: Create Managers hierarchy if needed
             if (!validation.HasSaveManager || !validation.HasConfigManager || !validation.HasAudioManager)
             {
@@ -237,16 +262,34 @@ namespace Nightflow.Editor
 
                 if (!validation.HasAudioManager)
                 {
-                    CreateChildWithComponent<AudioManager>(managersRoot, "AudioManager");
+                    var audioManagerGO = CreateChildWithComponent<AudioManager>(managersRoot, "AudioManager");
+                    AssignAudioClipCollection(audioManagerGO.GetComponent<AudioManager>(), audioClipCollection);
+                    sceneModified = true;
+                }
+                else if (!validation.HasAudioClipCollection)
+                {
+                    // AudioManager exists but collection not assigned
+                    var audioManager = Object.FindFirstObjectByType<AudioManager>();
+                    AssignAudioClipCollection(audioManager, audioClipCollection);
                     sceneModified = true;
                 }
             }
-            else if (!validation.HasConfigAssigned)
+            else if (!validation.HasConfigAssigned || !validation.HasAudioClipCollection)
             {
-                // ConfigManager exists but config not assigned
-                var configManager = Object.FindFirstObjectByType<ConfigManager>();
-                AssignConfigToManager(configManager, masterConfig);
-                sceneModified = true;
+                // ConfigManager or AudioManager exists but not properly configured
+                if (!validation.HasConfigAssigned)
+                {
+                    var configManager = Object.FindFirstObjectByType<ConfigManager>();
+                    AssignConfigToManager(configManager, masterConfig);
+                    sceneModified = true;
+                }
+
+                if (!validation.HasAudioClipCollection)
+                {
+                    var audioManager = Object.FindFirstObjectByType<AudioManager>();
+                    AssignAudioClipCollection(audioManager, audioClipCollection);
+                    sceneModified = true;
+                }
             }
 
             // Step 3: Create Camera hierarchy if needed
@@ -412,6 +455,37 @@ namespace Nightflow.Editor
                 configProp.objectReferenceValue = config;
                 so.ApplyModifiedPropertiesWithoutUndo();
             }
+        }
+
+        private static void AssignAudioClipCollection(AudioManager audioManager, AudioClipCollection collection)
+        {
+            if (audioManager == null || collection == null) return;
+
+            var so = new SerializedObject(audioManager);
+            var collectionProp = so.FindProperty("clipCollection");
+            if (collectionProp != null)
+            {
+                collectionProp.objectReferenceValue = collection;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
+        private static AudioClipCollection CreateAudioClipCollection()
+        {
+            // Ensure config directory exists
+            if (!AssetDatabase.IsValidFolder(ConfigPath))
+            {
+                AssetDatabase.CreateFolder("Assets", "Config");
+            }
+
+            // Create the audio clip collection asset
+            var collection = ScriptableObject.CreateInstance<AudioClipCollection>();
+            string assetPath = $"{ConfigPath}/AudioClipCollection.asset";
+            AssetDatabase.CreateAsset(collection, assetPath);
+            AssetDatabase.SaveAssets();
+
+            Log.System("NightflowAutoSetup", $"Created AudioClipCollection at {assetPath}");
+            return collection;
         }
 
         // Menu items for configuration

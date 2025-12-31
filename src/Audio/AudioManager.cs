@@ -18,6 +18,10 @@ namespace Nightflow.Audio
     /// </summary>
     public class AudioManager : MonoBehaviour
     {
+        [Header("Audio Clip Collection")]
+        [Tooltip("Assign an AudioClipCollection to automatically load all clips. If assigned, individual clip fields below are ignored.")]
+        [SerializeField] private AudioClipCollection clipCollection;
+
         [Header("Audio Mixer")]
         [SerializeField] private AudioMixer mainMixer;
         [SerializeField] private AudioMixerGroup masterGroup;
@@ -26,7 +30,7 @@ namespace Nightflow.Audio
         [SerializeField] private AudioMixerGroup engineGroup;
         [SerializeField] private AudioMixerGroup ambientGroup;
 
-        [Header("Audio Clips - Engine")]
+        [Header("Audio Clips - Engine (ignored if Collection is assigned)")]
         [SerializeField] private AudioClip engineIdle;
         [SerializeField] private AudioClip engineLowRPM;
         [SerializeField] private AudioClip engineMidRPM;
@@ -110,7 +114,84 @@ namespace Nightflow.Audio
 
         private void Awake()
         {
+            // Load clips from collection if assigned
+            if (clipCollection != null)
+            {
+                LoadFromCollection(clipCollection);
+            }
+
             InitializeAudioSources();
+        }
+
+        /// <summary>
+        /// Loads all audio clips from an AudioClipCollection.
+        /// This allows centralized clip management without manual assignment.
+        /// </summary>
+        public void LoadFromCollection(AudioClipCollection collection)
+        {
+            if (collection == null) return;
+
+            // Engine sounds
+            engineIdle = collection.engineIdle;
+            engineLowRPM = collection.engineLowRPM;
+            engineMidRPM = collection.engineMidRPM;
+            engineHighRPM = collection.engineHighRPM;
+            tireRoll = collection.tireRoll;
+            tireSkid = collection.tireSkid;
+            windLoop = collection.windLoop;
+
+            // Collision sounds
+            lightImpacts = collection.lightImpacts;
+            mediumImpacts = collection.mediumImpacts;
+            heavyImpacts = collection.heavyImpacts;
+            metalScrape = collection.metalScrape;
+            glassShatter = collection.glassShatter;
+
+            // Siren sounds
+            policeSiren = collection.policeSiren;
+            ambulanceSiren = collection.ambulanceSiren;
+            fireHorn = collection.fireHorn;
+
+            // Ambient sounds
+            openRoadAmbience = collection.openRoadAmbience;
+            distantTraffic = collection.distantTraffic;
+            tunnelDrone = collection.tunnelDrone;
+
+            // Music
+            musicBase = collection.musicBase;
+            musicLowIntensity = collection.musicLowIntensity;
+            musicHighIntensity = collection.musicHighIntensity;
+            musicTerminal = collection.musicTerminal;
+            musicMenu = collection.musicMenu;
+
+            // UI sounds
+            scoreTick = collection.scoreTick;
+            multiplierUp = collection.multiplierUp;
+            multiplierLost = collection.multiplierLost;
+            damageWarning = collection.damageWarning;
+            nearMiss = collection.nearMiss;
+            laneChange = collection.laneChange;
+            menuSelect = collection.menuSelect;
+            menuBack = collection.menuBack;
+            pauseSound = collection.pauseSound;
+            highScore = collection.highScore;
+            gameOver = collection.gameOver;
+        }
+
+        /// <summary>
+        /// Gets or sets the clip collection. Setting will reload all clips.
+        /// </summary>
+        public AudioClipCollection ClipCollection
+        {
+            get => clipCollection;
+            set
+            {
+                clipCollection = value;
+                if (value != null)
+                {
+                    LoadFromCollection(value);
+                }
+            }
         }
 
         private void Start()
