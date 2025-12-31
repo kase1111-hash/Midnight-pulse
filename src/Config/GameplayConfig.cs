@@ -73,7 +73,7 @@ namespace Nightflow.Config
         public float laneChangeCooldown = 0.2f;
 
         [Tooltip("Lane width in meters")]
-        public float laneWidth = 3.5f;
+        public float laneWidth = 3.6f;
 
         [Header("Boost")]
         [Tooltip("Speed multiplier when boosting")]
