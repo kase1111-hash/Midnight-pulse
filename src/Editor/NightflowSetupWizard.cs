@@ -212,7 +212,51 @@ namespace Nightflow.Editor
         [MenuItem("Nightflow/Create/Main Scene", false, 101)]
         public static void CreateMainScene()
         {
+            CreateNewNightflowScene("NightflowMain");
+        }
+
+        /// <summary>
+        /// Creates a new fully-configured Nightflow scene. This is the one-click solution.
+        /// </summary>
+        [MenuItem("Nightflow/New Nightflow Scene", false, -100)]
+        public static void NewNightflowSceneMenu()
+        {
+            // Show dialog to get scene name
+            string sceneName = EditorInputDialog.Show(
+                "New Nightflow Scene",
+                "Enter a name for your new scene:",
+                "NewNightflowScene");
+
+            if (string.IsNullOrEmpty(sceneName))
+                return;
+
+            // Sanitize the name
+            sceneName = SanitizeSceneName(sceneName);
+
+            CreateNewNightflowScene(sceneName);
+
+            EditorUtility.DisplayDialog("Scene Created",
+                $"Created new Nightflow scene: {sceneName}\n\n" +
+                "Your scene is now ready to play!\n\n" +
+                "Everything has been configured:\n" +
+                "✓ All managers (Save, Config, Audio)\n" +
+                "✓ Camera with sync bridge\n" +
+                "✓ Rendering components\n" +
+                "✓ UI controller\n" +
+                "✓ Lighting\n\n" +
+                "Press Play to test!",
+                "OK");
+        }
+
+        /// <summary>
+        /// Creates a new fully-configured Nightflow scene with all required components.
+        /// </summary>
+        public static void CreateNewNightflowScene(string sceneName)
+        {
             EnsureDirectory(ScenesPath);
+
+            // Ensure configs exist first
+            CreateAllConfigs();
 
             // Create new scene
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -222,25 +266,42 @@ namespace Nightflow.Editor
                 $"{ConfigPath}/NightflowConfig.asset");
             var visualConfig = AssetDatabase.LoadAssetAtPath<VisualConfig>(
                 $"{ConfigPath}/VisualConfig.asset");
+            var audioClipCollection = AssetDatabase.LoadAssetAtPath<AudioClipCollection>(
+                $"{ConfigPath}/AudioClipCollection.asset");
 
-            // Create hierarchy
-            CreateManagersHierarchy(masterConfig);
+            // Create hierarchy with all assignments
+            CreateManagersHierarchy(masterConfig, audioClipCollection);
             CreateCameraHierarchy(visualConfig);
             CreateUIHierarchy();
             CreateRenderingHierarchy();
             CreateLightingHierarchy();
 
             // Save scene
-            string scenePath = $"{ScenesPath}/NightflowMain.unity";
+            string scenePath = $"{ScenesPath}/{sceneName}.unity";
             EditorSceneManager.SaveScene(scene, scenePath);
 
             // Add to build settings
             AddSceneToBuildSettings(scenePath);
 
-            Log.System("NightflowSetup", "Main scene created successfully!");
+            // Mark scene as dirty so it saves
+            EditorSceneManager.MarkSceneDirty(scene);
+
+            Log.System("NightflowSetup", $"Scene '{sceneName}' created successfully with all components!");
         }
 
-        private static void CreateManagersHierarchy(NightflowConfig masterConfig)
+        private static string SanitizeSceneName(string name)
+        {
+            // Remove invalid characters
+            foreach (char c in Path.GetInvalidFileNameChars())
+            {
+                name = name.Replace(c.ToString(), "");
+            }
+            // Remove spaces and special chars
+            name = name.Replace(" ", "");
+            return string.IsNullOrEmpty(name) ? "NewNightflowScene" : name;
+        }
+
+        private static void CreateManagersHierarchy(NightflowConfig masterConfig, AudioClipCollection audioClipCollection = null)
         {
             // Managers root
             var managersRoot = new GameObject("[Managers]");
@@ -270,7 +331,19 @@ namespace Nightflow.Editor
             // AudioManager
             var audioManagerGO = new GameObject("AudioManager");
             audioManagerGO.transform.SetParent(managersRoot.transform);
-            audioManagerGO.AddComponent<AudioManager>();
+            var audioManager = audioManagerGO.AddComponent<AudioManager>();
+
+            // Assign audio clip collection if available
+            if (audioClipCollection != null)
+            {
+                var serializedObject = new SerializedObject(audioManager);
+                var collectionProp = serializedObject.FindProperty("clipCollection");
+                if (collectionProp != null)
+                {
+                    collectionProp.objectReferenceValue = audioClipCollection;
+                    serializedObject.ApplyModifiedPropertiesWithoutUndo();
+                }
+            }
         }
 
         private static void CreateCameraHierarchy(VisualConfig visualConfig)
