@@ -9,6 +9,7 @@ using Unity.Mathematics;
 using Unity.Collections;
 using Nightflow.Components;
 using Nightflow.Tags;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -35,8 +36,8 @@ namespace Nightflow.Systems
         private const float MaxSpawnDistance = 400f;      // meters ahead
         private const float DespawnDistance = 50f;        // meters behind player
         private const float SpawnCheckInterval = 15f;     // check every 15 meters
-        private const float LaneWidth = 3.6f;
-        private const int NumLanes = 4;
+        // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
+        // NumLanes uses GameConstants.DefaultNumLanes
 
         // Hazard type distribution (cumulative) - base values at normal difficulty
         private const float BaseTireChance = 0.20f;       // 20% loose tire
@@ -189,11 +190,11 @@ namespace Nightflow.Systems
         private void SpawnHazard(ref EntityCommandBuffer ecb, float z)
         {
             // Select random lane
-            int lane = _random.NextInt(0, NumLanes);
-            float laneOffset = (lane - 1.5f) * LaneWidth;
+            int lane = _random.NextInt(0, GameConstants.DefaultNumLanes);
+            float laneOffset = (lane - 1.5f) * GameConstants.LaneWidth;
 
             // Add some lateral variance within lane
-            float lateralVariance = _random.NextFloat(-LaneWidth * 0.3f, LaneWidth * 0.3f);
+            float lateralVariance = _random.NextFloat(-GameConstants.LaneWidth * 0.3f, GameConstants.LaneWidth * 0.3f);
             float x = laneOffset + lateralVariance;
 
             // Select hazard type

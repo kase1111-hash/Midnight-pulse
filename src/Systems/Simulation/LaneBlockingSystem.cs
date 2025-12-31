@@ -9,6 +9,7 @@ using Unity.Mathematics;
 using Unity.Collections;
 using Nightflow.Components;
 using Nightflow.Tags;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -32,7 +33,7 @@ namespace Nightflow.Systems
         private const float BlockingDistanceAhead = 20f;    // meters ahead
         private const float BlockingDistanceBehind = 10f;   // meters behind
         private const float BlockingLateralTolerance = 2f;  // meters lateral
-        private const float LaneWidth = 3.6f;
+        // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
         private const float EmergencyBlockDistance = 50f;   // meters for emergency
 
         [BurstCompile]
@@ -64,7 +65,7 @@ namespace Nightflow.Systems
                     .WithAll<HazardTag>())
             {
                 // Estimate lane from position
-                int hazardLane = (int)math.round((transform.ValueRO.Position.x / LaneWidth) + 1.5f);
+                int hazardLane = (int)math.round((transform.ValueRO.Position.x / GameConstants.LaneWidth) + 1.5f);
                 hazardLane = math.clamp(hazardLane, 0, 3);
 
                 blockers.Add(new BlockerData
@@ -143,7 +144,7 @@ namespace Nightflow.Systems
             if (targetLane < 0 || targetLane > 3)
                 return true; // Out of bounds = blocked
 
-            float targetLateralPos = (targetLane - 1.5f) * LaneWidth;
+            float targetLateralPos = (targetLane - 1.5f) * GameConstants.LaneWidth;
 
             for (int i = 0; i < blockers.Length; i++)
             {

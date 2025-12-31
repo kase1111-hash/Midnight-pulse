@@ -9,6 +9,7 @@ using Unity.Mathematics;
 using Nightflow.Components;
 using Nightflow.Tags;
 using Nightflow.Utilities;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -21,8 +22,7 @@ namespace Nightflow.Systems
     [UpdateAfter(typeof(TrafficAISystem))]
     public partial struct TrafficMovementSystem : ISystem
     {
-        // Movement parameters
-        private const float LaneWidth = 3.6f;
+        // Movement parameters - GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
         private const float LaneMagnetism = 10f;          // Stronger than player for smooth AI
         private const float MaxLateralSpeed = 4f;         // Slower lane changes than player
         private const float RotationSpeed = 5f;
@@ -90,8 +90,8 @@ namespace Nightflow.Systems
                 int currentLane = laneFollower.ValueRO.CurrentLane;
                 int targetLane = laneFollower.ValueRO.TargetLane;
 
-                float currentLaneOffset = (currentLane - 1.5f) * LaneWidth;
-                float targetLaneOffset = (targetLane - 1.5f) * LaneWidth;
+                float currentLaneOffset = (currentLane - 1.5f) * GameConstants.LaneWidth;
+                float targetLaneOffset = (targetLane - 1.5f) * GameConstants.LaneWidth;
 
                 // Lane change interpolation
                 float targetLateral = currentLaneOffset;

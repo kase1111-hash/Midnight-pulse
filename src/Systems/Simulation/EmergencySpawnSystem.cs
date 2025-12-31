@@ -9,6 +9,7 @@ using Unity.Mathematics;
 using Unity.Collections;
 using Nightflow.Components;
 using Nightflow.Tags;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -30,7 +31,7 @@ namespace Nightflow.Systems
         private const float DifficultyScale = 0.001f;     // interval reduction per meter
         private const float SpawnDistanceBehind = 200f;   // meters behind player
         private const float DespawnDistanceAhead = 100f;  // meters ahead after passing
-        private const float LaneWidth = 3.6f;
+        // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
 
         // Spawn limits
         private const int MaxActiveEmergencies = 2;
@@ -122,7 +123,7 @@ namespace Nightflow.Systems
 
             // Pick a lane (prefer outside lanes for approach)
             int lane = _random.NextBool() ? 0 : 3;
-            float laneOffset = (lane - 1.5f) * LaneWidth;
+            float laneOffset = (lane - 1.5f) * GameConstants.LaneWidth;
 
             Entity emergency = ecb.CreateEntity();
 

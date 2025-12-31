@@ -9,6 +9,7 @@ using Unity.Mathematics;
 using Unity.Collections;
 using Nightflow.Components;
 using Nightflow.Tags;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -43,7 +44,7 @@ namespace Nightflow.Systems
         // Blocking check parameters
         private const float BlockCheckAhead = 20f;
         private const float BlockCheckBehind = 10f;
-        private const float LaneWidth = 3.6f;
+        // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -72,7 +73,7 @@ namespace Nightflow.Systems
                 SystemAPI.Query<RefRO<WorldTransform>, RefRO<Hazard>>()
                     .WithAll<HazardTag>())
             {
-                int lane = (int)math.round((transform.ValueRO.Position.x / LaneWidth) + 1.5f);
+                int lane = (int)math.round((transform.ValueRO.Position.x / GameConstants.LaneWidth) + 1.5f);
                 blockers.Add(new BlockerInfo
                 {
                     Z = transform.ValueRO.Position.z,

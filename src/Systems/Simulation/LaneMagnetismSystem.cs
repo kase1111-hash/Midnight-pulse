@@ -10,6 +10,7 @@ using Nightflow.Components;
 using Nightflow.Buffers;
 using Nightflow.Tags;
 using Nightflow.Utilities;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -35,7 +36,7 @@ namespace Nightflow.Systems
         private const float MaxLateralSpeed = 6f;         // m/s
         private const float EdgeStiffness = 20f;          // Edge force coefficient
         private const float SoftZoneRatio = 0.85f;        // 85% of lane width
-        private const float LaneWidth = 3.6f;             // meters
+        // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth (meters)
 
         // Modulation multipliers
         private const float AutopilotMultiplier = 1.5f;
@@ -112,8 +113,8 @@ namespace Nightflow.Systems
                 int currentLane = laneFollower.ValueRO.CurrentLane;
                 int targetLane = laneFollower.ValueRO.TargetLane;
 
-                float currentLaneOffset = (currentLane - 1.5f) * LaneWidth;
-                float targetLaneOffset = (targetLane - 1.5f) * LaneWidth;
+                float currentLaneOffset = (currentLane - 1.5f) * GameConstants.LaneWidth;
+                float targetLaneOffset = (targetLane - 1.5f) * GameConstants.LaneWidth;
 
                 // Calculate target lateral position
                 float targetLateral = currentLaneOffset;
@@ -186,7 +187,7 @@ namespace Nightflow.Systems
                 // =============================================================
 
                 // Edge forces keep vehicle from leaving the road entirely
-                float halfRoadWidth = (currentSegment.NumLanes * LaneWidth) * 0.5f;
+                float halfRoadWidth = (currentSegment.NumLanes * GameConstants.LaneWidth) * 0.5f;
                 float softEdge = halfRoadWidth * SoftZoneRatio;
 
                 float absLateral = math.abs(currentLateral);
