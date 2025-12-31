@@ -10,6 +10,7 @@ using Nightflow.Components;
 using Nightflow.Buffers;
 using Nightflow.Tags;
 using Nightflow.Utilities;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -31,9 +32,9 @@ namespace Nightflow.Systems
     [UpdateAfter(typeof(LaneMagnetismSystem))]
     public partial struct VehicleMovementSystem : ISystem
     {
-        // Movement parameters (from spec)
-        private const float MinForwardSpeed = 8f;         // m/s - CRITICAL: never go below this
-        private const float MaxForwardSpeed = 80f;        // m/s
+        // Movement parameters - centralized in GameConstants
+        // MinForwardSpeed (8 m/s) - CRITICAL: never go below this - uses GameConstants.MinForwardSpeed
+        // MaxForwardSpeed (80 m/s) - uses GameConstants.MaxForwardSpeed
         private const float Acceleration = 15f;           // m/s²
         private const float BrakeDeceleration = 25f;      // m/s²
         private const float DragCoefficient = 0.01f;      // Natural deceleration
@@ -127,8 +128,8 @@ namespace Nightflow.Systems
                 // In Redline mode: No upper limit! Push your speed to the limit.
                 // In other modes: Capped at MaxForwardSpeed
 
-                float maxSpeed = isRedlineMode ? float.MaxValue : MaxForwardSpeed;
-                vel.Forward = math.clamp(vel.Forward, MinForwardSpeed, maxSpeed);
+                float maxSpeed = isRedlineMode ? float.MaxValue : GameConstants.MaxForwardSpeed;
+                vel.Forward = math.clamp(vel.Forward, GameConstants.MinForwardSpeed, maxSpeed);
 
                 // =============================================================
                 // Yaw Dynamics: ψ̈ = τ_steer + τ_drift - c_ψ·ψ̇
@@ -286,7 +287,7 @@ namespace Nightflow.Systems
                 }
 
                 // Ensure minimum speed
-                velocity.ValueRW.Forward = math.max(velocity.ValueRO.Forward, MinForwardSpeed);
+                velocity.ValueRW.Forward = math.max(velocity.ValueRO.Forward, GameConstants.MinForwardSpeed);
 
                 // Simple forward movement
                 float3 forward = math.mul(transform.ValueRO.Rotation, new float3(0, 0, 1));

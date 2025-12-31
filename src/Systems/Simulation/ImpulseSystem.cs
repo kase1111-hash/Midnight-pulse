@@ -8,6 +8,7 @@ using Unity.Burst;
 using Unity.Mathematics;
 using Nightflow.Components;
 using Nightflow.Tags;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -31,7 +32,7 @@ namespace Nightflow.Systems
         private const float ImpulseScale = 1.2f;        // k_i
         private const float VirtualMass = 1200f;        // m_virtual
         private const float YawKickScale = 0.5f;        // k_y
-        private const float MinForwardSpeed = 8f;       // v_min
+        // MinForwardSpeed uses GameConstants.MinForwardSpeed
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -53,8 +54,8 @@ namespace Nightflow.Systems
                 // Get Hazard Severity
                 // =============================================================
 
-                float severity = 0.3f; // Default
-                float massFactor = 0.3f;
+                float severity = GameConstants.DefaultDamageSeverity;
+                float massFactor = GameConstants.DefaultMassFactor;
 
                 Entity hazardEntity = collision.ValueRO.OtherEntity;
                 if (hazardEntity != Entity.Null && SystemAPI.HasComponent<Hazard>(hazardEntity))
@@ -112,7 +113,7 @@ namespace Nightflow.Systems
                 // But v_f ≥ v_min (forward motion preserved)
                 float forwardReduction = math.abs(If) / VirtualMass;
                 velocity.ValueRW.Forward -= forwardReduction;
-                velocity.ValueRW.Forward = math.max(velocity.ValueRO.Forward, MinForwardSpeed);
+                velocity.ValueRW.Forward = math.max(velocity.ValueRO.Forward, GameConstants.MinForwardSpeed);
 
                 // =============================================================
                 // Yaw Kick

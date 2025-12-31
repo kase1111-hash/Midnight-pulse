@@ -219,6 +219,14 @@ namespace Nightflow.Rendering
             if (shader == null)
                 shader = Shader.Find("Standard");
 
+            // Final fallback - should never happen in a properly configured project
+            if (shader == null)
+            {
+                Debug.LogError("[ProceduralMeshRenderer] No suitable shader found for wireframe material. Check that URP or Standard shaders are included in build.");
+                // Create a default material that will at least render something
+                return new Material(Shader.Find("Hidden/InternalErrorShader"));
+            }
+
             Material mat = new Material(shader);
             mat.color = baseColor;
             mat.SetColor("_EmissionColor", edgeColor * glowIntensity);
@@ -241,6 +249,13 @@ namespace Nightflow.Rendering
                 shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
             if (shader == null)
                 shader = Shader.Find("Unlit/Color");
+
+            // Final fallback - should never happen in a properly configured project
+            if (shader == null)
+            {
+                Debug.LogError("[ProceduralMeshRenderer] No suitable shader found for emissive material. Check that particle shaders are included in build.");
+                return new Material(Shader.Find("Hidden/InternalErrorShader"));
+            }
 
             Material mat = new Material(shader);
             mat.color = emissionColor;
