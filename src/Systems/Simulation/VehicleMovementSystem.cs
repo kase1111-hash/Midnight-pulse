@@ -72,13 +72,35 @@ namespace Nightflow.Systems
 
             bool isRedlineMode = currentMode == GameMode.Redline;
 
-            foreach (var (velocity, input, driftState, damage, transform, laneFollower) in
+            foreach (var (velocity, input, driftState, damage, transform, laneFollower, componentHealth, failureState) in
                 SystemAPI.Query<RefRW<Velocity>, RefRO<PlayerInput>, RefRW<DriftState>,
-                               RefRO<DamageState>, RefRW<WorldTransform>, RefRO<LaneFollower>>()
+                               RefRO<DamageState>, RefRW<WorldTransform>, RefRO<LaneFollower>,
+                               RefRO<ComponentHealth>, RefRO<ComponentFailureState>>()
                     .WithNone<CrashedTag, AutopilotActiveTag>())
             {
                 ref var vel = ref velocity.ValueRW;
                 ref var drift = ref driftState.ValueRW;
+
+                // =============================================================
+                // Phase 2 Damage: Component Failure Effects
+                // =============================================================
+
+                var health = componentHealth.ValueRO;
+                var failures = failureState.ValueRO;
+
+                // Engine health affects acceleration
+                // At full health (1.0): 100% acceleration
+                // At 50% health: 75% acceleration
+                // At engine failure: 50% acceleration (limp mode)
+                float engineModifier = failures.HasFailed(ComponentFailures.Engine)
+                    ? 0.5f  // Engine failed: limp mode
+                    : 0.5f + (health.Engine * 0.5f);  // Gradual degradation
+
+                // Transmission health affects speed changes and max speed
+                // At failure: slower acceleration response
+                float transmissionModifier = failures.HasFailed(ComponentFailures.Transmission)
+                    ? 0.6f
+                    : 0.6f + (health.Transmission * 0.4f);
 
                 // =============================================================
                 // Forward Velocity (Throttle/Brake)
@@ -87,9 +109,12 @@ namespace Nightflow.Systems
                 float throttle = input.ValueRO.Throttle;
                 float brake = input.ValueRO.Brake;
 
-                // Accelerate - with mode-specific behavior
+                // Accelerate - with mode-specific behavior and component effects
                 if (throttle > 0.01f)
                 {
+                    // Apply engine and transmission damage modifiers
+                    float componentModifier = engineModifier * transmissionModifier;
+
                     if (isRedlineMode)
                     {
                         // REDLINE MODE: No top speed, but acceleration decreases asymptotically
@@ -99,13 +124,13 @@ namespace Nightflow.Systems
                         // At 100 m/s: 1/3 acceleration
                         // At 150 m/s: 1/4 acceleration ... and so on
                         float accelModifier = 1f / (1f + vel.Forward / RedlineReferenceSpeed);
-                        float effectiveAccel = RedlineBaseAcceleration * accelModifier;
+                        float effectiveAccel = RedlineBaseAcceleration * accelModifier * componentModifier;
                         vel.Forward += throttle * effectiveAccel * deltaTime;
                     }
                     else
                     {
-                        // Normal mode acceleration
-                        vel.Forward += throttle * Acceleration * deltaTime;
+                        // Normal mode acceleration with component damage
+                        vel.Forward += throttle * Acceleration * componentModifier * deltaTime;
                     }
                 }
 
@@ -146,6 +171,19 @@ namespace Nightflow.Systems
                 float rearDamage = damage.ValueRO.Rear;
                 float effectiveSlipGain = SlipGain * (1f + 0.6f * rearDamage);
 
+                // Phase 2: Tire and suspension affect slip behavior
+                // Low tire health = more slipping
+                // Suspension failure = unpredictable handling
+                float tireModifier = failures.HasFailed(ComponentFailures.Tires)
+                    ? 1.8f  // Blown tires: very slippery
+                    : 1f + (1f - health.Tires) * 0.5f;  // Gradual degradation
+
+                float suspensionModifier = failures.HasFailed(ComponentFailures.Suspension)
+                    ? 1.5f  // Broken suspension: unstable
+                    : 1f + (1f - health.Suspension) * 0.3f;
+
+                effectiveSlipGain *= tireModifier * suspensionModifier;
+
                 // Drift torque: τ_drift = k_d × sign(s) × √v_f (if handbrake)
                 float driftTorque = 0f;
 
@@ -157,7 +195,12 @@ namespace Nightflow.Systems
                 else if (drift.IsDrifting)
                 {
                     // Recovery torque: τ_recover = -k_r × ψ (when handbrake released)
-                    float recoveryTorque = -RecoveryGain * drift.YawOffset;
+                    // Phase 2: Transmission affects recovery speed
+                    float recoveryModifier = failures.HasFailed(ComponentFailures.Transmission)
+                        ? 0.4f  // Failed transmission: very slow recovery
+                        : 0.4f + (health.Transmission * 0.6f);  // Gradual degradation
+
+                    float recoveryTorque = -RecoveryGain * drift.YawOffset * recoveryModifier;
                     steerTorque += recoveryTorque;
 
                     // Exit drift state when yaw is small and stable

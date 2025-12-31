@@ -45,10 +45,13 @@
 
 ### Phase 2 Damage
 - [ ] Soft-body deformation system
-- [ ] Component failures (suspension, steering, tires)
-- [ ] Visual mesh deformation on impact
-- [ ] Progressive handling degradation per component
+- [x] Component failures (suspension, steering, tires, engine, transmission)
+- [ ] Visual mesh deformation on impact (enhanced)
+- [x] Progressive handling degradation per component
 - [ ] Swap `DamageEvaluationSystem` with soft-body implementation
+- [x] ComponentHealth tracking system
+- [x] ComponentFailureSystem with cascade failure detection
+- [ ] Suspension camera shake effects
 
 ### Raytracing
 - [ ] Full RT for dynamic headlight reflections

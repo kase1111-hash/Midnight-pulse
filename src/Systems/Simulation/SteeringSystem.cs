@@ -86,9 +86,10 @@ namespace Nightflow.Systems
             // Process Player Steering
             // =============================================================
 
-            foreach (var (input, steeringState, laneFollower, velocity, transform) in
+            foreach (var (input, steeringState, laneFollower, velocity, transform, damage, componentHealth, failureState) in
                 SystemAPI.Query<RefRO<PlayerInput>, RefRW<SteeringState>,
-                               RefRW<LaneFollower>, RefRO<Velocity>, RefRO<WorldTransform>>()
+                               RefRW<LaneFollower>, RefRO<Velocity>, RefRO<WorldTransform>,
+                               RefRO<DamageState>, RefRO<ComponentHealth>, RefRO<ComponentFailureState>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithNone<CrashedTag, AutopilotActiveTag>())
             {
@@ -97,13 +98,38 @@ namespace Nightflow.Systems
                 float mySpeed = velocity.ValueRO.Forward;
 
                 // =============================================================
+                // Phase 2 Damage: Steering Component Effects
+                // =============================================================
+
+                var health = componentHealth.ValueRO;
+                var failures = failureState.ValueRO;
+
+                // Steering health affects responsiveness
+                // At full health: normal steering response
+                // At 50% health: reduced max angle, slower response
+                // At failure: severely limited steering
+                float steeringHealthFactor = failures.HasFailed(ComponentFailures.Steering)
+                    ? 0.3f  // Steering failed: very limited control
+                    : 0.3f + (health.Steering * 0.7f);  // Gradual degradation
+
+                // Front damage also reduces steering (from original spec)
+                float frontDamageFactor = 1f - (damage.ValueRO.Front * 0.4f);
+
+                // Combined steering modifier
+                float steeringModifier = steeringHealthFactor * frontDamageFactor;
+
+                // =============================================================
                 // Steering Smoothing
                 // =============================================================
 
-                steeringState.ValueRW.TargetAngle = steerInput * math.PI * 0.25f; // Max 45 degrees
+                // Apply steering modifier to max angle
+                float maxSteerAngle = math.PI * 0.25f * steeringModifier; // Max 45 degrees, reduced by damage
+                steeringState.ValueRW.TargetAngle = steerInput * maxSteerAngle;
 
+                // Steering health affects response speed (lower health = slower response)
                 float smoothness = steeringState.ValueRO.Smoothness;
                 if (smoothness <= 0) smoothness = 8f;
+                smoothness *= steeringHealthFactor;  // Damaged steering is slower
 
                 float currentAngle = steeringState.ValueRO.CurrentAngle;
                 float targetAngle = steeringState.ValueRO.TargetAngle;
