@@ -35,6 +35,17 @@ A procedural, endless, night-time freeway driving game focused on flow, speed, a
 
 ---
 
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| **Raytracing** | Dynamic reflections, emergency light bouncing, SSR fallback |
+| **Multiplayer** | Ghost racing, spectator mode, leaderboards |
+| **Procedural City** | GPU-light buildings with aggressive LOD (256 buildings, 512 impostors) |
+| **Advanced Damage** | Soft-body deformation, component failures, cascade damage |
+
+---
+
 ## Controls
 
 | Input | Function |
@@ -72,12 +83,18 @@ The specs are organized into focused documents:
 
 ```
 src/
-├── Components/    ECS component definitions
-├── Systems/       ECS system logic (Simulation, Presentation, Audio, UI)
+├── Components/    ECS component definitions (Core, Vehicle, Scoring, World, Network)
+├── Systems/       ECS system logic
+│   ├── Simulation/    Movement, collision, damage
+│   ├── Presentation/  Camera, rendering
+│   ├── Audio/         Spatial audio, layers
+│   ├── UI/            HUD, overlays
+│   ├── Network/       Multiplayer, ghost racing, spectator, leaderboards
+│   └── World/         City generation, LOD, lighting
 ├── Tags/          Entity tags
 ├── Buffers/       Buffer element data
 ├── Input/         Input management & wheel support
-├── Rendering/     Advanced rendering systems
+├── Rendering/     Raytracing, SSR, wireframe
 ├── Audio/         Audio management
 ├── Config/        Configuration system
 ├── Save/          Save system

@@ -1,8 +1,8 @@
 # Nightflow — Master Technical Specification
 
-**Version:** 1.2
-**Date:** December 2025
-**Copyright:** © 2025 Kase Branham. All rights reserved.
+**Version:** 2.0
+**Date:** January 2026
+**Copyright:** © 2025-2026 Kase Branham. All rights reserved.
 
 ---
 
@@ -54,6 +54,34 @@ The complete technical specification is organized into focused documents:
 | 09 | [UI & Systems](specs/09-ui-systems.md) | HUD, autopilot, replay/ghost, off-screen signaling |
 | 10 | [Parameters](specs/10-parameters.md) | Complete tuning values reference |
 | 11 | [Roadmap](specs/11-roadmap.md) | MVP development phases, future scalability |
+
+---
+
+## Advanced Features
+
+### Raytracing
+- Dynamic headlight reflections on wet roads
+- Emergency vehicle light bouncing
+- Tunnel light bounce and reflections
+- Screen-space reflections (SSR) fallback for non-RT hardware
+
+### Multiplayer
+- Input-based network replication with deterministic seeds
+- Ghost racing (async multiplayer) using recorded input logs
+- Live spectator mode with 7 camera modes
+- Leaderboard integration with score submission
+
+### Procedural City
+- GPU-light building generation (max 256 buildings, 512 impostors)
+- Aggressive LOD system: LOD0=50m, LOD1=150m, LOD2=400m, Cull=600m
+- Dynamic window lights with flicker patterns
+- Impostor billboards for distant geometry (4 vertices each)
+
+### Advanced Damage
+- Soft-body deformation with spring-damper physics
+- Component failures (suspension, steering, tires, engine, transmission)
+- Progressive handling degradation per component
+- Cascade failure detection
 
 ---
 
