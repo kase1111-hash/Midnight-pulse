@@ -43,22 +43,22 @@
 
 ## Post-MVP TODO
 
-### Phase 2 Damage
+### Phase 2 Damage ✓
 - [x] Soft-body deformation system
 - [x] Component failures (suspension, steering, tires, engine, transmission)
 - [x] Visual mesh deformation on impact (enhanced)
 - [x] Progressive handling degradation per component
-- [ ] Swap `DamageEvaluationSystem` with soft-body implementation
+- [x] Swap `DamageEvaluationSystem` with soft-body implementation
 - [x] ComponentHealth tracking system
 - [x] ComponentFailureSystem with cascade failure detection
 - [x] Suspension camera shake effects
 
-### Raytracing
-- [ ] Full RT for dynamic headlight reflections
-- [ ] Emergency vehicle light bouncing off wet roads
-- [ ] Tunnel light bounce and reflections
-- [ ] Screen-space fallback for non-RT hardware
-- [ ] Swap `LightingSystem` with RT implementation
+### Raytracing ✓
+- [x] Full RT for dynamic headlight reflections
+- [x] Emergency vehicle light bouncing off wet roads
+- [x] Tunnel light bounce and reflections
+- [x] Screen-space fallback for non-RT hardware
+- [x] RaytracingSystem with SSR fallback integration
 
 ### Multiplayer
 - [ ] Network replication via input logs + deterministic seeds
@@ -79,7 +79,7 @@
 
 The ECS architecture supports clean upgrades:
 
-- **BeamNG-level damage:** Swap `DamageEvaluationSystem` with soft-body implementation
-- **Raytracing:** Swap `LightingSystem` with RT implementation
+- **BeamNG-level damage:** ✓ Swapped to soft-body implementation (spring-damper physics)
+- **Raytracing:** ✓ RaytracingSystem with headlight/emergency/tunnel reflections + SSR fallback
 - **Multiplayer:** Replicate ECS state deltas across network
 - **Replay system:** Record component diffs for perfect playback
