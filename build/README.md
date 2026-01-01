@@ -11,10 +11,17 @@ The game version is defined in the `VERSION` file at the project root. This sing
 
 ## Prerequisites
 
-- **Unity 2022.3 LTS** (or compatible version with Entities package)
+- **Unity 2023 LTS** (or compatible version with DOTS 1.0+ and Entities package)
 - **Windows 10/11 (64-bit)**
 - **PowerShell 5.0+** (included with Windows 10/11)
 - **Inno Setup 6** (optional, for creating installer)
+
+### Required Unity Packages
+- Entities 1.0+
+- Unity.Burst
+- Unity.Collections
+- Unity.Mathematics
+- HDRP (High Definition Render Pipeline)
 
 ### Installing Inno Setup
 
@@ -84,6 +91,23 @@ Installer/
 └── Nightflow_Setup_<version>.exe
 ```
 
+## Project Architecture
+
+The build compiles a Unity DOTS project with the following structure:
+
+| Directory | Contents |
+|-----------|----------|
+| `src/Components/` | 21 ECS component files (60+ types) |
+| `src/Systems/` | 50+ ECS systems |
+| `src/Tags/` | Entity tag components |
+| `src/Buffers/` | Dynamic buffer elements |
+| `src/Input/` | Input management and wheel support |
+| `src/Rendering/` | Raytracing and wireframe systems |
+| `src/Audio/` | Audio management |
+| `src/Config/` | Game configuration |
+
+Total: **131 C# source files**
+
 ## Customizing the Installer
 
 Edit `installer.iss` to customize:
@@ -113,7 +137,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 Specify Unity path explicitly:
 
 ```batch
-build.bat --unity "C:\Program Files\Unity\Hub\Editor\2022.3.0f1\Editor\Unity.exe"
+build.bat --unity "C:\Program Files\Unity\Hub\Editor\2023.2.0f1\Editor\Unity.exe"
 ```
 
 ### Build Fails
@@ -121,6 +145,7 @@ build.bat --unity "C:\Program Files\Unity\Hub\Editor\2022.3.0f1\Editor\Unity.exe
 1. Check `Build\Windows\build.log` for errors
 2. Ensure all scenes are added to Build Settings in Unity
 3. Verify Entities package is properly installed
+4. Confirm HDRP is configured correctly
 
 ### Installer Fails
 
@@ -137,7 +162,7 @@ The project includes a GitHub Actions workflow (`.github/workflows/build.yml`) t
 
 ### Setting Up GitHub Actions
 
-Add these secrets to your repository (Settings → Secrets → Actions):
+Add these secrets to your repository (Settings -> Secrets -> Actions):
 
 | Secret | Description |
 |--------|-------------|
@@ -151,19 +176,19 @@ See [GameCI documentation](https://game.ci/docs/github/activation) for Unity lic
 
 1. Update version in `VERSION` file:
    ```
-   1.1.0
+   2.0.0
    ```
 
 2. Commit the change:
    ```bash
    git add VERSION
-   git commit -m "Bump version to 1.1.0"
+   git commit -m "Bump version to 2.0.0"
    ```
 
 3. Create and push a version tag:
    ```bash
-   git tag v1.1.0
-   git push origin main v1.1.0
+   git tag v2.0.0
+   git push origin main v2.0.0
    ```
 
 4. GitHub Actions will automatically:

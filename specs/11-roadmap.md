@@ -41,9 +41,9 @@
 
 ---
 
-## Post-MVP TODO
+## Implemented Features (Post-MVP)
 
-### Phase 2 Damage ✓
+### Phase 2 Damage - COMPLETE
 - [x] Soft-body deformation system
 - [x] Component failures (suspension, steering, tires, engine, transmission)
 - [x] Visual mesh deformation on impact (enhanced)
@@ -53,34 +53,116 @@
 - [x] ComponentFailureSystem with cascade failure detection
 - [x] Suspension camera shake effects
 
-### Raytracing ✓
+### Raytracing - COMPLETE
 - [x] Full RT for dynamic headlight reflections
 - [x] Emergency vehicle light bouncing off wet roads
 - [x] Tunnel light bounce and reflections
 - [x] Screen-space fallback for non-RT hardware
 - [x] RaytracingSystem with SSR fallback integration
 
-### Multiplayer ✓
+### Multiplayer - COMPLETE
 - [x] Network replication via input logs + deterministic seeds
 - [x] Ghost racing (async multiplayer)
-- [x] Live spectator mode
-- [x] Leaderboard integration
+- [x] Live spectator mode with 7 camera modes
+- [x] Leaderboard integration with multiple categories
 - [x] Replicate ECS state deltas across network
+- [x] Network state synchronization with prediction
 
-### Full City ✓
+### Full City - COMPLETE
 - [x] Populate distant silhouettes with actual geometry
 - [x] Procedural building generation
 - [x] Dynamic city lights based on time/distance
-- [x] LOD system for distant geometry
+- [x] LOD system for distant geometry (256 buildings, 512 impostors)
+- [x] City skyline renderer
+- [x] Star field and moon rendering
+
+### Input System - COMPLETE
+- [x] Full input rebinding support
+- [x] Logitech wheel SDK integration
+- [x] Force feedback effects
+- [x] Configurable deadzones
+
+### Challenge System - COMPLETE
+- [x] Daily challenge generation
+- [x] Challenge-specific leaderboards
+- [x] Adaptive difficulty system
 
 ---
 
-## Scalability Architecture Notes
+## Architecture Highlights
 
 The ECS architecture supports clean upgrades:
 
-- **BeamNG-level damage:** ✓ Swapped to soft-body implementation (spring-damper physics)
-- **Raytracing:** ✓ RaytracingSystem with headlight/emergency/tunnel reflections + SSR fallback
-- **Multiplayer:** ✓ Input-based replication + ghost racing + spectator mode + leaderboards
-- **Full City:** ✓ GPU-light procedural buildings with aggressive LOD (256 buildings, 512 impostors)
-- **Replay system:** Record component diffs for perfect playback
+| Feature | Status | Implementation |
+|---------|--------|----------------|
+| BeamNG-level damage | Complete | Soft-body with spring-damper physics |
+| Raytracing | Complete | RaytracingSystem + SSR fallback |
+| Multiplayer | Complete | Input-based replication + ghost racing + spectator |
+| Full City | Complete | GPU-light procedural buildings with aggressive LOD |
+| Replay system | Complete | Input log recording with deterministic playback |
+
+---
+
+## Codebase Statistics
+
+| Metric | Count |
+|--------|-------|
+| C# Files | 131 |
+| Component Files | 21 |
+| Component Types | 60+ |
+| Systems | 50+ |
+| Tags | 20+ |
+| Buffer Types | 10+ |
+
+---
+
+## System Organization
+
+### Simulation Systems (18)
+- Input, Autopilot, Steering, Lane Magnetism, Movement
+- Collision, Impulse, Damage, Component Failure, Crash
+- Track Generation, Traffic AI, Emergency Vehicles, Hazards
+- Scoring, Risk Events, Replay Recording/Playback
+- Adaptive Difficulty, Daily Challenge
+
+### Presentation Systems (25)
+- Camera, Wireframe Render, Procedural Mesh (Road, Vehicle, Hazard, Tunnel, Overpass, Light)
+- Raytracing, Headlight, Lighting, Particles (Tire Smoke, Sparks, Speed Lines)
+- Crash Flash, Post-Processing, Terminal Rendering
+- Ambient Cycle, City Skyline, Ghost Render, Offscreen Signal
+- UI System
+
+### Audio Systems (6)
+- Engine, Collision, Siren, Ambient, Music, UI Audio
+
+### UI Systems (5)
+- Screen Flow, HUD Update, Menu Navigation, Performance Stats, Warning Indicator
+
+### Network Systems (4)
+- Network Replication, Ghost Racing, Spectator, Leaderboard
+
+### World Systems (3)
+- City Generation, City LOD, City Lighting
+
+### Core Systems (4)
+- Game Bootstrap, World Initialization, Game State, Game Mode
+
+---
+
+## Future Considerations
+
+### Performance Optimization
+- Burst compilation for all hot paths
+- Job system parallelization
+- Memory pooling for entities
+
+### Platform Expansion
+- Console controller profiles
+- Steam Deck verification
+- Mobile consideration (simplified visuals)
+
+### Content Expansion
+- Additional vehicle types
+- Weather effects
+- Time of day variations
+- Additional track environments
