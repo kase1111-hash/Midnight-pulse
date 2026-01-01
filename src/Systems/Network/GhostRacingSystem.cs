@@ -327,11 +327,11 @@ namespace Nightflow.Systems
                 int finalScore = 0;
 
                 foreach (var (velocity, scoring) in
-                    SystemAPI.Query<RefRO<Velocity>, RefRO<ScoringState>>()
+                    SystemAPI.Query<RefRO<Velocity>, RefRO<ScoreSession>>()
                         .WithAll<PlayerVehicleTag>())
                 {
                     maxSpeed = math.max(maxSpeed, velocity.ValueRO.Forward);
-                    finalScore = scoring.ValueRO.TotalScore;
+                    finalScore = (int)scoring.ValueRO.Score;
                     break;
                 }
 
