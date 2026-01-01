@@ -29,6 +29,11 @@
 | `UIOverlay` | HUD elements |
 | `ScoreSession` | Active scoring state |
 | `GhostVehicle` | For replays |
+| `NetworkPlayer` | Remote player in multiplayer |
+| `SpectatorCamera` | Spectator mode camera rig |
+| `LeaderboardState` | Score tracking singleton |
+| `CityBuilding` | Procedural building entity |
+| `BuildingImpostor` | LOD billboard for distant buildings |
 
 ---
 
@@ -69,6 +74,41 @@ OffscreenSignal { Direction: float2, Urgency: float, Type: enum }
 ReplayPlayer { InputLog: buffer, Timestamp: float }
 ```
 
+### Network & Multiplayer
+```
+NetworkState { Connected: bool, IsHost: bool, PlayerId: uint, Latency: float }
+NetworkPlayer { PlayerId: uint, InputSequence: uint, LastAckSequence: uint }
+NetworkInput { Steer: float, Throttle: float, Brake: float, Handbrake: bool, Sequence: uint }
+GhostRaceState { Active: bool, GhostPlayerId: uint, Progress: float }
+SpectatorState { TargetEntity: Entity, CameraMode: enum, AutoSwitch: bool }
+LeaderboardState { LocalPlayerRank: int, LocalPlayerBestScore: int, TotalEntries: int }
+```
+
+### City Generation
+```
+CityGenerationState { Seed: uint, MaxBuildings: int, MaxImpostors: int }
+BuildingDefinition { Position: float3, Footprint: float2, Height: float, Style: byte }
+BuildingLOD { CurrentLevel: byte, DistanceToCamera: float, FadeProgress: float }
+BuildingImpostor { SourceBuilding: Entity, BillboardSize: float2 }
+CityLightingState { WindowLightDensity: float, NeonIntensity: float }
+```
+
+### Raytracing
+```
+RaytracingState { Enabled: bool, QualityLevel: byte, MaxBounces: int }
+RTLightSource { Color: float3, Intensity: float, Range: float, CastShadows: bool }
+RTReflectionProbe { Position: float3, Range: float, UpdateFrequency: float }
+SSRFallback { Enabled: bool, StepSize: float, MaxSteps: int }
+```
+
+### Advanced Damage
+```
+SoftBodyState { Stiffness: float, Damping: float, DeformationScale: float }
+DeformationNode { LocalPosition: float3, Displacement: float3, Velocity: float3 }
+ComponentHealth { Suspension: float, Steering: float, Tires: float, Engine: float }
+ComponentFailure { Component: enum, FailureTime: float, Severity: float }
+```
+
 ---
 
 ## System Execution Order
@@ -91,9 +131,25 @@ ReplayPlayer { InputLog: buffer, Timestamp: float }
 ### Presentation Group
 14. Camera
 15. Wireframe Render
-16. Lighting
-17. Audio
-18. UI
+16. Raytracing / SSR Fallback
+17. City LOD & Lighting
+18. Audio
+19. UI
+
+### Network Group (when multiplayer active)
+- Input Capture & Replication
+- State Synchronization
+- Prediction & Reconciliation
+- Ghost Race Playback
+- Spectator Camera Control
+- Leaderboard Updates
+
+### World Generation Group
+- Track Generation
+- City Generation
+- Building LOD Management
+- Impostor Billboard Updates
+- City Lighting (window lights, neon)
 
 ---
 
