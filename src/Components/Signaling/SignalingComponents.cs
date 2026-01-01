@@ -72,9 +72,10 @@ namespace Nightflow.Components
     }
 
     /// <summary>
-    /// Replay recording/playback state.
+    /// Simple replay recording/playback state for signaling.
+    /// Note: Full replay state is in ReplayComponents.cs
     /// </summary>
-    public struct ReplayState : IComponentData
+    public struct SignalingReplayState : IComponentData
     {
         /// <summary>Whether currently recording.</summary>
         public bool Recording;
