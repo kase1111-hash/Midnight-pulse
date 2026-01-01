@@ -67,11 +67,11 @@
 - [x] Leaderboard integration
 - [x] Replicate ECS state deltas across network
 
-### Full City
-- [ ] Populate distant silhouettes with actual geometry
-- [ ] Procedural building generation
-- [ ] Dynamic city lights based on time/distance
-- [ ] LOD system for distant geometry
+### Full City ✓
+- [x] Populate distant silhouettes with actual geometry
+- [x] Procedural building generation
+- [x] Dynamic city lights based on time/distance
+- [x] LOD system for distant geometry
 
 ---
 
@@ -82,4 +82,5 @@ The ECS architecture supports clean upgrades:
 - **BeamNG-level damage:** ✓ Swapped to soft-body implementation (spring-damper physics)
 - **Raytracing:** ✓ RaytracingSystem with headlight/emergency/tunnel reflections + SSR fallback
 - **Multiplayer:** ✓ Input-based replication + ghost racing + spectator mode + leaderboards
+- **Full City:** ✓ GPU-light procedural buildings with aggressive LOD (256 buildings, 512 impostors)
 - **Replay system:** Record component diffs for perfect playback
