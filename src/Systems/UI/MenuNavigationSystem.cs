@@ -154,7 +154,7 @@ namespace Nightflow.Systems.UI
         {
             uiState.ShowMainMenu = false;
 
-            // Leaderboard visibility is handled by LeaderboardState
+            // Leaderboard visibility is handled by LeaderboardUIState
             gameState.TimeScale = 0f;
             gameState.IsPaused = true;
             gameState.MenuVisible = true;
