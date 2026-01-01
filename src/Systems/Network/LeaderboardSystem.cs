@@ -94,7 +94,7 @@ namespace Nightflow.Systems
         {
             // Check for completed runs to submit
             foreach (var (scoring, crashState, velocity, transform) in
-                SystemAPI.Query<RefRO<ScoringState>, RefRO<CrashState>,
+                SystemAPI.Query<RefRO<ScoreSession>, RefRO<CrashState>,
                                RefRO<Velocity>, RefRO<WorldTransform>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithNone<GhostRaceTag>())
@@ -105,7 +105,7 @@ namespace Nightflow.Systems
                 // Only submit once per crash
                 if (crashState.ValueRO.CrashTime > 0.1f) continue;
 
-                int score = scoring.ValueRO.TotalScore;
+                int score = (int)scoring.ValueRO.Score;
                 float distance = transform.ValueRO.Position.z; // Simplified distance
 
                 // Minimum requirements for submission
@@ -150,11 +150,11 @@ namespace Nightflow.Systems
             // Get current score
             int currentScore = 0;
 
-            foreach (var scoring in SystemAPI.Query<RefRO<ScoringState>>()
+            foreach (var scoring in SystemAPI.Query<RefRO<ScoreSession>>()
                 .WithAll<PlayerVehicleTag>()
                 .WithNone<GhostRaceTag>())
             {
-                currentScore = scoring.ValueRO.TotalScore;
+                currentScore = (int)scoring.ValueRO.Score;
                 break;
             }
 

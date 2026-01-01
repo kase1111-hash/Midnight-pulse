@@ -30,7 +30,7 @@ namespace Nightflow.Systems
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(ProceduralWorldSystem))]
+    [UpdateAfter(typeof(TrackGenerationSystem))]
     public partial struct CityGenerationSystem : ISystem
     {
         // Generation parameters
@@ -253,8 +253,7 @@ namespace Nightflow.Systems
                 state.EntityManager.AddComponentData(entity, new WorldTransform
                 {
                     Position = position,
-                    Rotation = quaternion.RotateY((_randomState & 0x3) * math.PI * 0.5f),
-                    Scale = 1f
+                    Rotation = quaternion.RotateY((_randomState & 0x3) * math.PI * 0.5f)
                 });
 
                 state.EntityManager.AddComponentData(entity, new BuildingLOD
