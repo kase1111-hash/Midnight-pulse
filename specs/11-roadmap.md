@@ -53,12 +53,12 @@
 - [x] ComponentFailureSystem with cascade failure detection
 - [x] Suspension camera shake effects
 
-### Raytracing
-- [ ] Full RT for dynamic headlight reflections
-- [ ] Emergency vehicle light bouncing off wet roads
-- [ ] Tunnel light bounce and reflections
-- [ ] Screen-space fallback for non-RT hardware
-- [ ] Swap `LightingSystem` with RT implementation
+### Raytracing ✓
+- [x] Full RT for dynamic headlight reflections
+- [x] Emergency vehicle light bouncing off wet roads
+- [x] Tunnel light bounce and reflections
+- [x] Screen-space fallback for non-RT hardware
+- [x] RaytracingSystem with SSR fallback integration
 
 ### Multiplayer
 - [ ] Network replication via input logs + deterministic seeds
@@ -80,6 +80,6 @@
 The ECS architecture supports clean upgrades:
 
 - **BeamNG-level damage:** ✓ Swapped to soft-body implementation (spring-damper physics)
-- **Raytracing:** Swap `LightingSystem` with RT implementation
+- **Raytracing:** ✓ RaytracingSystem with headlight/emergency/tunnel reflections + SSR fallback
 - **Multiplayer:** Replicate ECS state deltas across network
 - **Replay system:** Record component diffs for perfect playback
