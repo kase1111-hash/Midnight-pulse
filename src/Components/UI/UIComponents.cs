@@ -481,9 +481,10 @@ namespace Nightflow.Components
     }
 
     /// <summary>
-    /// Leaderboard state singleton.
+    /// Leaderboard UI state singleton.
+    /// Controls display and interaction for the leaderboard screen.
     /// </summary>
-    public struct LeaderboardState : IComponentData
+    public struct LeaderboardUIState : IComponentData
     {
         /// <summary>Currently selected leaderboard filter.</summary>
         public LeaderboardFilter CurrentFilter;
