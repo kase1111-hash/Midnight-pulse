@@ -60,12 +60,12 @@
 - [x] Screen-space fallback for non-RT hardware
 - [x] RaytracingSystem with SSR fallback integration
 
-### Multiplayer
-- [ ] Network replication via input logs + deterministic seeds
-- [ ] Ghost racing (async multiplayer)
-- [ ] Live spectator mode
-- [ ] Leaderboard integration
-- [ ] Replicate ECS state deltas across network
+### Multiplayer ✓
+- [x] Network replication via input logs + deterministic seeds
+- [x] Ghost racing (async multiplayer)
+- [x] Live spectator mode
+- [x] Leaderboard integration
+- [x] Replicate ECS state deltas across network
 
 ### Full City
 - [ ] Populate distant silhouettes with actual geometry
@@ -81,5 +81,5 @@ The ECS architecture supports clean upgrades:
 
 - **BeamNG-level damage:** ✓ Swapped to soft-body implementation (spring-damper physics)
 - **Raytracing:** ✓ RaytracingSystem with headlight/emergency/tunnel reflections + SSR fallback
-- **Multiplayer:** Replicate ECS state deltas across network
+- **Multiplayer:** ✓ Input-based replication + ghost racing + spectator mode + leaderboards
 - **Replay system:** Record component diffs for perfect playback
