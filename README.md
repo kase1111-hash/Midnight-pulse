@@ -7,7 +7,7 @@ A procedural, endless, night-time freeway driving game focused on flow, speed, a
 **Genre:** Endless procedural night-time freeway driving (flow runner)
 **Core Inspiration:** Subway Surfers x BeamNG x OutRun x high-speed night aesthetics
 **Engine:** Unity DOTS 1.0+ (HDRP/Entities.Graphics)
-**Version:** 2.0 (January 2026)
+**Version:** 0.1.0-alpha (January 2026)
 
 ---
 
