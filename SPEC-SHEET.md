@@ -1,6 +1,6 @@
 # Nightflow - Master Technical Specification
 
-**Version:** 2.0
+**Version:** 0.1.0-alpha
 **Date:** January 2026
 **Copyright:** (c) 2025-2026 Kase Branham. All rights reserved.
 
