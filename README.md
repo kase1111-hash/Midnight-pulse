@@ -1,10 +1,10 @@
 # Nightflow
 
-A procedural, endless, night-time freeway driving game focused on flow, speed, and light.
+A **synthwave driving game** featuring procedural night highway generation for an endless night drive experience. This **atmospheric driving** game combines lo-fi aesthetics with high-speed gameplay, creating a **relaxing driving game** that's as much about flow as it is about speed.
 
 > **Tagline:** *Infinite neon freeway. One life. Flow or crash.*
 
-**Genre:** Endless procedural night-time freeway driving (flow runner)
+**Genre:** Endless **procedural driving** / **night driving game** (flow runner)
 **Core Inspiration:** Subway Surfers x BeamNG x OutRun x high-speed night aesthetics
 **Engine:** Unity DOTS 1.0+ (HDRP/Entities.Graphics)
 **Version:** 0.1.0-alpha (January 2026)
@@ -24,11 +24,15 @@ A procedural, endless, night-time freeway driving game focused on flow, speed, a
 
 ## Gameplay
 
+Experience the ultimate **endless highway game** - a **chill driving experience** through neon-lit procedural highways.
+
 1. Drive endlessly on procedurally generated freeway
 2. Steer smoothly between lanes, speed up/down, handbrake drift
 3. Avoid/pass traffic, hazards, emergency vehicles
 4. Small hits damage vehicle -> handling degradation -> component failures
 5. Large hit or total failure -> crash -> fade -> score summary -> autopilot reset -> resume
+
+Whether you're looking for a **night driving simulator** to unwind or a **vaporwave driving simulator** to test your reflexes, Nightflow delivers both.
 
 **Win Condition:** Highest score/distance before debilitating crash.
 
@@ -176,6 +180,17 @@ See [Build System](build/README.md) for complete build documentation.
 - **Burst Compiled** hot paths for performance
 - **Deterministic Simulation** for ghost racing and network replication
 - **No Havok Dependency** - custom impulse-based physics
+
+---
+
+## Related Repositories
+
+Part of the **Game Development** collection. Check out these connected projects:
+
+| Repository | Description |
+|------------|-------------|
+| [Shredsquatch](https://github.com/kase1111-hash/Shredsquatch) | 3D first-person snowboarding infinite runner - a SkiFree spiritual successor |
+| [Long-Home](https://github.com/kase1111-hash/Long-Home) | Atmospheric indie narrative game built with Godot |
 
 ---
 
