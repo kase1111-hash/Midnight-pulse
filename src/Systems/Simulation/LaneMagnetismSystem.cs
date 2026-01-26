@@ -90,8 +90,12 @@ namespace Nightflow.Systems
                 // =============================================================
 
                 // Approximate t parameter based on Z position
-                float segmentProgress = (playerZ - currentSegment.StartZ) /
-                                        (currentSegment.EndZ - currentSegment.StartZ);
+                // Guard against division by zero for zero-length segments
+                float segmentLength = currentSegment.EndZ - currentSegment.StartZ;
+                if (math.abs(segmentLength) < 0.001f)
+                    continue;
+
+                float segmentProgress = (playerZ - currentSegment.StartZ) / segmentLength;
                 segmentProgress = math.saturate(segmentProgress);
 
                 // Get spline frame at current position
