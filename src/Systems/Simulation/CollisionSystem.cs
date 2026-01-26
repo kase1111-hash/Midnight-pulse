@@ -95,7 +95,8 @@ namespace Nightflow.Systems
                     .WithAll<HazardTag>()
                     .WithEntityAccess())
             {
-                // Skip already-hit hazards
+                // Skip already-hit hazards to prevent double-processing
+                // Once Hit is set true, hazard is permanently marked and won't register further collisions
                 if (hazard.ValueRO.Hit)
                     continue;
 

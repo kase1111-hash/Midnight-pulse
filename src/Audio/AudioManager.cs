@@ -463,7 +463,11 @@ namespace Nightflow.Audio
                 _ => null
             };
 
-            if (clip == null) return;
+            if (clip == null)
+            {
+                Debug.LogWarning($"[AudioManager] Missing audio clip for UI sound type: {evt.Type}");
+                return;
+            }
 
             var source = GetPooledSource();
             if (source == null) return;
@@ -505,7 +509,11 @@ namespace Nightflow.Audio
                 _ => null
             };
 
-            if (clip == null) return;
+            if (clip == null)
+            {
+                Debug.LogWarning($"[AudioManager] Missing audio clip for collision sound type: {evt.Type}");
+                return;
+            }
 
             var source = GetPooledSource();
             if (source == null) return;
@@ -548,7 +556,11 @@ namespace Nightflow.Audio
             if (source == null) return;
 
             AudioClip clip = GetClipByID(request.ClipID);
-            if (clip == null) return;
+            if (clip == null)
+            {
+                Debug.LogWarning($"[AudioManager] Missing audio clip for clip ID: {request.ClipID}");
+                return;
+            }
 
             source.clip = clip;
             source.volume = request.Volume;

@@ -22,6 +22,9 @@ namespace Nightflow.Utilities
         [BurstCompile]
         public static float3 EvaluatePosition(float3 p0, float3 t0, float3 p1, float3 t1, float t)
         {
+            // Clamp t to valid range [0, 1] to prevent invalid geometry
+            t = math.saturate(t);
+
             float t2 = t * t;
             float t3 = t2 * t;
 
@@ -40,6 +43,9 @@ namespace Nightflow.Utilities
         [BurstCompile]
         public static float3 EvaluateTangent(float3 p0, float3 t0, float3 p1, float3 t1, float t)
         {
+            // Clamp t to valid range [0, 1] to prevent invalid values
+            t = math.saturate(t);
+
             float t2 = t * t;
 
             float h00 = 6f * t2 - 6f * t;          // (6t²-6t)
@@ -57,6 +63,9 @@ namespace Nightflow.Utilities
         [BurstCompile]
         public static float3 EvaluateSecondDerivative(float3 p0, float3 t0, float3 p1, float3 t1, float t)
         {
+            // Clamp t to valid range [0, 1] to prevent invalid values
+            t = math.saturate(t);
+
             float h00 = 12f * t - 6f;              // (12t-6)
             float h10 = 6f * t - 4f;               // (6t-4)
             float h01 = -12f * t + 6f;             // (-12t+6)
@@ -72,6 +81,9 @@ namespace Nightflow.Utilities
         [BurstCompile]
         public static float EvaluateCurvature(float3 p0, float3 t0, float3 p1, float3 t1, float t)
         {
+            // Clamp t to valid range [0, 1] to prevent invalid values
+            t = math.saturate(t);
+
             float3 d1 = EvaluateTangent(p0, t0, p1, t1, t);
             float3 d2 = EvaluateSecondDerivative(p0, t0, p1, t1, t);
 
