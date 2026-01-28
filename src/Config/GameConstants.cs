@@ -144,6 +144,20 @@ namespace Nightflow.Config
         public const float WarningFlashRate = 4f;
 
         // =====================================================================
+        // CRASH SYSTEM TIMING
+        // =====================================================================
+
+        /// <summary>
+        /// Time in seconds after crash before autopilot engages.
+        /// </summary>
+        public const float CrashFadeToAutopilotTime = 1.5f;
+
+        /// <summary>
+        /// Default autopilot target speed after crash (m/s).
+        /// </summary>
+        public const float AutopilotRecoverySpeed = 20f;
+
+        // =====================================================================
         // CRASH FLASH TIMING
         // =====================================================================
 

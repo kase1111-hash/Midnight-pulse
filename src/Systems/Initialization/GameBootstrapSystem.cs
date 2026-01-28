@@ -121,7 +121,7 @@ namespace Nightflow.Systems
                 TargetLane = PlayerStartLane,
                 LateralOffset = 0f,
                 MagnetStrength = 1f,
-                SplineParameter = PlayerStartZ / SegmentLength
+                SplineParameter = PlayerStartZ / GameConstants.SegmentLength
             });
 
             // Damage & crash
@@ -577,7 +577,7 @@ namespace Nightflow.Systems
             endTangent = math.mul(yawRot, startTangent);
 
             // Calculate end position
-            float length = SegmentLength;
+            float length = GameConstants.SegmentLength;
             endPos = startPos + math.normalize(startTangent) * length;
 
             // Scale tangents for Hermite (alpha = 0.5)
@@ -595,7 +595,7 @@ namespace Nightflow.Systems
                 StartZ = startPos.z,
                 EndZ = endPos.z,
                 Length = length,
-                NumLanes = LanesPerSegment
+                NumLanes = GameConstants.DefaultNumLanes
             });
 
             ecb.AddComponent(segmentEntity, new HermiteSpline
