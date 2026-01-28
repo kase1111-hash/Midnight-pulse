@@ -138,31 +138,37 @@ namespace Nightflow.Systems
         {
             EntityCommandBuffer ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
 
-            // Clean up completed/invalid ghosts
-            foreach (var (replayState, ghostRender, entity) in
-                SystemAPI.Query<RefRO<ReplayState>, RefRO<GhostRenderState>>()
-                    .WithAll<GhostVehicleTag>()
-                    .WithEntityAccess())
+            try
             {
-                // Remove ghost if faded out completely
-                if (ghostRender.ValueRO.Alpha < 0.01f && replayState.ValueRO.IsComplete)
+                // Clean up completed/invalid ghosts
+                foreach (var (replayState, ghostRender, entity) in
+                    SystemAPI.Query<RefRO<ReplayState>, RefRO<GhostRenderState>>()
+                        .WithAll<GhostVehicleTag>()
+                        .WithEntityAccess())
                 {
-                    ecb.DestroyEntity(entity);
-
-                    // Update system state
-                    foreach (var systemState in SystemAPI.Query<RefRW<ReplaySystemState>>())
+                    // Remove ghost if faded out completely
+                    if (ghostRender.ValueRO.Alpha < 0.01f && replayState.ValueRO.IsComplete)
                     {
-                        if (systemState.ValueRO.GhostVehicle == entity)
+                        ecb.DestroyEntity(entity);
+
+                        // Update system state
+                        foreach (var systemState in SystemAPI.Query<RefRW<ReplaySystemState>>())
                         {
-                            systemState.ValueRW.GhostActive = false;
-                            systemState.ValueRW.GhostVehicle = Entity.Null;
+                            if (systemState.ValueRO.GhostVehicle == entity)
+                            {
+                                systemState.ValueRW.GhostActive = false;
+                                systemState.ValueRW.GhostVehicle = Entity.Null;
+                            }
                         }
                     }
                 }
-            }
 
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+                ecb.Playback(state.EntityManager);
+            }
+            finally
+            {
+                ecb.Dispose();
+            }
         }
     }
 }

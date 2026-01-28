@@ -139,42 +139,48 @@ namespace Nightflow.Systems
 
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            foreach (var (transform, buildingDef, entity) in
-                SystemAPI.Query<RefRO<WorldTransform>, RefRO<BuildingDefinition>>()
-                    .WithAll<BuildingTag>()
-                    .WithEntityAccess())
+            try
             {
-                if (transform.ValueRO.Position.z < cleanupZ)
+                foreach (var (transform, buildingDef, entity) in
+                    SystemAPI.Query<RefRO<WorldTransform>, RefRO<BuildingDefinition>>()
+                        .WithAll<BuildingTag>()
+                        .WithEntityAccess())
                 {
-                    ecb.DestroyEntity(entity);
-
-                    // Decrement count
-                    foreach (var cityState in SystemAPI.Query<RefRW<CityGenerationState>>())
+                    if (transform.ValueRO.Position.z < cleanupZ)
                     {
-                        cityState.ValueRW.ActiveBuildingCount--;
+                        ecb.DestroyEntity(entity);
+
+                        // Decrement count
+                        foreach (var cityState in SystemAPI.Query<RefRW<CityGenerationState>>())
+                        {
+                            cityState.ValueRW.ActiveBuildingCount--;
+                        }
                     }
                 }
-            }
 
-            // Cleanup impostors
-            foreach (var (impostor, entity) in
-                SystemAPI.Query<RefRO<BuildingImpostor>>()
-                    .WithAll<ImpostorTag>()
-                    .WithEntityAccess())
-            {
-                if (impostor.ValueRO.Position.z < cleanupZ)
+                // Cleanup impostors
+                foreach (var (impostor, entity) in
+                    SystemAPI.Query<RefRO<BuildingImpostor>>()
+                        .WithAll<ImpostorTag>()
+                        .WithEntityAccess())
                 {
-                    ecb.DestroyEntity(entity);
-
-                    foreach (var cityState in SystemAPI.Query<RefRW<CityGenerationState>>())
+                    if (impostor.ValueRO.Position.z < cleanupZ)
                     {
-                        cityState.ValueRW.ActiveImpostorCount--;
+                        ecb.DestroyEntity(entity);
+
+                        foreach (var cityState in SystemAPI.Query<RefRW<CityGenerationState>>())
+                        {
+                            cityState.ValueRW.ActiveImpostorCount--;
+                        }
                     }
                 }
-            }
 
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+                ecb.Playback(state.EntityManager);
+            }
+            finally
+            {
+                ecb.Dispose();
+            }
         }
 
         private void GenerateBlockBuildings(
@@ -359,45 +365,51 @@ namespace Nightflow.Systems
             int meshesGenerated = 0;
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            foreach (var (buildingDef, transform, lod, entity) in
-                SystemAPI.Query<RefRO<BuildingDefinition>, RefRO<WorldTransform>, RefRO<BuildingLOD>>()
-                    .WithAll<PendingMeshTag>()
-                    .WithEntityAccess())
+            try
             {
-                if (meshesGenerated >= MaxMeshesPerFrame) break;
-
-                // Only generate mesh if potentially visible
-                if (!lod.ValueRO.InRenderDistance) continue;
-
-                // Add mesh data component
-                var meshData = new VehicleMeshData
+                foreach (var (buildingDef, transform, lod, entity) in
+                    SystemAPI.Query<RefRO<BuildingDefinition>, RefRO<WorldTransform>, RefRO<BuildingLOD>>()
+                        .WithAll<PendingMeshTag>()
+                        .WithEntityAccess())
                 {
-                    IsGenerated = true,
-                    VehicleLength = buildingDef.ValueRO.Depth,
-                    VehicleWidth = buildingDef.ValueRO.Width,
-                    WireframeColor = new float4(buildingDef.ValueRO.WireframeColor, 1f)
-                };
+                    if (meshesGenerated >= MaxMeshesPerFrame) break;
 
-                ecb.AddComponent(entity, meshData);
-                ecb.AddComponent(entity, new BuildingMeshRef
-                {
-                    MeshTemplateIndex = (int)buildingDef.ValueRO.Style,
-                    LOD0VertexCount = MaxVerticesLOD0,
-                    LOD1VertexCount = MaxVerticesLOD1,
-                    LOD2VertexCount = MaxVerticesLOD2
-                });
+                    // Only generate mesh if potentially visible
+                    if (!lod.ValueRO.InRenderDistance) continue;
 
-                // Add vertex buffer
-                ecb.AddBuffer<MeshVertex>(entity);
+                    // Add mesh data component
+                    var meshData = new VehicleMeshData
+                    {
+                        IsGenerated = true,
+                        VehicleLength = buildingDef.ValueRO.Depth,
+                        VehicleWidth = buildingDef.ValueRO.Width,
+                        WireframeColor = new float4(buildingDef.ValueRO.WireframeColor, 1f)
+                    };
 
-                // Remove pending tag
-                ecb.RemoveComponent<PendingMeshTag>(entity);
+                    ecb.AddComponent(entity, meshData);
+                    ecb.AddComponent(entity, new BuildingMeshRef
+                    {
+                        MeshTemplateIndex = (int)buildingDef.ValueRO.Style,
+                        LOD0VertexCount = MaxVerticesLOD0,
+                        LOD1VertexCount = MaxVerticesLOD1,
+                        LOD2VertexCount = MaxVerticesLOD2
+                    });
 
-                meshesGenerated++;
+                    // Add vertex buffer
+                    ecb.AddBuffer<MeshVertex>(entity);
+
+                    // Remove pending tag
+                    ecb.RemoveComponent<PendingMeshTag>(entity);
+
+                    meshesGenerated++;
+                }
+
+                ecb.Playback(state.EntityManager);
             }
-
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+            finally
+            {
+                ecb.Dispose();
+            }
 
             // Generate actual vertices for buildings with buffers
             foreach (var (buildingDef, meshData, lod, entity) in

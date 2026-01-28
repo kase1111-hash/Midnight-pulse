@@ -186,37 +186,43 @@ namespace Nightflow.Systems
         {
             var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
 
-            foreach (var (_, entity) in
-                SystemAPI.Query<RefRO<PlayerVehicleTag>>()
-                    .WithNone<ComponentHealth>()
-                    .WithEntityAccess())
+            try
             {
-                // Add component health at full
-                ecb.AddComponent(entity, ComponentHealth.FullHealth);
-
-                // Add failure state (no failures)
-                ecb.AddComponent(entity, new ComponentFailureState
+                foreach (var (_, entity) in
+                    SystemAPI.Query<RefRO<PlayerVehicleTag>>()
+                        .WithNone<ComponentHealth>()
+                        .WithEntityAccess())
                 {
-                    FailedComponents = ComponentFailures.None,
-                    TimeSinceLastFailure = 0f
-                });
+                    // Add component health at full
+                    ecb.AddComponent(entity, ComponentHealth.FullHealth);
 
-                // Add damage config with defaults
-                ecb.AddComponent(entity, ComponentDamageConfig.Default);
+                    // Add failure state (no failures)
+                    ecb.AddComponent(entity, new ComponentFailureState
+                    {
+                        FailedComponents = ComponentFailures.None,
+                        TimeSinceLastFailure = 0f
+                    });
 
-                // Add soft-body state for enhanced visuals
-                ecb.AddComponent(entity, new SoftBodyState
-                {
-                    CurrentDeformation = float4.zero,
-                    TargetDeformation = float4.zero,
-                    DeformationVelocity = float4.zero,
-                    SpringConstant = 8f,
-                    Damping = 0.7f
-                });
+                    // Add damage config with defaults
+                    ecb.AddComponent(entity, ComponentDamageConfig.Default);
+
+                    // Add soft-body state for enhanced visuals
+                    ecb.AddComponent(entity, new SoftBodyState
+                    {
+                        CurrentDeformation = float4.zero,
+                        TargetDeformation = float4.zero,
+                        DeformationVelocity = float4.zero,
+                        SpringConstant = 8f,
+                        Damping = 0.7f
+                    });
+                }
+
+                ecb.Playback(state.EntityManager);
             }
-
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+            finally
+            {
+                ecb.Dispose();
+            }
         }
     }
 }
