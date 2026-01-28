@@ -101,48 +101,54 @@ namespace Nightflow.Systems
         {
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            Entity entity = ecb.CreateEntity();
-
-            // Add tag
-            ecb.AddComponent<CitySkylineTag>(entity);
-
-            // Add state
-            ecb.AddComponent(entity, new CitySkylineState
+            try
             {
-                SkylineDistance = DefaultSkylineDistance,
-                MinBuildingHeight = DefaultMinHeight,
-                MaxBuildingHeight = DefaultMaxHeight,
-                BuildingCount = DefaultBuildingCount,
-                AnimationTime = 0f,
-                RandomSeed = 54321,
-                NeedsRegeneration = true
-            });
+                Entity entity = ecb.CreateEntity();
 
-            // Add config with colors
-            ecb.AddComponent(entity, new SkylineConfig
+                // Add tag
+                ecb.AddComponent<CitySkylineTag>(entity);
+
+                // Add state
+                ecb.AddComponent(entity, new CitySkylineState
+                {
+                    SkylineDistance = DefaultSkylineDistance,
+                    MinBuildingHeight = DefaultMinHeight,
+                    MaxBuildingHeight = DefaultMaxHeight,
+                    BuildingCount = DefaultBuildingCount,
+                    AnimationTime = 0f,
+                    RandomSeed = 54321,
+                    NeedsRegeneration = true
+                });
+
+                // Add config with colors
+                ecb.AddComponent(entity, new SkylineConfig
+                {
+                    WindowLitRatio = DefaultWindowLitRatio,
+                    YellowWindowRatio = DefaultYellowRatio,
+                    WindowToggleInterval = DefaultToggleInterval,
+                    ToggleIntervalVariance = DefaultToggleVariance,
+                    // Dark blue-black silhouette
+                    SilhouetteColor = new float4(0.02f, 0.02f, 0.05f, 1f),
+                    // Warm yellow (primary - 75%)
+                    WindowColorYellow = new float4(1.0f, 0.85f, 0.4f, 1f),
+                    // Cool white (10%)
+                    WindowColorWhite = new float4(0.95f, 0.95f, 1.0f, 1f),
+                    // Warm orange (10%)
+                    WindowColorOrange = new float4(1.0f, 0.6f, 0.2f, 1f),
+                    // Cyan accent (5%)
+                    WindowColorCyan = new float4(0.4f, 0.9f, 1.0f, 1f)
+                });
+
+                // Add buffers for buildings and window states
+                ecb.AddBuffer<SkylineBuilding>(entity);
+                ecb.AddBuffer<WindowStateBlock>(entity);
+
+                ecb.Playback(state.EntityManager);
+            }
+            finally
             {
-                WindowLitRatio = DefaultWindowLitRatio,
-                YellowWindowRatio = DefaultYellowRatio,
-                WindowToggleInterval = DefaultToggleInterval,
-                ToggleIntervalVariance = DefaultToggleVariance,
-                // Dark blue-black silhouette
-                SilhouetteColor = new float4(0.02f, 0.02f, 0.05f, 1f),
-                // Warm yellow (primary - 75%)
-                WindowColorYellow = new float4(1.0f, 0.85f, 0.4f, 1f),
-                // Cool white (10%)
-                WindowColorWhite = new float4(0.95f, 0.95f, 1.0f, 1f),
-                // Warm orange (10%)
-                WindowColorOrange = new float4(1.0f, 0.6f, 0.2f, 1f),
-                // Cyan accent (5%)
-                WindowColorCyan = new float4(0.4f, 0.9f, 1.0f, 1f)
-            });
-
-            // Add buffers for buildings and window states
-            ecb.AddBuffer<SkylineBuilding>(entity);
-            ecb.AddBuffer<WindowStateBlock>(entity);
-
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+                ecb.Dispose();
+            }
         }
 
         [BurstCompile]

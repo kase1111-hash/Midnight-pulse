@@ -81,60 +81,66 @@ namespace Nightflow.Systems
         {
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            Entity entity = ecb.CreateEntity();
-
-            // Default to Nightflow mode
-            ecb.AddComponent(entity, new GameModeState
+            try
             {
-                CurrentMode = GameMode.Nightflow,
-                ModeSelectActive = false,
-                SessionSeed = GenerateRandomSeed(),
-                IsRecording = false,
-                IsPlayingGhost = false,
-                RedlineMaxSpeed = 0f,
-                RedlinePersonalBest = 0f,
-                RedlineExtreme = 0f
-            });
+                Entity entity = ecb.CreateEntity();
 
-            // Ghost mode config
-            ecb.AddComponent(entity, new GhostModeConfig
+                // Default to Nightflow mode
+                ecb.AddComponent(entity, new GameModeState
+                {
+                    CurrentMode = GameMode.Nightflow,
+                    ModeSelectActive = false,
+                    SessionSeed = GenerateRandomSeed(),
+                    IsRecording = false,
+                    IsPlayingGhost = false,
+                    RedlineMaxSpeed = 0f,
+                    RedlinePersonalBest = 0f,
+                    RedlineExtreme = 0f
+                });
+
+                // Ghost mode config
+                ecb.AddComponent(entity, new GhostModeConfig
+                {
+                    RunSeed = 0,
+                    ShowGhost = true,
+                    GhostAlpha = 0.5f,
+                    GhostColor = new float4(0.3f, 0.8f, 1f, 0.5f), // Cyan ghost
+                    TimeOffset = 0f,
+                    ShowTrail = true
+                });
+
+                // Redline stats
+                ecb.AddComponent(entity, new RedlineStats
+                {
+                    PeakSpeed = 0f,
+                    CurrentSpeed = 0f,
+                    TimeTo100 = 0f,
+                    TimeTo150 = 0f,
+                    TimeTo200 = 0f,
+                    TotalDistance = 0f,
+                    Reached100 = false,
+                    Reached150 = false,
+                    Reached200 = false
+                });
+
+                // Display state
+                ecb.AddComponent(entity, new ModeDisplayState
+                {
+                    ModeName = "NIGHTFLOW",
+                    ModeDescription = "Standard driving experience",
+                    ShowSpeedHUD = false,
+                    ShowGhostComparison = false,
+                    ShowRelaxedHUD = false,
+                    GhostTimeDelta = 0f,
+                    GhostDistanceDelta = 0f
+                });
+
+                ecb.Playback(state.EntityManager);
+            }
+            finally
             {
-                RunSeed = 0,
-                ShowGhost = true,
-                GhostAlpha = 0.5f,
-                GhostColor = new float4(0.3f, 0.8f, 1f, 0.5f), // Cyan ghost
-                TimeOffset = 0f,
-                ShowTrail = true
-            });
-
-            // Redline stats
-            ecb.AddComponent(entity, new RedlineStats
-            {
-                PeakSpeed = 0f,
-                CurrentSpeed = 0f,
-                TimeTo100 = 0f,
-                TimeTo150 = 0f,
-                TimeTo200 = 0f,
-                TotalDistance = 0f,
-                Reached100 = false,
-                Reached150 = false,
-                Reached200 = false
-            });
-
-            // Display state
-            ecb.AddComponent(entity, new ModeDisplayState
-            {
-                ModeName = "NIGHTFLOW",
-                ModeDescription = "Standard driving experience",
-                ShowSpeedHUD = false,
-                ShowGhostComparison = false,
-                ShowRelaxedHUD = false,
-                GhostTimeDelta = 0f,
-                GhostDistanceDelta = 0f
-            });
-
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+                ecb.Dispose();
+            }
         }
 
         private uint GenerateRandomSeed()
