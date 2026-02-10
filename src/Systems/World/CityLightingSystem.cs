@@ -306,11 +306,11 @@ namespace Nightflow.Systems
 
     /// <summary>
     /// Coordinates city lighting with existing game lighting systems.
-    /// Ensures city lights blend with raytracing and headlights.
+    /// Ensures city lights blend with reflections and headlights.
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
-    [UpdateAfter(typeof(RaytracingSystem))]
+    [UpdateAfter(typeof(ReflectionSystem))]
     public partial struct CityRTIntegrationSystem : ISystem
     {
         [BurstCompile]
@@ -320,7 +320,7 @@ namespace Nightflow.Systems
             bool rtEnabled = false;
             float reflectionIntensity = 1f;
 
-            foreach (var rtState in SystemAPI.Query<RefRO<RaytracingState>>())
+            foreach (var rtState in SystemAPI.Query<RefRO<ReflectionState>>())
             {
                 rtEnabled = rtState.ValueRO.RTEnabled;
                 reflectionIntensity = rtState.ValueRO.ReflectionIntensity;

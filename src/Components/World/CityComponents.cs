@@ -1,6 +1,6 @@
 // ============================================================================
 // Nightflow - Unity DOTS Components: Procedural City System
-// GPU-light implementation with aggressive LOD for raytracing compatibility
+// GPU-light implementation with aggressive LOD for reflection system compatibility
 // ============================================================================
 
 using Unity.Entities;
