@@ -113,9 +113,9 @@ BuildingImpostor { SourceBuilding: Entity, BillboardSize: float2 }
 CityLightingState { WindowLightDensity: float, NeonIntensity: float }
 ```
 
-### Raytracing
+### Reflections
 ```
-RaytracingState { Enabled: bool, QualityLevel: byte, MaxBounces: int }
+ReflectionState { Enabled: bool, QualityLevel: byte, MaxBounces: int }
 RTLightSource { Color: float3, Intensity: float, Range: float, CastShadows: bool }
 RTReflectionProbe { Position: float3, Range: float, UpdateFrequency: float }
 SSRFallback { Enabled: bool, StepSize: float, MaxSteps: int }
@@ -180,7 +180,7 @@ SpectatorCameraTag, NetworkSyncTag
 19. Camera
 20. Wireframe Render
 21. Procedural Mesh Generation (Road, Vehicle, Hazard, Tunnel, Overpass, Light)
-22. Raytracing / SSR Fallback
+22. Reflections / SSR
 23. City LOD & Lighting
 24. Headlight System
 25. Particles (Tire Smoke, Sparks, Speed Lines)

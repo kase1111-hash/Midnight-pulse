@@ -1,6 +1,6 @@
 // ============================================================================
-// Nightflow - Raytracing System
-// Dynamic reflections for headlights, emergency lights, and tunnel bounce
+// Nightflow - Reflection System
+// Screen-space reflections and distance-based light bounce estimation
 // ============================================================================
 
 using Unity.Entities;
@@ -13,25 +13,22 @@ using Nightflow.Tags;
 namespace Nightflow.Systems
 {
     /// <summary>
-    /// Manages raytraced and screen-space reflections.
+    /// Manages screen-space reflections and distance-based light bounce.
     ///
     /// Features:
-    /// - Dynamic headlight reflections on wet roads
-    /// - Emergency vehicle light bouncing (red/blue on road)
+    /// - Distance-based headlight reflections on wet roads
+    /// - Emergency vehicle light bounce estimation (red/blue on road)
     /// - Tunnel wall/ceiling light bounce
-    /// - Automatic SSR fallback for non-RT hardware
+    /// - SSR as primary reflection path
     ///
-    /// From spec:
-    /// - Full RT for dynamic headlight reflections
-    /// - Emergency vehicle light bouncing off wet roads
-    /// - Tunnel light bounce and reflections
-    /// - Screen-space fallback for non-RT hardware
+    /// Note: Despite historical naming, this system uses SSR and distance-based
+    /// calculations, not hardware raytracing (no DXR/BVH/ray casting).
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     [UpdateAfter(typeof(LightingSystem))]
     [UpdateBefore(typeof(WireframeRenderSystem))]
-    public partial struct RaytracingSystem : ISystem
+    public partial struct ReflectionSystem : ISystem
     {
         // Reflection parameters
         private const float WetRoadReflectivity = 0.7f;
@@ -63,7 +60,7 @@ namespace Nightflow.Systems
             float globalWetness = 0.3f;
             float reflectionIntensity = 1f;
 
-            foreach (var rtState in SystemAPI.Query<RefRO<RaytracingState>>())
+            foreach (var rtState in SystemAPI.Query<RefRO<ReflectionState>>())
             {
                 useRT = rtState.ValueRO.RTEnabled && !rtState.ValueRO.UseSSRFallback;
                 globalWetness = rtState.ValueRO.WetnessLevel;
@@ -357,19 +354,19 @@ namespace Nightflow.Systems
     }
 
     /// <summary>
-    /// Initializes raytracing singletons on world creation.
+    /// Initializes reflection singletons on world creation.
     /// </summary>
     [UpdateInGroup(typeof(InitializationSystemGroup))]
-    public partial struct RaytracingInitSystem : ISystem
+    public partial struct ReflectionInitSystem : ISystem
     {
         public void OnCreate(ref SystemState state)
         {
             // Create RT state singleton if not exists
-            if (!SystemAPI.HasSingleton<RaytracingState>())
+            if (!SystemAPI.HasSingleton<ReflectionState>())
             {
                 var entity = state.EntityManager.CreateEntity();
-                state.EntityManager.AddComponentData(entity, RaytracingState.Default);
-                state.EntityManager.SetName(entity, "RaytracingState");
+                state.EntityManager.AddComponentData(entity, ReflectionState.Default);
+                state.EntityManager.SetName(entity, "ReflectionState");
             }
 
             // Create SSR state singleton if not exists

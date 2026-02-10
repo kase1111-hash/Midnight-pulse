@@ -1,6 +1,6 @@
 // ============================================================================
-// Nightflow - Raytracing Components
-// Components for RT reflections and screen-space fallback
+// Nightflow - Reflection Components
+// Components for screen-space reflections and light bounce estimation
 // ============================================================================
 
 using Unity.Entities;
@@ -9,15 +9,15 @@ using Unity.Mathematics;
 namespace Nightflow.Components
 {
     /// <summary>
-    /// Global raytracing state singleton.
-    /// Controls RT quality, fallback mode, and reflection parameters.
+    /// Global reflection state singleton.
+    /// Controls reflection quality, SSR mode, and reflection parameters.
     /// </summary>
-    public struct RaytracingState : IComponentData
+    public struct ReflectionState : IComponentData
     {
-        /// <summary>Whether hardware raytracing is available and enabled.</summary>
+        /// <summary>Whether hardware raytracing is available and enabled. Reserved for future RT support.</summary>
         public bool RTEnabled;
 
-        /// <summary>Raytracing quality level (0 = off/SSR, 1 = low, 2 = medium, 3 = high).</summary>
+        /// <summary>Reflection quality level (0 = SSR only, 1 = low, 2 = medium, 3 = high).</summary>
         public int QualityLevel;
 
         /// <summary>Number of rays per pixel for reflections.</summary>
@@ -41,8 +41,8 @@ namespace Nightflow.Components
         /// <summary>SSR max distance.</summary>
         public float SSRMaxDistance;
 
-        /// <summary>Default state with RT disabled (SSR fallback).</summary>
-        public static RaytracingState Default => new RaytracingState
+        /// <summary>Default state — SSR as primary path, RT disabled.</summary>
+        public static ReflectionState Default => new ReflectionState
         {
             RTEnabled = false,
             QualityLevel = 0,
@@ -55,8 +55,8 @@ namespace Nightflow.Components
             SSRMaxDistance = 100f
         };
 
-        /// <summary>Low quality RT settings.</summary>
-        public static RaytracingState RTLow => new RaytracingState
+        /// <summary>Low quality reflection settings (reserved for future RT support).</summary>
+        public static ReflectionState RTLow => new ReflectionState
         {
             RTEnabled = true,
             QualityLevel = 1,
@@ -69,8 +69,8 @@ namespace Nightflow.Components
             SSRMaxDistance = 0f
         };
 
-        /// <summary>High quality RT settings.</summary>
-        public static RaytracingState RTHigh => new RaytracingState
+        /// <summary>High quality reflection settings (reserved for future RT support).</summary>
+        public static ReflectionState RTHigh => new ReflectionState
         {
             RTEnabled = true,
             QualityLevel = 3,
@@ -85,15 +85,15 @@ namespace Nightflow.Components
     }
 
     /// <summary>
-    /// Raytraced light source with reflection data.
-    /// Extends LightEmitter with RT-specific parameters.
+    /// Light source with reflection data.
+    /// Extends LightEmitter with reflection-specific parameters.
     /// </summary>
     public struct RTLight : IComponentData
     {
         /// <summary>Light color (linear RGB).</summary>
         public float3 Color;
 
-        /// <summary>Light intensity for RT (can exceed 1 for HDR).</summary>
+        /// <summary>Light intensity (can exceed 1 for HDR).</summary>
         public float Intensity;
 
         /// <summary>Light position in world space.</summary>
@@ -111,15 +111,15 @@ namespace Nightflow.Components
         /// <summary>Whether this light casts reflections.</summary>
         public bool CastsReflections;
 
-        /// <summary>Shadow softness for RT shadows.</summary>
+        /// <summary>Shadow softness.</summary>
         public float ShadowSoftness;
 
-        /// <summary>Light type for RT dispatch.</summary>
+        /// <summary>Light type for reflection dispatch.</summary>
         public RTLightType LightType;
     }
 
     /// <summary>
-    /// Types of lights for RT processing.
+    /// Types of lights for reflection processing.
     /// </summary>
     public enum RTLightType : byte
     {
@@ -130,7 +130,7 @@ namespace Nightflow.Components
     }
 
     /// <summary>
-    /// Surface reflection properties for RT.
+    /// Surface reflection properties.
     /// Attached to entities that should receive reflections.
     /// </summary>
     public struct RTSurface : IComponentData

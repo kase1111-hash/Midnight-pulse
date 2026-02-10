@@ -41,7 +41,7 @@ src/
 ├── Buffers/            # Dynamic buffer types (10+)
 ├── Config/             # GameConstants, GameplayConfig, VisualConfig
 ├── Input/              # Input management, wheel support
-├── Rendering/          # Raytracing, post-processing, city skyline
+├── Rendering/          # Reflections/SSR, post-processing, city skyline
 ├── Audio/              # Audio manager, clip collections
 ├── Save/               # Save/load system
 ├── UI/                 # UI controllers and canvas
@@ -154,7 +154,7 @@ public partial struct MySystem : ISystem
 
 **Rendering:**
 - `src/Systems/Presentation/WireframeRenderSystem.cs` - Visual style
-- `src/Systems/Presentation/RaytracingSystem.cs` - Dynamic reflections
+- `src/Systems/Presentation/ReflectionSystem.cs` - Screen-space reflections and light bounce
 - `src/Systems/Presentation/CameraSystem.cs` - Chase camera
 
 **Configuration:**
@@ -172,7 +172,7 @@ public partial struct MySystem : ISystem
   - `03-track-generation.md` - Procedural generation with Hermite splines
   - `04-traffic-ai.md` - Lane decisions, emergency vehicles
   - `05-hazards-damage.md` - Damage types, impulse physics
-  - `06-camera-rendering.md` - Visual style, raytracing
+  - `06-camera-rendering.md` - Visual style, reflections/SSR
   - `07-audio.md` - Audio layers, spatial audio
   - `08-scoring-progression.md` - Score formula, difficulty scaling
   - `09-ui-systems.md` - HUD, autopilot, replay modes

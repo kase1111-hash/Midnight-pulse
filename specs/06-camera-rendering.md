@@ -62,7 +62,7 @@ All motion critically damped per axis.
 - Entire world rendered in wireframe (initial MVP)
 - Solid light volumes, bloom, and additive glows
 - Night-time city with procedural buildings and light grids
-- Dynamic raytracing when available; fallback screen-space
+- Screen-space reflections with distance-based light bounce; SSR as primary path
 - Neon color palette for night aesthetics
 
 ---
@@ -81,17 +81,17 @@ All motion critically damped per axis.
 
 ---
 
-## Raytracing System
+## Reflection System
 
-### When Available
-- Dynamic headlight reflections on wet roads
-- Emergency vehicle light bouncing
-- Tunnel light bounce and reflections
-- Real-time reflection updates
+### Features
+- Distance-based headlight reflections on wet roads (SSR)
+- Emergency vehicle light bounce estimation
+- Tunnel light bounce and reflections (distance-based)
+- Real-time SSR reflection updates
 
 ### Configuration
 ```
-RaytracingState { Enabled: bool, QualityLevel: byte, MaxBounces: int }
+ReflectionState { Enabled: bool, QualityLevel: byte, MaxBounces: int }
 RTLightSource { Color: float3, Intensity: float, Range: float, CastShadows: bool }
 RTReflectionProbe { Position: float3, Range: float, UpdateFrequency: float }
 ```
