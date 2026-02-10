@@ -44,13 +44,13 @@ Whether you're looking for a **night driving simulator** to unwind or a **vaporw
 
 | Feature | Description |
 |---------|-------------|
-| **Raytracing** | Dynamic headlight reflections, emergency light bouncing, SSR fallback |
-| **Multiplayer** | Ghost racing (async), live spectator mode (7 camera modes), leaderboards |
+| **Reflections** | Screen-space reflections, distance-based headlight/emergency light effects |
+| **Multiplayer (Planned)** | Ghost racing, spectator mode, leaderboards (framework only — not yet functional) |
 | **Procedural City** | GPU-light buildings with aggressive LOD (256 buildings, 512 impostors) |
 | **Advanced Damage** | Component-level failures (suspension, steering, tires, engine, transmission) |
 | **Soft-Body Deformation** | Spring-damper physics for visual mesh deformation |
 | **Force Feedback** | Logitech wheel support with dynamic force feedback |
-| **Daily Challenges** | Procedurally generated challenges with leaderboards |
+| **Daily Challenges (Deferred)** | Procedurally generated challenges (deferred to v0.2.0) |
 | **Adaptive Difficulty** | Skill-based scaling for traffic, hazards, and emergency vehicles |
 
 ---
@@ -81,7 +81,7 @@ The specs are organized into focused documents:
 | 03 | [Track Generation](specs/03-track-generation.md) | Hermite splines, forks, tunnels, overpasses |
 | 04 | [Traffic & AI](specs/04-traffic-ai.md) | Lane decisions, emergency vehicles, yielding |
 | 05 | [Hazards & Damage](specs/05-hazards-damage.md) | Impulse physics, component failures, cascade damage |
-| 06 | [Camera & Rendering](specs/06-camera-rendering.md) | Visual style, raytracing, city generation |
+| 06 | [Camera & Rendering](specs/06-camera-rendering.md) | Visual style, reflections/SSR, city generation |
 | 07 | [Audio](specs/07-audio.md) | Layers, spatial audio, reverb zones |
 | 08 | [Scoring & Progression](specs/08-scoring-progression.md) | Score formula, difficulty scaling, challenges |
 | 09 | [UI Systems](specs/09-ui-systems.md) | HUD, autopilot, replay, spectator modes |
@@ -99,11 +99,11 @@ src/
 │   ├── Vehicle/        Player input, autopilot, steering, drift state
 │   ├── Damage/         Zone damage, component health, soft-body
 │   ├── Scoring/        Score session, risk multiplier
-│   ├── Network/        Multiplayer, ghost racing, spectator, leaderboards
+│   ├── Network/        Multiplayer (framework only, deferred to v0.3.0)
 │   ├── Lane/           Lane following, splines
 │   ├── AI/             Traffic AI components
 │   ├── World/          City building components
-│   ├── Presentation/   Rendering, particles, raytracing
+│   ├── Presentation/   Rendering, particles, reflections/SSR
 │   ├── Audio/          Audio state components
 │   ├── Signaling/      Off-screen warning signals
 │   ├── UI/             UI state components
@@ -116,7 +116,7 @@ src/
 │   ├── Presentation/   Camera, rendering, particles, mesh generation
 │   ├── Audio/          Engine, collision, siren, ambient, music
 │   ├── UI/             HUD, screen flow, warnings, performance stats
-│   ├── Network/        Ghost racing, spectator, leaderboards
+│   ├── Network/        Ghost racing, spectator, leaderboards (framework only)
 │   ├── World/          City generation, LOD, lighting
 │   ├── Core/           Game state, mode, world initialization
 │   └── Initialization/ Bootstrap system
@@ -124,7 +124,7 @@ src/
 ├── Buffers/            Dynamic buffer element data
 ├── Archetypes/         Entity archetype definitions
 ├── Input/              Input management, wheel support, force feedback
-├── Rendering/          Raytracing, wireframe, post-processing, skyline
+├── Rendering/          Reflections/SSR, wireframe, post-processing, skyline
 ├── Audio/              Audio manager, clip collections
 ├── Config/             Game constants, gameplay config, visual/audio config
 ├── Save/               Save/load system
@@ -178,7 +178,7 @@ See [Build System](build/README.md) for complete build documentation.
 - **50+ Systems** organized by function (Simulation, Presentation, Audio, UI, Network, World)
 - **21 Component Files** defining 60+ component types
 - **Burst Compiled** hot paths for performance
-- **Deterministic Simulation** for ghost racing and network replication
+- **Deterministic Simulation** for replay playback (ghost racing and network replication deferred)
 - **No Havok Dependency** - custom impulse-based physics
 
 ---
