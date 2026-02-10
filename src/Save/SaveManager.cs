@@ -855,6 +855,11 @@ namespace Nightflow.Save
             var state = entityManager.GetComponentData<Nightflow.Components.DailyChallengeState>(entity);
             var buffer = entityManager.GetBuffer<Nightflow.Components.ChallengeBuffer>(entity);
 
+            // Skip sync when challenge systems are disabled (deferred to v0.2.0)
+            // Avoid overwriting previously saved challenge data with empty state
+            if (buffer.Length == 0 && state.TotalCompleted == 0)
+                return;
+
             var challenges = saveData.Challenges;
             challenges.LastGeneratedDay = state.LastGeneratedDay;
             challenges.TotalCompleted = state.TotalCompleted;

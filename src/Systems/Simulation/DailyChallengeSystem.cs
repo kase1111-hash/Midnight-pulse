@@ -32,6 +32,8 @@ namespace Nightflow.Systems
 
         public void OnCreate(ref SystemState state)
         {
+            state.Enabled = false; // Deferred to v0.2.0 — scope creep cleanup
+
             // Create challenge manager singleton
             var entity = state.EntityManager.CreateEntity();
             state.EntityManager.AddComponentData(entity, new DailyChallengeState
@@ -231,6 +233,11 @@ namespace Nightflow.Systems
     [UpdateAfter(typeof(ScoringSystem))]
     public partial struct ChallengeProgressTrackingSystem : ISystem
     {
+        public void OnCreate(ref SystemState state)
+        {
+            state.Enabled = false; // Deferred to v0.2.0 — scope creep cleanup
+        }
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
@@ -297,6 +304,11 @@ namespace Nightflow.Systems
     public partial struct ChallengeCompletionSystem : ISystem
     {
         private bool wasPlayerActive;
+
+        public void OnCreate(ref SystemState state)
+        {
+            state.Enabled = false; // Deferred to v0.2.0 — scope creep cleanup
+        }
 
         public void OnUpdate(ref SystemState state)
         {

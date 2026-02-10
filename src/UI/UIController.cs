@@ -997,6 +997,13 @@ namespace Nightflow.UI
             var state = entityManager.GetComponentData<DailyChallengeState>(entity);
             var buffer = entityManager.GetBuffer<ChallengeBuffer>(entity);
 
+            // Hide challenge panel when challenge systems are disabled (deferred to v0.2.0)
+            if (buffer.Length == 0 && state.TotalCompleted == 0)
+            {
+                challengePanel.AddToClassList("hidden");
+                return;
+            }
+
             // Update streak
             if (streakValue != null)
             {
