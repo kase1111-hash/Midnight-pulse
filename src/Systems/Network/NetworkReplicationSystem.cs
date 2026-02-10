@@ -36,6 +36,7 @@ namespace Nightflow.Systems
         public void OnCreate(ref SystemState state)
         {
             _timeSinceLastSend = 0f;
+            state.Enabled = false; // Deferred to v0.3.0 — no transport layer
         }
 
         [BurstCompile]
@@ -136,6 +137,11 @@ namespace Nightflow.Systems
         private const float MaxExtrapolation = 0.2f;   // Max prediction time
         private const float PositionCorrectionRate = 10f;
         private const float RotationCorrectionRate = 15f;
+
+        public void OnCreate(ref SystemState state)
+        {
+            state.Enabled = false; // Deferred to v0.3.0 — no transport layer
+        }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -259,6 +265,7 @@ namespace Nightflow.Systems
         public void OnCreate(ref SystemState state)
         {
             _timeSinceLastSend = 0f;
+            state.Enabled = false; // Deferred to v0.3.0 — no transport layer
         }
 
         [BurstCompile]
@@ -318,6 +325,11 @@ namespace Nightflow.Systems
         // Rollback parameters
         private const float MaxPositionError = 1f;    // Max error before rollback
         private const float MaxRotationError = 0.1f;  // Max rotation error (dot product)
+
+        public void OnCreate(ref SystemState state)
+        {
+            state.Enabled = false; // Deferred to v0.3.0 — no transport layer
+        }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -445,6 +457,7 @@ namespace Nightflow.Systems
         public void OnCreate(ref SystemState state)
         {
             _heartbeatTimer = 0f;
+            state.Enabled = false; // Deferred to v0.3.0 — no transport layer
         }
 
         [BurstCompile]

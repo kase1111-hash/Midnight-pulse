@@ -70,7 +70,8 @@ namespace Nightflow.Save
             var saveManager = SaveManager.Instance;
             if (saveManager == null) return;
 
-            // Find or create leaderboard entity
+            // Find leaderboard entity (created by LeaderboardInitSystem)
+            // Guard: if network systems are disabled, singleton may not exist
             Entity leaderboardEntity = Entity.Null;
 
             foreach (var (state, entity) in SystemAPI.Query<RefRO<LeaderboardState>>().WithEntityAccess())
@@ -81,11 +82,9 @@ namespace Nightflow.Save
 
             if (leaderboardEntity == Entity.Null)
             {
-                // Create leaderboard entity if it doesn't exist
-                leaderboardEntity = EntityManager.CreateEntity();
-                EntityManager.AddComponent<LeaderboardState>(leaderboardEntity);
-                EntityManager.AddComponent<LeaderboardTag>(leaderboardEntity);
-                EntityManager.AddBuffer<LeaderboardEntry>(leaderboardEntity);
+                // Leaderboard system may be disabled (deferred to v0.3.0)
+                // Skip sync if no leaderboard entity exists
+                return;
             }
 
             // Get the buffer

@@ -39,6 +39,7 @@ namespace Nightflow.Systems
         public void OnCreate(ref SystemState state)
         {
             _positionUpdateTimer = 0f;
+            state.Enabled = false; // Deferred to v0.3.0 — no multiplayer transport layer
         }
 
         [BurstCompile]
@@ -175,6 +176,11 @@ namespace Nightflow.Systems
             new float3(1f, 0.3f, 1f),     // Magenta
         };
 
+        public void OnCreate(ref SystemState state)
+        {
+            state.Enabled = false; // Deferred to v0.3.0 — ghost spawn is placeholder
+        }
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
@@ -261,6 +267,11 @@ namespace Nightflow.Systems
     [UpdateBefore(typeof(GhostRaceSpawnSystem))]
     public partial struct GhostRunSelectionSystem : ISystem
     {
+        public void OnCreate(ref SystemState state)
+        {
+            state.Enabled = false; // Deferred to v0.3.0
+        }
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
@@ -293,6 +304,11 @@ namespace Nightflow.Systems
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
     public partial struct GhostRunUploadSystem : ISystem
     {
+        public void OnCreate(ref SystemState state)
+        {
+            state.Enabled = false; // Deferred to v0.3.0
+        }
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

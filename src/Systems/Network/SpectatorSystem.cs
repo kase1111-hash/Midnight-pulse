@@ -36,6 +36,11 @@ namespace Nightflow.Systems
         private const float ActionThreshold = 30f;       // Speed for "action" detection
         private const float CrashSwitchDelay = 0.5f;     // Delay after crash to switch
 
+        public void OnCreate(ref SystemState state)
+        {
+            state.Enabled = false; // Deferred to v0.3.0 — requires multiplayer infrastructure
+        }
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
@@ -297,6 +302,7 @@ namespace Nightflow.Systems
         public void OnCreate(ref SystemState state)
         {
             _switchCooldown = 0f;
+            state.Enabled = false; // Deferred to v0.3.0 — requires multiplayer infrastructure
         }
 
         [BurstCompile]
