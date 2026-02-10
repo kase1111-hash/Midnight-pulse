@@ -35,6 +35,7 @@ namespace Nightflow.Systems
         {
             _timeSinceLastFetch = 0f;
             _pendingFetch = false;
+            state.Enabled = false; // Deferred to v0.3.0 — no backend service
         }
 
         [BurstCompile]
@@ -88,6 +89,11 @@ namespace Nightflow.Systems
         // Submission parameters
         private const int MinScoreForSubmission = 100;
         private const float MinDistanceForSubmission = 100f;
+
+        public void OnCreate(ref SystemState state)
+        {
+            state.Enabled = false; // Deferred to v0.3.0 — no backend service
+        }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -144,6 +150,11 @@ namespace Nightflow.Systems
     [UpdateAfter(typeof(LeaderboardSubmissionSystem))]
     public partial struct LeaderboardRankTrackingSystem : ISystem
     {
+        public void OnCreate(ref SystemState state)
+        {
+            state.Enabled = false; // Deferred to v0.3.0
+        }
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
@@ -195,6 +206,11 @@ namespace Nightflow.Systems
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct LeaderboardNavigationSystem : ISystem
     {
+        public void OnCreate(ref SystemState state)
+        {
+            state.Enabled = false; // Deferred to v0.3.0
+        }
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
@@ -225,6 +241,11 @@ namespace Nightflow.Systems
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct RunStatisticsSystem : ISystem
     {
+        public void OnCreate(ref SystemState state)
+        {
+            state.Enabled = false; // Deferred to v0.3.0
+        }
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
