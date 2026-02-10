@@ -20,8 +20,48 @@ env:
   UNITY_VERSION: 2022.3.0f1
 
 jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-test-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-test-
+            Library-
+
+      - name: Run EditMode tests
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          testMode: EditMode
+          unityVersion: ${{ env.UNITY_VERSION }}
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: Test Results
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Test-Results
+          path: artifacts
+          retention-days: 7
+
   build-windows:
     name: Build Windows
+    needs: test
     runs-on: windows-latest
 
     steps:
