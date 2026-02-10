@@ -33,24 +33,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **HUD Overlay** - Speed, score, damage indicators
 - **Replay System** - Input log recording and deterministic playback
 
-#### Post-MVP Features
+#### Post-MVP Features (Complete)
 - **Soft-Body Deformation** - Spring-damper physics for visual mesh deformation
 - **Component Failures** - Suspension, steering, tires, engine, transmission failures
 - **Progressive Handling Degradation** - Per-component handling effects
 - **Cascade Failure Detection** - 3+ component failures trigger crash
-- **Raytracing** - Dynamic headlight reflections, emergency light bouncing
-- **SSR Fallback** - Screen-space reflections for non-RT hardware
-- **Ghost Racing** - Async multiplayer using recorded input logs
-- **Live Spectator Mode** - 7 camera modes (Follow, Cinematic, Overhead, Trackside, Free Cam, First Person, Chase)
-- **Leaderboards** - Multiple categories (High Score, Best Time, Longest Run, Max Speed, Total Distance, Weekly, Friends)
-- **Network Replication** - Input-based deterministic replication
+- **Reflections / SSR** - Distance-based headlight reflections, emergency light bounce estimation, screen-space reflections
 - **Procedural City** - GPU-light buildings (256 buildings, 512 impostors)
 - **City LOD System** - Aggressive LOD (LOD0=50m, LOD1=150m, LOD2=400m, Cull=600m)
 - **City Skyline Renderer** - Star field and moon rendering
 - **Input Rebinding** - Full input rebinding support
 - **Logitech Wheel Support** - SDK integration with force feedback
-- **Daily Challenges** - Procedurally generated challenges with leaderboards
-- **Adaptive Difficulty** - Skill-based scaling for traffic, hazards, and emergency vehicles
+
+#### Post-MVP Features (Framework / Deferred)
+- **Ghost Racing** - Async multiplayer using recorded input logs (framework only — ghost entity spawn not implemented)
+- **Live Spectator Mode** - 7 camera modes (camera logic implemented, requires multiplayer infrastructure)
+- **Leaderboards** - Multiple categories (framework only — no backend integration)
+- **Network Replication** - Input-based deterministic replication (framework only — no transport layer)
+- **Daily Challenges** - Procedurally generated challenges (deferred to v0.2.0 — fully implemented but awaiting core loop validation)
+- **Adaptive Difficulty** - Skill-based scaling (deferred to v0.2.0 — awaiting gameplay data)
 
 #### Architecture
 - 131 C# source files organized in modular ECS architecture
@@ -59,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 20+ entity tags and 10+ buffer types
 - Configuration-driven design with JSON and C# config files
 - Burst-compiled hot paths for performance
-- Deterministic simulation for ghost racing and network replication
+- Deterministic simulation for replay playback (ghost racing and network replication deferred)
 
 #### Documentation
 - Complete technical specification (SPEC-SHEET.md)
@@ -74,12 +75,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Technical Notes
 
-This is the first public alpha release of Nightflow. All core gameplay systems are implemented and functional. The game follows the "no scene reloads" critical rule - crashes result in instant reset with autopilot recovery.
+This is the first public alpha release of Nightflow. Core single-player gameplay systems are implemented. Multiplayer systems (ghost racing, leaderboards, spectator, network replication) are framework scaffolding only and deferred to v0.3.0. The game follows the "no scene reloads" critical rule - crashes result in instant reset with autopilot recovery.
 
 **Known Limitations:**
 - Alpha release - expect bugs and balance issues
 - Performance may vary on lower-end hardware
-- Raytracing requires compatible GPU (SSR fallback available)
+- Reflection system uses SSR (hardware raytracing not yet implemented)
+- Multiplayer systems are framework only (no server/transport layer)
+- Daily challenges and adaptive difficulty deferred until core loop validated
 
 ---
 

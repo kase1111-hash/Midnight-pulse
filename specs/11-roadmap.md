@@ -53,20 +53,24 @@
 - [x] ComponentFailureSystem with cascade failure detection
 - [x] Suspension camera shake effects
 
-### Raytracing - COMPLETE
-- [x] Full RT for dynamic headlight reflections
-- [x] Emergency vehicle light bouncing off wet roads
-- [x] Tunnel light bounce and reflections
-- [x] Screen-space fallback for non-RT hardware
-- [x] RaytracingSystem with SSR fallback integration
+### Reflections & SSR - PARTIAL
+> **Note:** Current implementation uses screen-space reflections and distance-based light bounce estimation, not hardware raytracing. No DXR, BVH, or ray casting is present.
 
-### Multiplayer - COMPLETE
-- [x] Network replication via input logs + deterministic seeds
-- [x] Ghost racing (async multiplayer)
-- [x] Live spectator mode with 7 camera modes
-- [x] Leaderboard integration with multiple categories
-- [x] Replicate ECS state deltas across network
-- [x] Network state synchronization with prediction
+- [ ] Full RT for dynamic headlight reflections (currently SSR-based)
+- [x] Emergency vehicle light bouncing off wet roads (distance-based estimation)
+- [x] Tunnel light bounce and reflections (distance-based estimation)
+- [x] Screen-space fallback for non-RT hardware
+- [x] ReflectionSystem with SSR integration
+
+### Multiplayer - IN PROGRESS (Deferred to v0.3.0)
+> **Note:** These systems are architectural scaffolding. No network transport layer or backend services exist. All server I/O is marked as "external service" in code.
+
+- [ ] Network replication via input logs + deterministic seeds (~70% — framework only, no transport layer)
+- [ ] Ghost racing (async multiplayer) (~40% — spawn logic is placeholder)
+- [ ] Live spectator mode with 7 camera modes (~95% — camera logic complete, untestable without multiplayer)
+- [ ] Leaderboard integration with multiple categories (~30% — framework only, no backend)
+- [ ] Replicate ECS state deltas across network (no transport layer exists)
+- [ ] Network state synchronization with prediction (framework only, no server)
 
 ### Full City - COMPLETE
 - [x] Populate distant silhouettes with actual geometry
@@ -82,7 +86,9 @@
 - [x] Force feedback effects
 - [x] Configurable deadzones
 
-### Challenge System - COMPLETE
+### Challenge System - COMPLETE (Deferred to v0.2.0)
+> **Note:** Fully implemented but deferred until core single-player gameplay loop is validated through playtesting.
+
 - [x] Daily challenge generation
 - [x] Challenge-specific leaderboards
 - [x] Adaptive difficulty system
@@ -96,8 +102,8 @@ The ECS architecture supports clean upgrades:
 | Feature | Status | Implementation |
 |---------|--------|----------------|
 | BeamNG-level damage | Complete | Soft-body with spring-damper physics |
-| Raytracing | Complete | RaytracingSystem + SSR fallback |
-| Multiplayer | Complete | Input-based replication + ghost racing + spectator |
+| Reflections / SSR | Partial | Screen-space reflections + distance-based light bounce estimation |
+| Multiplayer | Deferred (v0.3.0) | Framework only — no transport layer or backend services |
 | Full City | Complete | GPU-light procedural buildings with aggressive LOD |
 | Replay system | Complete | Input log recording with deterministic playback |
 
@@ -127,7 +133,7 @@ The ECS architecture supports clean upgrades:
 
 ### Presentation Systems (25)
 - Camera, Wireframe Render, Procedural Mesh (Road, Vehicle, Hazard, Tunnel, Overpass, Light)
-- Raytracing, Headlight, Lighting, Particles (Tire Smoke, Sparks, Speed Lines)
+- Reflections/SSR, Headlight, Lighting, Particles (Tire Smoke, Sparks, Speed Lines)
 - Crash Flash, Post-Processing, Terminal Rendering
 - Ambient Cycle, City Skyline, Ghost Render, Offscreen Signal
 - UI System
@@ -138,8 +144,8 @@ The ECS architecture supports clean upgrades:
 ### UI Systems (5)
 - Screen Flow, HUD Update, Menu Navigation, Performance Stats, Warning Indicator
 
-### Network Systems (4)
-- Network Replication, Ghost Racing, Spectator, Leaderboard
+### Network Systems (4) — Deferred to v0.3.0
+- Network Replication, Ghost Racing, Spectator, Leaderboard (framework only)
 
 ### World Systems (3)
 - City Generation, City LOD, City Lighting

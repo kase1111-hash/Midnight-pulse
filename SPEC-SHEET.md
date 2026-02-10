@@ -50,7 +50,7 @@ The complete technical specification is organized into focused documents:
 | 03 | [Track Generation](specs/03-track-generation.md) | Hermite splines, procedural segments, forks, tunnels, overpasses |
 | 04 | [Traffic & AI](specs/04-traffic-ai.md) | Traffic AI decisions, emergency vehicles, yielding behavior |
 | 05 | [Hazards & Damage](specs/05-hazards-damage.md) | Hazard types, impulse physics, component failures, crash conditions |
-| 06 | [Camera & Rendering](specs/06-camera-rendering.md) | Camera dynamics, visual style, raytracing, city generation |
+| 06 | [Camera & Rendering](specs/06-camera-rendering.md) | Camera dynamics, visual style, reflections/SSR, city generation |
 | 07 | [Audio](specs/07-audio.md) | Audio layers, spatial audio, event sounds, reverb zones |
 | 08 | [Scoring & Progression](specs/08-scoring-progression.md) | Score formula, risk multipliers, difficulty scaling, challenges |
 | 09 | [UI & Systems](specs/09-ui-systems.md) | HUD, autopilot, replay/ghost, spectator modes, leaderboards |
@@ -61,21 +61,23 @@ The complete technical specification is organized into focused documents:
 
 ## Advanced Features
 
-### Raytracing
-- Dynamic headlight reflections on wet roads
-- Emergency vehicle light bouncing
-- Tunnel light bounce and reflections
-- Screen-space reflections (SSR) fallback for non-RT hardware
-- Integrated RaytracingSystem with quality levels and max bounces
+### Reflections & Screen-Space Effects
+- Distance-based headlight reflections on wet roads (SSR)
+- Emergency vehicle light bounce estimation
+- Tunnel light bounce and reflections (distance-based)
+- Screen-space reflections (SSR) as primary rendering path
+- Integrated ReflectionSystem with quality levels
 
-### Multiplayer
-- Input-based network replication with deterministic seeds
-- Ghost racing (async multiplayer) using recorded input logs
-- Live spectator mode with 7 camera modes:
+### Multiplayer (Framework Only — Deferred to v0.3.0)
+**Status:** Architectural scaffolding only. No network transport layer or backend services exist. All server I/O is marked as "external service" in code.
+
+- Input-based network replication with deterministic seeds (framework only)
+- Ghost racing (async multiplayer) using recorded input logs (~40% complete, spawn logic is placeholder)
+- Live spectator mode with 7 camera modes (~95% complete, untestable without multiplayer):
   - Follow Target, Cinematic, Overhead, Trackside, Free Cam, First Person, Chase
-- Leaderboard integration with multiple categories:
+- Leaderboard integration with multiple categories (~30% complete, no backend):
   - High Score, Best Time, Longest Run, Max Speed, Total Distance, Weekly, Friends
-- Network state synchronization with prediction and rollback
+- Network state synchronization with prediction and rollback (framework only)
 
 ### Procedural City
 - GPU-light building generation (max 256 buildings, 512 impostors)
@@ -133,9 +135,9 @@ Highest score/distance before debilitating crash.
 1. Input -> 2. Autopilot -> 3. Steering -> 4. Lane Magnetism -> 5. Movement -> 6. Collision -> 7. Impulse -> 8. Damage -> 9. Component Failure -> 10. Crash -> 11. Track Gen -> 12. Traffic AI -> 13. Emergency Vehicles -> 14. Hazards -> 15. Scoring -> 16. Risk Events -> 17. Signaling -> 18. Replay Recording
 
 **Presentation:**
-19. Camera -> 20. Wireframe Render -> 21. Procedural Mesh -> 22. Raytracing / SSR -> 23. City LOD -> 24. Lighting -> 25. Particles -> 26. Post-Processing -> 27. Audio -> 28. UI
+19. Camera -> 20. Wireframe Render -> 21. Procedural Mesh -> 22. Reflections / SSR -> 23. City LOD -> 24. Lighting -> 25. Particles -> 26. Post-Processing -> 27. Audio -> 28. UI
 
-**Network (when multiplayer active):**
+**Network (deferred to v0.3.0 — framework only, not yet functional):**
 - Input Capture & Replication
 - State Synchronization
 - Prediction & Reconciliation
@@ -205,9 +207,9 @@ Failure when Health < 0.1
 | Group | Systems |
 |-------|---------|
 | Simulation | Input, Autopilot, Steering, Lane Magnetism, Movement, Collision, Impulse, Damage, Crash, Track Gen, Traffic, Hazards, Scoring, Signaling, Replay |
-| Presentation | Camera, Wireframe, Procedural Mesh, Raytracing, City, Lighting, Particles, Post-Processing, UI |
+| Presentation | Camera, Wireframe, Procedural Mesh, Reflections/SSR, City, Lighting, Particles, Post-Processing, UI |
 | Audio | Engine, Collision, Siren, Ambient, Music, UI Audio |
-| Network | Replication, Ghost Racing, Spectator, Leaderboard |
+| Network (Deferred) | Replication, Ghost Racing, Spectator, Leaderboard (framework only) |
 | World | City Generation, LOD, Lighting |
 
 ---

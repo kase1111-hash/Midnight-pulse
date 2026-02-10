@@ -4,7 +4,7 @@
 **Auditor:** Claude (Automated Code Review)
 **Project Version:** 0.1.0-alpha
 **Scope:** Correctness and fitness for purpose
-**Status:** All identified issues have been FIXED
+**Status:** Memory management issues fixed. Testing and validation recommendations remain UNADDRESSED.
 
 ---
 
@@ -171,7 +171,7 @@ Dynamic buffers can grow unbounded in certain scenarios. The codebase properly c
 | Dynamic music | MusicSystem with intensity layers | ✅ Implemented |
 | Traffic AI | Lane scoring with hysteresis | ✅ Sophisticated AI |
 | Component damage | Phase 2 damage with failures | ✅ Full system |
-| Ghost racing | Input log recording/playback | ✅ Framework complete |
+| Ghost racing | Input log recording/playback | ⚠️ Framework partial (~40% — spawn is placeholder) |
 
 ### Critical Rule Enforcement
 
@@ -236,14 +236,18 @@ The most critical game design rule ("forward velocity >= 8 m/s always") is prope
 
 ### Ghost Racing System (`GhostRacingSystem.cs`)
 
-**Status:** Framework complete, some placeholder code
+**Status:** Framework partial — ghost entity spawn is placeholder, leaderboard has no backend
 
 The system includes:
-- Race position tracking
-- Ghost visibility based on distance
-- Input log-based determinism
+- Race position tracking (functional)
+- Ghost visibility based on distance (functional)
+- Input log-based determinism (functional)
 
-**Note:** Some methods have placeholder implementations (marked with comments like "would be created here").
+**Critical gaps:**
+- Ghost spawn logic is placeholder (GhostRacingSystem line 225: "Ghost entity would be created here")
+- Leaderboard submission is placeholder (LeaderboardSystem line 66: "Actual fetch would be performed by external service")
+- No network transport layer exists
+- These features should NOT be marked "COMPLETE" in roadmap documentation
 
 ---
 
@@ -259,14 +263,16 @@ The system includes:
    - `SegmentLength` in GameBootstrapSystem
    - `LanesPerSegment` in GameBootstrapSystem
 
-### Medium Priority
+### Medium Priority — NOT ADDRESSED as of v0.1.0-alpha
 
 3. **Add unit tests** for critical systems:
    - Scoring calculation
    - Lane magnetism physics
    - Collision detection
+   - **Status: NOT ADDRESSED** — No test framework, no test files, no test stage in CI/CD
 
 4. **Add static analysis** to CI pipeline (e.g., SonarQube, CodeClimate)
+   - **Status: NOT ADDRESSED** — CI/CD pipeline has no validation stage
 
 ### Low Priority
 
@@ -310,7 +316,7 @@ The code demonstrates professional software engineering practices with:
 - Professional build/CI pipeline
 - Proper physics and game logic implementation
 
-**Recommendation:** Proceed with development after addressing the 2 medium-priority memory management issues related to EntityCommandBuffer disposal.
+**Recommendation:** Address medium-priority testing and validation gaps before proceeding with feature development. Memory management issues have been fixed, but the project lacks any automated test coverage and multiplayer features are incomplete.
 
 ---
 
@@ -341,7 +347,7 @@ The following issues identified in this audit have been resolved:
 - Added `AutopilotRecoverySpeed = 20f` constant
 - Replaced hardcoded `8f` with `GameConstants.MinForwardSpeed` in CrashSystem.cs
 
-**All medium and low severity issues have been addressed.**
+**Memory management and constant reference issues have been addressed. Testing recommendations (items 3-4) remain unaddressed.**
 
 ---
 
