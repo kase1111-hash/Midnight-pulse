@@ -7,7 +7,7 @@ A **synthwave driving game** featuring procedural night highway generation for a
 **Genre:** Endless **procedural driving** / **night driving game** (flow runner)
 **Core Inspiration:** Subway Surfers x BeamNG x OutRun x high-speed night aesthetics
 **Engine:** Unity DOTS 1.0+ (HDRP/Entities.Graphics)
-**Version:** 0.1.0-alpha (January 2026)
+**Version:** 0.1.0-alpha (2026-01-02)
 
 ---
 
@@ -45,7 +45,7 @@ Whether you're looking for a **night driving simulator** to unwind or a **vaporw
 | Feature | Description |
 |---------|-------------|
 | **Reflections** | Screen-space reflections, distance-based headlight/emergency light effects |
-| **Multiplayer (Planned)** | Ghost racing, spectator mode, leaderboards (framework only — not yet functional) |
+| **Multiplayer (Deferred)** | Ghost racing, spectator mode, leaderboards (framework scaffolding only — deferred to v0.3.0, no transport layer or backend) |
 | **Procedural City** | GPU-light buildings with aggressive LOD (256 buildings, 512 impostors) |
 | **Advanced Damage** | Component-level failures (suspension, steering, tires, engine, transmission) |
 | **Soft-Body Deformation** | Spring-damper physics for visual mesh deformation |
@@ -175,7 +175,7 @@ See [Build System](build/README.md) for complete build documentation.
 ## Architecture Highlights
 
 - **131 C# Files** across a modular ECS architecture
-- **50+ Systems** organized by function (Simulation, Presentation, Audio, UI, Network, World)
+- **70+ Systems** organized by function (Simulation, Presentation, Audio, UI, Network, World)
 - **21 Component Files** defining 60+ component types
 - **Burst Compiled** hot paths for performance
 - **Deterministic Simulation** for replay playback (ghost racing and network replication deferred)

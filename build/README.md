@@ -98,11 +98,11 @@ The build compiles a Unity DOTS project with the following structure:
 | Directory | Contents |
 |-----------|----------|
 | `src/Components/` | 21 ECS component files (60+ types) |
-| `src/Systems/` | 50+ ECS systems |
+| `src/Systems/` | 70+ ECS systems |
 | `src/Tags/` | Entity tag components |
 | `src/Buffers/` | Dynamic buffer elements |
 | `src/Input/` | Input management and wheel support |
-| `src/Rendering/` | Raytracing and wireframe systems |
+| `src/Rendering/` | Screen-space reflections and wireframe systems |
 | `src/Audio/` | Audio management |
 | `src/Config/` | Game configuration |
 
@@ -110,12 +110,11 @@ Total: **131 C# source files**
 
 ## Customizing the Installer
 
-Edit `installer.iss` to customize:
-
-- **Icons**: Add custom installer images
-- **License**: Add `LicenseFile` directive
+Edit `installer.iss` to customize. Note that custom icons and license files are not included in the repository by default — you need to create them.
 
 ### Adding a License Agreement
+
+Create a `LICENSE.txt` in the project root, then add to `installer.iss`:
 
 ```iss
 [Setup]
@@ -123,6 +122,8 @@ LicenseFile=..\LICENSE.txt
 ```
 
 ### Adding Custom Icon
+
+Create an `.ico` file (e.g., at `Assets/Icons/game.ico`), then add to `installer.iss`:
 
 ```iss
 [Setup]
@@ -146,6 +147,12 @@ build.bat --unity "C:\Program Files\Unity\Hub\Editor\2023.2.0f1\Editor\Unity.exe
 2. Ensure all scenes are added to Build Settings in Unity
 3. Verify Entities package is properly installed
 4. Confirm HDRP is configured correctly
+
+### Unity DOTS Issues
+
+- **Burst compilation errors:** Ensure no managed types (strings, classes) are used in `[BurstCompile]` systems. Check for `ref` vs value type mismatches.
+- **Entity query failures:** Verify components are registered and that `RequireForUpdate<T>()` is called in `OnCreate` for singleton dependencies.
+- **NativeContainer leaks:** Check that all `EntityCommandBuffer` and `NativeList` allocations are disposed, preferably in try-finally blocks.
 
 ### Installer Fails
 

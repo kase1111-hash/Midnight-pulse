@@ -50,7 +50,7 @@ The core gameplay loop is real, not stubbed:
 
 ### Code Quality: Deceptive in peripheral systems
 
-- **RaytracingSystem.cs** — Claims "full RT for dynamic headlight reflections." Actually implements distance-based reflection calculations and SSR. No ray casting, no BVH, no DXR calls. The code is fine for what it is (screen-space reflections), but the naming and comments are misleading.
+- **ReflectionSystem.cs** — Implements distance-based reflection calculations and SSR. No ray casting, no BVH, no DXR calls. The code is appropriate for what it does (screen-space reflections and distance-based light bounce estimation).
 - **GhostRacingSystem.cs** (~40% complete) — Contains placeholder spawn code. Comments read "Ghost entity would be created here." Ghost spawning logic does not create entities. Marked "COMPLETE" in roadmap.
 - **LeaderboardSystem.cs** (~30% complete) — Framework scaffolding only. Comments: "Actual fetch would be performed by external service." No server integration. Marked "COMPLETE" in roadmap.
 - **NetworkReplicationSystem.cs** (~70% complete) — Has input capture/apply systems and prediction scaffolding, but requires an external transport layer that doesn't exist.
@@ -121,7 +121,7 @@ Only essential Unity packages (Entities, Burst, Collections, Mathematics, Transf
 - **Network/SpectatorSystem.cs** — No players to spectate. Delete entirely. Revisit post-launch.
 - **Network/NetworkReplicationSystem.cs** — No transport layer. Delete. This is architecture for a game that doesn't exist yet.
 - **KEYWORDS.md** — SEO optimization for a pre-alpha game with no builds.
-- **"Raytracing" branding** — Rename RaytracingSystem.cs to ReflectionSystem.cs. Remove all "raytracing" claims from documentation. It's SSR with light bounce estimation.
+- **"Raytracing" branding** — Remove remaining "raytracing" claims from documentation. The system file is correctly named `ReflectionSystem.cs` and implements SSR with light bounce estimation.
 
 ### DEFER
 

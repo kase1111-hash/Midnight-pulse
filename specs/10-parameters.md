@@ -2,11 +2,13 @@
 
 > Part of the [Nightflow Technical Specification](../SPEC-SHEET.md)
 
-Complete reference of all tuning values and defaults.
+Complete reference of all tuning values and defaults. Source files are noted for each section to enable cross-referencing with the implementation.
 
 ---
 
 ## Core Game Constants
+
+> **Source:** `src/Config/GameConstants.cs`
 
 | Parameter | Value | Purpose |
 |-----------|-------|---------|
@@ -23,6 +25,8 @@ Complete reference of all tuning values and defaults.
 
 ## Lane Magnetism
 
+> **Source:** `src/Systems/Simulation/LaneMagnetismSystem.cs`, `src/Config/GameplayConfig.cs`
+
 | Parameter | Value |
 |-----------|-------|
 | omega | 8.0 |
@@ -37,6 +41,8 @@ Complete reference of all tuning values and defaults.
 
 ## Lane Change
 
+> **Source:** `src/Systems/Simulation/LaneChangeSystem.cs`
+
 | Parameter | Value |
 |-----------|-------|
 | Steering trigger | 0.35 |
@@ -45,12 +51,14 @@ Complete reference of all tuning values and defaults.
 | Min duration | 0.45 s |
 | Max duration | 1.0 s |
 | Lane width | 3.6 m |
-| Fork magnetism | 70% |
+| Fork magnetism | 70% (strength of lane pull at road forks) |
 | Lane change cooldown | 0.2 s |
 
 ---
 
 ## Drift / Yaw
+
+> **Source:** `src/Systems/Simulation/VehicleMovementSystem.cs`
 
 | Parameter | Value |
 |-----------|-------|
@@ -65,6 +73,8 @@ Complete reference of all tuning values and defaults.
 ---
 
 ## Camera
+
+> **Source:** `src/Systems/Presentation/CameraSystem.cs`
 
 | Parameter | Value |
 |-----------|-------|
@@ -87,6 +97,8 @@ Complete reference of all tuning values and defaults.
 
 ## Emergency Vehicles
 
+> **Source:** `src/Systems/Simulation/EmergencyVehicleSystem.cs`
+
 | Parameter | Value |
 |-----------|-------|
 | Detection distance (d_max) | 120 m |
@@ -103,6 +115,8 @@ Complete reference of all tuning values and defaults.
 ---
 
 ## Hazards / Damage
+
+> **Source:** `src/Systems/Simulation/ImpulseSystem.cs`, `src/Systems/Simulation/DamageSystem.cs`
 
 | Parameter | Value |
 |-----------|-------|
@@ -128,6 +142,8 @@ Complete reference of all tuning values and defaults.
 
 ## Component Health
 
+> **Source:** `src/Systems/Simulation/ComponentFailureSystem.cs`
+
 | Parameter | Value |
 |-----------|-------|
 | Failure threshold | 0.1 |
@@ -142,6 +158,8 @@ Complete reference of all tuning values and defaults.
 
 ## Soft-Body Deformation
 
+> **Source:** `src/Systems/Simulation/SoftBodyDeformationSystem.cs`
+
 | Parameter | Value |
 |-----------|-------|
 | Spring constant | 8.0 |
@@ -150,6 +168,8 @@ Complete reference of all tuning values and defaults.
 ---
 
 ## Traffic AI
+
+> **Source:** `src/Systems/Simulation/TrafficAISystem.cs`
 
 | Weight | Value |
 |--------|-------|
@@ -175,6 +195,8 @@ Complete reference of all tuning values and defaults.
 
 ## Scoring
 
+> **Source:** `src/Systems/Simulation/ScoringSystem.cs`, `src/Systems/Simulation/RiskEventSystem.cs`
+
 | Parameter | Value |
 |-----------|-------|
 | Cruise multiplier | 1.0x |
@@ -198,6 +220,8 @@ Complete reference of all tuning values and defaults.
 ---
 
 ## Procedural Generation
+
+> **Source:** `src/Systems/Simulation/TrackGenerationSystem.cs`, `src/Utilities/SplineUtilities.cs`
 
 | Parameter | Value |
 |-----------|-------|
@@ -233,6 +257,8 @@ Complete reference of all tuning values and defaults.
 
 ## City Generation
 
+> **Source:** `src/Systems/World/CityGenerationSystem.cs`, `src/Systems/World/CityLODSystem.cs`
+
 | Parameter | Value |
 |-----------|-------|
 | Max buildings | 256 |
@@ -246,6 +272,8 @@ Complete reference of all tuning values and defaults.
 
 ## Network
 
+> **Source:** `src/Systems/Network/` (framework only — deferred to v0.3.0, no transport layer or backend)
+
 | Parameter | Value |
 |-----------|-------|
 | Tick rate | 60 ticks/sec |
@@ -257,6 +285,8 @@ Complete reference of all tuning values and defaults.
 ---
 
 ## Difficulty Scaling
+
+> **Source:** `src/Systems/Simulation/AdaptiveDifficultySystem.cs`
 
 | Parameter | Value |
 |-----------|-------|
