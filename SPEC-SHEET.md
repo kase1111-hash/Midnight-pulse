@@ -1,7 +1,7 @@
 # Nightflow - Master Technical Specification
 
 **Version:** 0.1.0-alpha
-**Date:** January 2026
+**Date:** 2026-01-02
 **Copyright:** (c) 2025-2026 Kase Branham. All rights reserved.
 
 ---
@@ -198,7 +198,7 @@ Failure when Health < 0.1
 |--------|-------|
 | C# Files | 131 |
 | Component Files | 21 (60+ component types) |
-| Systems | 50+ |
+| Systems | 70+ |
 | Tags | 20+ |
 | Buffer Types | 10+ |
 

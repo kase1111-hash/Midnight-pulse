@@ -53,14 +53,14 @@
 - [x] ComponentFailureSystem with cascade failure detection
 - [x] Suspension camera shake effects
 
-### Reflections & SSR - PARTIAL
-> **Note:** Current implementation uses screen-space reflections and distance-based light bounce estimation, not hardware raytracing. No DXR, BVH, or ray casting is present.
+### Reflections & SSR - COMPLETE
+> **Note:** Implementation uses screen-space reflections (SSR) and distance-based light bounce estimation. Hardware raytracing (DXR/BVH) is not implemented and would be a future enhancement.
 
-- [ ] Full RT for dynamic headlight reflections (currently SSR-based)
+- [x] Distance-based headlight reflections on wet roads (SSR)
 - [x] Emergency vehicle light bouncing off wet roads (distance-based estimation)
 - [x] Tunnel light bounce and reflections (distance-based estimation)
-- [x] Screen-space fallback for non-RT hardware
-- [x] ReflectionSystem with SSR integration
+- [x] ReflectionSystem with configurable SSR quality levels
+- [ ] Hardware raytracing support (future enhancement, not currently planned)
 
 ### Multiplayer - IN PROGRESS (Deferred to v0.3.0)
 > **Note:** These systems are architectural scaffolding. No network transport layer or backend services exist. All server I/O is marked as "external service" in code.
@@ -116,7 +116,7 @@ The ECS architecture supports clean upgrades:
 | C# Files | 131 |
 | Component Files | 21 |
 | Component Types | 60+ |
-| Systems | 50+ |
+| Systems | 70+ |
 | Tags | 20+ |
 | Buffer Types | 10+ |
 

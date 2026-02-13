@@ -71,7 +71,7 @@ All motion critically damped per axis.
 
 | Light Type | Description |
 |------------|-------------|
-| Headlights | Dynamic, raytraced (if available) |
+| Headlights | Dynamic, distance-based reflections (SSR) |
 | Streetlights | Static ambient |
 | City glow | Distant illumination from buildings |
 | Emergency strobes | Red/blue or red/white flashing |
@@ -92,18 +92,12 @@ All motion critically damped per axis.
 ### Configuration
 ```
 ReflectionState { Enabled: bool, QualityLevel: byte, MaxBounces: int }
-RTLightSource { Color: float3, Intensity: float, Range: float, CastShadows: bool }
-RTReflectionProbe { Position: float3, Range: float, UpdateFrequency: float }
+SSRConfig { Enabled: bool, StepSize: float, MaxSteps: int }
 ```
 
-### SSR Fallback
-- Enabled automatically on non-RT hardware
-- Screen-space reflections with configurable step size
-- Maximum step count for performance control
-
-```
-SSRFallback { Enabled: bool, StepSize: float, MaxSteps: int }
-```
+> **Note:** The reflection system uses screen-space reflections (SSR) and distance-based
+> light bounce estimation. Hardware raytracing (DXR/BVH) is not implemented.
+> See `src/Systems/Presentation/ReflectionSystem.cs` for implementation details.
 
 ---
 

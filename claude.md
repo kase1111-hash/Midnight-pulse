@@ -35,7 +35,7 @@ src/
 │   ├── Presentation/   # Camera, rendering, particles, post-processing
 │   ├── Audio/          # Audio playback and mixing
 │   ├── UI/             # HUD, menus, performance stats
-│   ├── Network/        # Multiplayer, ghost racing, leaderboards
+│   ├── Network/        # Multiplayer (framework only — deferred to v0.3.0)
 │   └── World/          # City generation, LOD, lighting
 ├── Tags/               # Entity tag components (20+)
 ├── Buffers/            # Dynamic buffer types (10+)
@@ -106,8 +106,8 @@ public struct DriftState : IComponentData
 // Tags end with "Tag"
 public struct PlayerVehicleTag : IComponentData
 
-// Constants: ALL_CAPS_SNAKE_CASE
-public const float LANE_WIDTH = 3.6f;
+// Constants: PascalCase (in GameConstants.cs)
+public const float LaneWidth = 3.6f;
 ```
 
 ### Namespaces
@@ -188,6 +188,27 @@ public partial struct MySystem : ISystem
 3. Add XML documentation
 4. Reference constants from `GameConstants.cs`
 
+Example — adding a weather component:
+
+```csharp
+using Unity.Entities;
+
+namespace Nightflow.Components
+{
+    /// <summary>
+    /// Tracks current weather conditions for visual and audio effects.
+    /// </summary>
+    public struct WeatherState : IComponentData
+    {
+        /// <summary>Rain intensity from 0 (dry) to 1 (heavy rain).</summary>
+        public float RainIntensity;
+
+        /// <summary>Road wetness affects reflection strength in ReflectionSystem.</summary>
+        public float RoadWetness;
+    }
+}
+```
+
 ### Adding a New System
 
 1. Create in `src/Systems/{Group}/`
@@ -196,6 +217,64 @@ public partial struct MySystem : ISystem
 4. Mark with `[BurstCompile]` for hot paths
 5. Use `SystemAPI.Query<>` for entity iteration
 
+Example — a system that reads velocity and updates a custom component:
+
+```csharp
+using Unity.Burst;
+using Unity.Entities;
+using Unity.Mathematics;
+using Nightflow.Components;
+using Nightflow.Config;
+
+namespace Nightflow.Systems
+{
+    [BurstCompile]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(VehicleMovementSystem))]
+    public partial struct WindEffectSystem : ISystem
+    {
+        public void OnCreate(ref SystemState state)
+        {
+            state.RequireForUpdate<WeatherState>();
+        }
+
+        [BurstCompile]
+        public void OnUpdate(ref SystemState state)
+        {
+            float deltaTime = SystemAPI.Time.DeltaTime;
+
+            foreach (var (weather, velocity) in
+                SystemAPI.Query<RefRW<WeatherState>, RefRO<VehicleVelocity>>())
+            {
+                float speed = velocity.ValueRO.Forward;
+                weather.ValueRW.RoadWetness = math.saturate(
+                    weather.ValueRO.RainIntensity * 0.8f
+                );
+            }
+        }
+
+        public void OnDestroy(ref SystemState state) { }
+    }
+}
+```
+
+### Using EntityCommandBuffer Safely
+
+Always dispose ECB in a try-finally block:
+
+```csharp
+var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
+try
+{
+    // ... entity operations ...
+    ecb.Playback(state.EntityManager);
+}
+finally
+{
+    ecb.Dispose();
+}
+```
+
 ### Modifying Game Constants
 
 Edit `src/Config/GameConstants.cs` - never use magic numbers directly in systems.
@@ -203,6 +282,11 @@ Edit `src/Config/GameConstants.cs` - never use magic numbers directly in systems
 ### Adding a New Tag
 
 Create in `src/Tags/EntityTags.cs` as empty struct implementing `IComponentData`.
+
+```csharp
+/// <summary>Marks entities affected by weather.</summary>
+public struct WeatherAffectedTag : IComponentData { }
+```
 
 ## Critical Rules
 
@@ -214,4 +298,4 @@ Create in `src/Tags/EntityTags.cs` as empty struct implementing `IComponentData`
 
 ## Version
 
-Current: 0.1.0-alpha (January 2026)
+Current: 0.1.0-alpha (2026-01-02)
