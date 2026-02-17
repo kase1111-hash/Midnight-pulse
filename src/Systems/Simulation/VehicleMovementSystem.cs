@@ -141,8 +141,9 @@ namespace Nightflow.Systems
                 }
 
                 // Natural deceleration (aerodynamic drag) - reduced in Redline mode
+                // Use exponential decay for framerate independence
                 float drag = isRedlineMode ? RedlineDragCoefficient : DragCoefficient;
-                vel.Forward -= vel.Forward * drag;
+                vel.Forward *= math.exp(-drag * deltaTime);
 
                 // =============================================================
                 // Forward Velocity Constraint (CRITICAL)
@@ -241,8 +242,8 @@ namespace Nightflow.Systems
                 }
                 else
                 {
-                    // Decay lateral velocity when not drifting
-                    vel.Lateral *= (1f - 3f * deltaTime);
+                    // Decay lateral velocity when not drifting (framerate-independent)
+                    vel.Lateral *= math.exp(-3f * deltaTime);
                     drift.SlipAngle = 0f;
                 }
 
@@ -297,8 +298,8 @@ namespace Nightflow.Systems
                 quaternion yawRot = quaternion.RotateY(drift.YawOffset);
                 quaternion targetRot = math.mul(trackRot, yawRot);
 
-                // Smooth rotation blend
-                float rotBlend = drift.IsDrifting ? 1f : 8f * deltaTime;
+                // Smooth rotation blend (framerate-independent)
+                float rotBlend = drift.IsDrifting ? 5f * deltaTime : 8f * deltaTime;
                 transform.ValueRW.Rotation = math.slerp(
                     transform.ValueRO.Rotation,
                     targetRot,
@@ -336,8 +337,8 @@ namespace Nightflow.Systems
                 float3 forward = math.mul(transform.ValueRO.Rotation, new float3(0, 0, 1));
                 transform.ValueRW.Position += forward * velocity.ValueRO.Forward * deltaTime;
 
-                // Decay lateral velocity
-                velocity.ValueRW.Lateral *= 0.95f;
+                // Decay lateral velocity (framerate-independent)
+                velocity.ValueRW.Lateral *= math.exp(-3f * deltaTime);
             }
         }
     }

@@ -109,7 +109,7 @@ namespace Nightflow.Systems
                 // At 50% health: reduced max angle, slower response
                 // At failure: severely limited steering
                 float steeringHealthFactor = failures.HasFailed(ComponentFailures.Steering)
-                    ? 0.3f  // Steering failed: very limited control
+                    ? 0.15f  // Steering failed: severely limited control
                     : 0.3f + (health.Steering * 0.7f);  // Gradual degradation
 
                 // Front damage also reduces steering (from original spec)
@@ -193,9 +193,10 @@ namespace Nightflow.Systems
 
                             if (!isBlocked)
                             {
-                                // Calculate speed-aware duration
+                                // Calculate speed-aware duration per spec: T = T_base × (v / v_ref)
+                                // Higher speed → longer duration (harder to change lanes at speed)
                                 float speed = velocity.ValueRO.Forward;
-                                float duration = BaseDuration * (ReferenceSpeed / math.max(speed, 10f));
+                                float duration = BaseDuration * (speed / ReferenceSpeed);
                                 duration = math.clamp(duration, MinDuration, MaxDuration);
 
                                 // Start lane change

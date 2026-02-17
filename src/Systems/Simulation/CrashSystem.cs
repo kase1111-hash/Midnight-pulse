@@ -72,16 +72,14 @@ namespace Nightflow.Systems
                         Entity hazardEntity = collision.ValueRO.OtherEntity;
 
                         // Validate hazard entity before accessing components
-                        if (hazardEntity == Entity.Null)
+                        if (hazardEntity == Entity.Null ||
+                            !state.EntityManager.Exists(hazardEntity))
                         {
-                            // Collision occurred but entity reference is invalid - skip hazard check
-                            // This can happen if hazard was destroyed between collision detection and crash evaluation
+                            // Collision entity is null or was destroyed — skip hazard check
                         }
                         else if (!SystemAPI.HasComponent<Hazard>(hazardEntity))
                         {
-                            // Entity exists but missing Hazard component - data integrity issue
-                            // Log for debugging but continue processing other crash conditions
-                            UnityEngine.Debug.LogWarning($"[CrashSystem] Collision entity {hazardEntity.Index} missing Hazard component");
+                            // Entity exists but missing Hazard component
                         }
                         else
                         {
@@ -99,9 +97,11 @@ namespace Nightflow.Systems
                     // =============================================================
                     // Condition B: Structural Damage Exceeded
                     // Damage.Total > D_max
+                    // Only set if no higher-priority reason already assigned
                     // =============================================================
 
-                    if (damage.ValueRO.Total > crashable.ValueRO.CrashThreshold)
+                    if (reason == CrashReason.None &&
+                        damage.ValueRO.Total > crashable.ValueRO.CrashThreshold)
                     {
                         reason = CrashReason.TotalDamage;
                     }
@@ -109,6 +109,7 @@ namespace Nightflow.Systems
                     // =============================================================
                     // Condition C: Compound Failure
                     // |ψ| > ψ_fail AND v_f ≈ v_min AND Damage.Total > 0.6×D_max
+                    // Only set if no higher-priority reason already assigned
                     // =============================================================
 
                     float yawThreshold = crashable.ValueRO.YawFailThreshold;
@@ -118,7 +119,7 @@ namespace Nightflow.Systems
                     bool speedFail = velocity.ValueRO.Forward <= GameConstants.MinForwardSpeed + 1f;
                     bool damageFail = damage.ValueRO.Total > damageThreshold;
 
-                    if (yawFail && speedFail && damageFail)
+                    if (reason == CrashReason.None && yawFail && speedFail && damageFail)
                     {
                         reason = CrashReason.CompoundFailure;
                     }

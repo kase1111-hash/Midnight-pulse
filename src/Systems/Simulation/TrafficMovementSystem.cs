@@ -148,9 +148,9 @@ namespace Nightflow.Systems
                 // Lateral movement
                 transform.ValueRW.Position += right * velocity.ValueRO.Lateral * deltaTime;
 
-                // Keep on track height
+                // Keep on track height (use updated position, not stale vehiclePos)
                 float3 idealPos = splinePos + right * currentLateral + up * 0.5f;
-                float heightError = idealPos.y - vehiclePos.y;
+                float heightError = idealPos.y - transform.ValueRO.Position.y;
                 transform.ValueRW.Position += new float3(0, heightError * 5f * deltaTime, 0);
 
                 // =============================================================

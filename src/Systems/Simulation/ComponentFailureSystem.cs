@@ -143,12 +143,10 @@ namespace Nightflow.Systems
                     // Check for Critical/Cascade Failure → Crash
                     // =============================================================
 
-                    // Critical failure: steering OR suspension failed
+                    // Critical failure: steering AND suspension both failed
                     bool hasCriticalFailure =
-                        ((newFailures & ComponentFailures.Steering) != 0 &&
-                         (previousFailures & ComponentFailures.Steering) == 0) ||
-                        ((newFailures & ComponentFailures.Suspension) != 0 &&
-                         (previousFailures & ComponentFailures.Suspension) == 0);
+                        (newFailures & ComponentFailures.Steering) != 0 &&
+                        (newFailures & ComponentFailures.Suspension) != 0;
 
                     // Cascade failure: 3+ components failed
                     int failureCount = math.countbits((int)newFailures);

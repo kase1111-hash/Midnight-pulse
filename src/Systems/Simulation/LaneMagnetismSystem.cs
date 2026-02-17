@@ -219,7 +219,7 @@ namespace Nightflow.Systems
 
                 // Blend toward ideal position (don't teleport)
                 float positionBlend = m * 2f * deltaTime;
-                float3 lateralCorrection = right * (newLateralVel * deltaTime);
+                float3 lateralCorrection = right * (newLateralVel * deltaTime) * positionBlend;
 
                 transform.ValueRW.Position += lateralCorrection;
 
@@ -233,7 +233,9 @@ namespace Nightflow.Systems
                     targetRot = math.mul(targetRot, yawOffset);
                 }
 
-                float rotationBlend = (1f - mDrift) * 5f * deltaTime;
+                // mDrift is 0.3 when drifting, 1.0 when not — use mDrift directly
+                // so normal driving gets full blend and drifting gets reduced blend
+                float rotationBlend = mDrift * 5f * deltaTime;
                 transform.ValueRW.Rotation = math.slerp(
                     transform.ValueRO.Rotation,
                     targetRot,

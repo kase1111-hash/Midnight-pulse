@@ -65,6 +65,7 @@ namespace Nightflow.Systems
         private int _segmentsSinceFork;
         private bool _inTunnel;
         private int _tunnelRemaining;
+        private int _tunnelTotal;
 
         private uint _globalSeed;
         private int _nextSegmentIndex;
@@ -318,10 +319,13 @@ namespace Nightflow.Systems
             {
                 segmentType = 2; // Tunnel
                 _inTunnel = true;
-                // Tunnel length: 2-4 segments
-                _tunnelRemaining = 1 + (int)(SplineUtilities.HashToFloat(
+                // Tunnel length: 2-4 segments (this first segment counts as one)
+                int totalTunnelLength = 2 + (int)(SplineUtilities.HashToFloat(
                     SplineUtilities.Hash(segHash, 11)) * 3);
+                _tunnelTotal = totalTunnelLength;
+                _tunnelRemaining = totalTunnelLength - 1; // minus this segment
                 _segmentsSinceTunnel = 0;
+                if (_tunnelRemaining == 0) _inTunnel = false;
             }
             // Check for overpass (min 8 segments since last, not in tunnel)
             else if (_segmentsSinceOverpass >= 8 && !_inTunnel &&
@@ -441,8 +445,8 @@ namespace Nightflow.Systems
                         Width = TunnelWidth,
                         LightSpacing = TunnelLightSpacing,
                         LightReduction = 0.3f,
-                        IsEntry = _tunnelRemaining == 2, // First segment of tunnel
-                        IsExit = _tunnelRemaining == 0   // Last segment of tunnel
+                        IsEntry = _tunnelRemaining == _tunnelTotal - 1 || _tunnelTotal == 1,
+                        IsExit = _tunnelRemaining == 0
                     });
                     break;
 

@@ -111,6 +111,7 @@ namespace Nightflow.Systems
         // Perfect segment tracking
         private int _lastSegmentIndex;
         private float _segmentDamageAccum;
+        private float _segmentStartDamage;
 
         // Lane weaving tracking (circular buffer for last 8 lane changes)
         private const int LaneChangeHistorySize = 8;
@@ -147,6 +148,7 @@ namespace Nightflow.Systems
             _emergencyWasClose = false;
             _lastSegmentIndex = -1;
             _segmentDamageAccum = 0f;
+            _segmentStartDamage = 0f;
 
             _laneChangeTimes = new FixedList64Bytes<float>();
             _lastLane = -1;
@@ -545,7 +547,7 @@ namespace Nightflow.Systems
             if (currentSegmentIndex != _lastSegmentIndex && _lastSegmentIndex >= 0)
             {
                 // Crossed into a new segment
-                // Check if we completed the previous segment without damage
+                // Check if we completed the previous segment without taking damage
                 if (_segmentDamageAccum < 0.01f && playerSpeed >= 25f)
                 {
                     // Perfect segment! No damage taken and maintaining speed
@@ -560,14 +562,14 @@ namespace Nightflow.Systems
                     }
                 }
 
-                // Reset damage accumulator for new segment
+                // Reset damage tracking for new segment — record total damage at segment start
+                _segmentStartDamage = currentDamage;
                 _segmentDamageAccum = 0f;
             }
             else if (currentSegmentIndex == _lastSegmentIndex)
             {
-                // Same segment - accumulate damage delta
-                // This is a simplified approach; ideally track damage per segment
-                _segmentDamageAccum = currentDamage;
+                // Same segment — track damage delta since segment start
+                _segmentDamageAccum = currentDamage - _segmentStartDamage;
             }
 
             _lastSegmentIndex = currentSegmentIndex;

@@ -76,20 +76,23 @@ namespace Nightflow.Systems
                 float severity = GameConstants.DefaultDamageSeverity;
 
                 Entity hazardEntity = collision.ValueRO.OtherEntity;
-                if (hazardEntity != Entity.Null && SystemAPI.HasComponent<Hazard>(hazardEntity))
+                if (hazardEntity != Entity.Null &&
+                    state.EntityManager.Exists(hazardEntity) &&
+                    SystemAPI.HasComponent<Hazard>(hazardEntity))
                 {
                     var hazard = SystemAPI.GetComponent<Hazard>(hazardEntity);
-                    severity = hazard.Severity;
+                    severity = math.clamp(hazard.Severity, 0f, 2f);
                 }
 
                 // =============================================================
                 // Calculate Damage Energy
                 // =============================================================
 
-                float vImpact = collision.ValueRO.ImpactSpeed;
+                float vImpact = math.max(0f, collision.ValueRO.ImpactSpeed);
 
                 // E_d = k_d × v_impact² × Severity
                 float Ed = DamageScale * vImpact * vImpact * severity;
+                Ed = math.min(Ed, GameConstants.MaxDamage); // cap single-hit damage
 
                 // =============================================================
                 // Calculate Directional Weights
@@ -142,21 +145,24 @@ namespace Nightflow.Systems
                     softBody.ValueRW.DeformationVelocity += damageImpulse * velocityImpulse;
                 }
 
-                // Update DamageState from soft-body current deformation
-                // This makes damage values "settle" physically
-                damage.ValueRW.Front = softBody.ValueRO.CurrentDeformation.x;
-                damage.ValueRW.Rear = softBody.ValueRO.CurrentDeformation.y;
-                damage.ValueRW.Left = softBody.ValueRO.CurrentDeformation.z;
-                damage.ValueRW.Right = softBody.ValueRO.CurrentDeformation.w;
+                // Update DamageState from soft-body target deformation
+                // TargetDeformation reflects the accumulated damage immediately,
+                // while CurrentDeformation lags behind via spring-damper interpolation
+                damage.ValueRW.Front = softBody.ValueRO.TargetDeformation.x;
+                damage.ValueRW.Rear = softBody.ValueRO.TargetDeformation.y;
+                damage.ValueRW.Left = softBody.ValueRO.TargetDeformation.z;
+                damage.ValueRW.Right = softBody.ValueRO.TargetDeformation.w;
                 damage.ValueRW.Total += Ed;
+                damage.ValueRW.Total = math.min(damage.ValueRO.Total, GameConstants.MaxDamage * 2f);
 
                 // =============================================================
                 // Apply Handling Degradation
                 // =============================================================
 
                 // Magnetism reduction from side damage
+                // Spec: ω × (1 - 0.5 × D_side) — sideDamage is already [0,1]
                 float sideDamage = (damage.ValueRO.Left + damage.ValueRO.Right) * 0.5f;
-                float magnetismReduction = SideMagnetismPenalty * sideDamage * normalizedDamage;
+                float magnetismReduction = SideMagnetismPenalty * sideDamage;
                 laneFollower.ValueRW.MagnetStrength -= magnetismReduction;
                 laneFollower.ValueRW.MagnetStrength = math.max(laneFollower.ValueRO.MagnetStrength, 2f);
 
@@ -194,14 +200,17 @@ namespace Nightflow.Systems
                 float severity = GameConstants.DefaultDamageSeverity;
 
                 Entity hazardEntity = collision.ValueRO.OtherEntity;
-                if (hazardEntity != Entity.Null && SystemAPI.HasComponent<Hazard>(hazardEntity))
+                if (hazardEntity != Entity.Null &&
+                    state.EntityManager.Exists(hazardEntity) &&
+                    SystemAPI.HasComponent<Hazard>(hazardEntity))
                 {
                     var hazard = SystemAPI.GetComponent<Hazard>(hazardEntity);
-                    severity = hazard.Severity;
+                    severity = math.clamp(hazard.Severity, 0f, 2f);
                 }
 
-                float vImpact = collision.ValueRO.ImpactSpeed;
+                float vImpact = math.max(0f, collision.ValueRO.ImpactSpeed);
                 float Ed = DamageScale * vImpact * vImpact * severity;
+                Ed = math.min(Ed, GameConstants.MaxDamage);
 
                 float3 normal = impulse.ValueRO.Direction;
                 float wFront = math.max(0f, -normal.z);
@@ -228,14 +237,16 @@ namespace Nightflow.Systems
                 damage.ValueRW.Left += normalizedDamage * wLeft;
                 damage.ValueRW.Right += normalizedDamage * wRight;
                 damage.ValueRW.Total += Ed;
+                damage.ValueRW.Total = math.min(damage.ValueRO.Total, GameConstants.MaxDamage * 2f);
 
                 damage.ValueRW.Front = math.saturate(damage.ValueRW.Front);
                 damage.ValueRW.Rear = math.saturate(damage.ValueRW.Rear);
                 damage.ValueRW.Left = math.saturate(damage.ValueRW.Left);
                 damage.ValueRW.Right = math.saturate(damage.ValueRW.Right);
 
+                // Spec: ω × (1 - 0.5 × D_side) — sideDamage is already [0,1]
                 float sideDamage = (damage.ValueRO.Left + damage.ValueRO.Right) * 0.5f;
-                float magnetismReduction = SideMagnetismPenalty * sideDamage * normalizedDamage;
+                float magnetismReduction = SideMagnetismPenalty * sideDamage;
                 laneFollower.ValueRW.MagnetStrength -= magnetismReduction;
                 laneFollower.ValueRW.MagnetStrength = math.max(laneFollower.ValueRO.MagnetStrength, 2f);
 

@@ -30,6 +30,10 @@ namespace Nightflow.Systems
         private const float MagnetismReduction = 0.7f;     // Reduced magnetism at fork
         private const float LaneDecisionThreshold = 0.5f;  // Lane index threshold for L/R
 
+        // Saved base magnet strength to avoid cumulative reduction each frame
+        private float _savedMagnetStrength;
+        private bool _inFork;
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
@@ -86,8 +90,13 @@ namespace Nightflow.Systems
                     foreach (var laneFollower in SystemAPI.Query<RefRW<LaneFollower>>()
                         .WithAll<PlayerVehicleTag>())
                     {
-                        // Temporarily reduce magnetism
-                        laneFollower.ValueRW.MagnetStrength *= magnetReduction;
+                        // Save base strength on fork entry to avoid cumulative reduction
+                        if (!_inFork)
+                        {
+                            _savedMagnetStrength = laneFollower.ValueRO.MagnetStrength;
+                            _inFork = true;
+                        }
+                        laneFollower.ValueRW.MagnetStrength = _savedMagnetStrength * magnetReduction;
                     }
 
                     // =============================================================
@@ -126,6 +135,7 @@ namespace Nightflow.Systems
                 else if (playerZ > segmentEnd && forkData.ValueRO.Committed)
                 {
                     // Player has passed the fork - clear fork state
+                    _inFork = false;
                     foreach (var envState in SystemAPI.Query<RefRW<EnvironmentState>>()
                         .WithAll<PlayerVehicleTag>())
                     {

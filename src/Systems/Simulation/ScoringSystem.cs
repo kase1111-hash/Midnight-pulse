@@ -134,15 +134,31 @@ namespace Nightflow.Systems
                 float tierMultiplier = speedTier.ValueRO.Multiplier;
                 float riskMultiplier = riskState.ValueRO.Value;
 
-                float scoreThisFrame = distanceThisFrame * tierMultiplier * (1f + riskMultiplier);
+                // Clamp multiplier inputs to prevent manipulation
+                tierMultiplier = math.clamp(tierMultiplier, 0f, BoostedMultiplier);
+                riskMultiplier = math.clamp(riskMultiplier, 0f, riskState.ValueRO.Cap);
+
+                float totalMultiplier = tierMultiplier * (1f + riskMultiplier);
+
+                float scoreThisFrame = distanceThisFrame * totalMultiplier;
+
+                // Cap per-frame score to prevent exploits
+                // At max speed (80 m/s), max tier (2.5×), max risk (2.0):
+                // 80 * 0.016 * 2.5 * 3.0 ≈ 9.6 per frame. 50 gives generous headroom.
+                const float MaxScorePerFrame = 50f;
+                scoreThisFrame = math.min(scoreThisFrame, MaxScorePerFrame);
+
                 scoreSession.ValueRW.Score += scoreThisFrame;
+
+                // Hard cap on total score
+                const float MaxTotalScore = 999_999_999f;
+                scoreSession.ValueRW.Score = math.min(scoreSession.ValueRO.Score, MaxTotalScore);
 
                 // Update multiplier display value
                 scoreSession.ValueRW.Multiplier = tierMultiplier;
                 scoreSession.ValueRW.RiskMultiplier = riskMultiplier;
 
                 // Track highest multiplier
-                float totalMultiplier = tierMultiplier * (1f + riskMultiplier);
                 if (totalMultiplier > scoreSession.ValueRO.HighestMultiplier)
                 {
                     scoreSession.ValueRW.HighestMultiplier = totalMultiplier;
