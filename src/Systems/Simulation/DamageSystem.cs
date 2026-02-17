@@ -76,20 +76,23 @@ namespace Nightflow.Systems
                 float severity = GameConstants.DefaultDamageSeverity;
 
                 Entity hazardEntity = collision.ValueRO.OtherEntity;
-                if (hazardEntity != Entity.Null && SystemAPI.HasComponent<Hazard>(hazardEntity))
+                if (hazardEntity != Entity.Null &&
+                    state.EntityManager.Exists(hazardEntity) &&
+                    SystemAPI.HasComponent<Hazard>(hazardEntity))
                 {
                     var hazard = SystemAPI.GetComponent<Hazard>(hazardEntity);
-                    severity = hazard.Severity;
+                    severity = math.clamp(hazard.Severity, 0f, 2f);
                 }
 
                 // =============================================================
                 // Calculate Damage Energy
                 // =============================================================
 
-                float vImpact = collision.ValueRO.ImpactSpeed;
+                float vImpact = math.max(0f, collision.ValueRO.ImpactSpeed);
 
                 // E_d = k_d × v_impact² × Severity
                 float Ed = DamageScale * vImpact * vImpact * severity;
+                Ed = math.min(Ed, GameConstants.MaxDamage); // cap single-hit damage
 
                 // =============================================================
                 // Calculate Directional Weights
@@ -150,6 +153,7 @@ namespace Nightflow.Systems
                 damage.ValueRW.Left = softBody.ValueRO.TargetDeformation.z;
                 damage.ValueRW.Right = softBody.ValueRO.TargetDeformation.w;
                 damage.ValueRW.Total += Ed;
+                damage.ValueRW.Total = math.min(damage.ValueRO.Total, GameConstants.MaxDamage * 2f);
 
                 // =============================================================
                 // Apply Handling Degradation
@@ -196,14 +200,17 @@ namespace Nightflow.Systems
                 float severity = GameConstants.DefaultDamageSeverity;
 
                 Entity hazardEntity = collision.ValueRO.OtherEntity;
-                if (hazardEntity != Entity.Null && SystemAPI.HasComponent<Hazard>(hazardEntity))
+                if (hazardEntity != Entity.Null &&
+                    state.EntityManager.Exists(hazardEntity) &&
+                    SystemAPI.HasComponent<Hazard>(hazardEntity))
                 {
                     var hazard = SystemAPI.GetComponent<Hazard>(hazardEntity);
-                    severity = hazard.Severity;
+                    severity = math.clamp(hazard.Severity, 0f, 2f);
                 }
 
-                float vImpact = collision.ValueRO.ImpactSpeed;
+                float vImpact = math.max(0f, collision.ValueRO.ImpactSpeed);
                 float Ed = DamageScale * vImpact * vImpact * severity;
+                Ed = math.min(Ed, GameConstants.MaxDamage);
 
                 float3 normal = impulse.ValueRO.Direction;
                 float wFront = math.max(0f, -normal.z);
@@ -230,6 +237,7 @@ namespace Nightflow.Systems
                 damage.ValueRW.Left += normalizedDamage * wLeft;
                 damage.ValueRW.Right += normalizedDamage * wRight;
                 damage.ValueRW.Total += Ed;
+                damage.ValueRW.Total = math.min(damage.ValueRO.Total, GameConstants.MaxDamage * 2f);
 
                 damage.ValueRW.Front = math.saturate(damage.ValueRW.Front);
                 damage.ValueRW.Rear = math.saturate(damage.ValueRW.Rear);

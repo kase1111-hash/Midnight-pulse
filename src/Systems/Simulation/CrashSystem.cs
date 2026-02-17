@@ -72,16 +72,14 @@ namespace Nightflow.Systems
                         Entity hazardEntity = collision.ValueRO.OtherEntity;
 
                         // Validate hazard entity before accessing components
-                        if (hazardEntity == Entity.Null)
+                        if (hazardEntity == Entity.Null ||
+                            !state.EntityManager.Exists(hazardEntity))
                         {
-                            // Collision occurred but entity reference is invalid - skip hazard check
-                            // This can happen if hazard was destroyed between collision detection and crash evaluation
+                            // Collision entity is null or was destroyed — skip hazard check
                         }
                         else if (!SystemAPI.HasComponent<Hazard>(hazardEntity))
                         {
-                            // Entity exists but missing Hazard component - data integrity issue
-                            // Log for debugging but continue processing other crash conditions
-                            UnityEngine.Debug.LogWarning($"[CrashSystem] Collision entity {hazardEntity.Index} missing Hazard component");
+                            // Entity exists but missing Hazard component
                         }
                         else
                         {

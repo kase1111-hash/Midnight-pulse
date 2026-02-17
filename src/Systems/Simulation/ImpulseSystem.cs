@@ -58,11 +58,13 @@ namespace Nightflow.Systems
                 float massFactor = GameConstants.DefaultMassFactor;
 
                 Entity hazardEntity = collision.ValueRO.OtherEntity;
-                if (hazardEntity != Entity.Null && SystemAPI.HasComponent<Hazard>(hazardEntity))
+                if (hazardEntity != Entity.Null &&
+                    state.EntityManager.Exists(hazardEntity) &&
+                    SystemAPI.HasComponent<Hazard>(hazardEntity))
                 {
                     var hazard = SystemAPI.GetComponent<Hazard>(hazardEntity);
-                    severity = hazard.Severity;
-                    massFactor = hazard.MassFactor;
+                    severity = math.clamp(hazard.Severity, 0f, 2f);
+                    massFactor = math.clamp(hazard.MassFactor, 0f, 5f);
                 }
 
                 // =============================================================

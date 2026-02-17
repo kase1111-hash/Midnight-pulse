@@ -7,6 +7,8 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using UnityEngine;
 using Unity.Entities;
 using Nightflow.Components;
@@ -40,6 +42,9 @@ namespace Nightflow.Save
         private string MainSavePath => Path.Combine(SaveDirectory, "save.json");
         private string GhostDirectory => Path.Combine(SaveDirectory, "ghosts");
         private string BackupPath => Path.Combine(SaveDirectory, "save.backup.json");
+
+        // Integrity
+        private const string HMAC_SEPARATOR = "\n---HMAC---\n";
 
         // Constants
         private const string PREFS_MASTER_VOLUME = "nf_master_volume";
@@ -174,9 +179,10 @@ namespace Nightflow.Save
                     File.Copy(MainSavePath, BackupPath, true);
                 }
 
-                // Save main data
+                // Save main data with HMAC integrity check
                 string json = JsonUtility.ToJson(saveData, true);
-                File.WriteAllText(MainSavePath, json);
+                string hmac = ComputeHMAC(json);
+                File.WriteAllText(MainSavePath, json + HMAC_SEPARATOR + hmac);
 
                 // Also save critical settings to PlayerPrefs for quick access
                 SaveSettingsToPrefs();
@@ -203,19 +209,38 @@ namespace Nightflow.Save
             {
                 if (File.Exists(MainSavePath))
                 {
-                    string json = File.ReadAllText(MainSavePath);
-                    saveData = JsonUtility.FromJson<NightflowSaveData>(json);
-
-                    Log.System("SaveManager", $"Loaded from {MainSavePath}");
+                    string raw = File.ReadAllText(MainSavePath);
+                    string json = ExtractAndVerify(raw, "main save");
+                    if (json != null)
+                    {
+                        saveData = JsonUtility.FromJson<NightflowSaveData>(json);
+                        ValidateSaveData();
+                        Log.System("SaveManager", $"Loaded from {MainSavePath}");
+                    }
+                    else
+                    {
+                        saveData = new NightflowSaveData();
+                        Log.SystemWarn("SaveManager", "Main save failed integrity check, reset to defaults");
+                    }
                 }
                 else
                 {
                     // Try backup
                     if (File.Exists(BackupPath))
                     {
-                        string json = File.ReadAllText(BackupPath);
-                        saveData = JsonUtility.FromJson<NightflowSaveData>(json);
-                        Log.System("SaveManager", "Loaded from backup");
+                        string raw = File.ReadAllText(BackupPath);
+                        string json = ExtractAndVerify(raw, "backup");
+                        if (json != null)
+                        {
+                            saveData = JsonUtility.FromJson<NightflowSaveData>(json);
+                            ValidateSaveData();
+                            Log.System("SaveManager", "Loaded from backup");
+                        }
+                        else
+                        {
+                            saveData = new NightflowSaveData();
+                            Log.SystemWarn("SaveManager", "Backup save failed integrity check, reset to defaults");
+                        }
                     }
                     else
                     {
@@ -443,6 +468,18 @@ namespace Nightflow.Save
         public void AddHighScore(HighScoreEntry entry)
         {
             if (saveData == null) saveData = new NightflowSaveData();
+
+            // Validate entry before adding
+            if (entry.Score < 0 || entry.Score > 999_999_999) return;
+            if (!float.IsFinite(entry.Distance) || entry.Distance < 0f) return;
+            if (!float.IsFinite(entry.MaxSpeed) || entry.MaxSpeed < 0f || entry.MaxSpeed > 200f) return;
+            if (!float.IsFinite(entry.TimeSurvived) || entry.TimeSurvived < 0f) return;
+            if (entry.Initials == null || entry.Initials.Length == 0)
+                entry.Initials = "AAA";
+            if (entry.Initials.Length > 3)
+                entry.Initials = entry.Initials.Substring(0, 3);
+            // Force timestamp to now — prevent spoofing
+            entry.Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
             var leaderboard = saveData.Leaderboard;
 
@@ -1009,6 +1046,134 @@ namespace Nightflow.Save
         public string GetSavePath()
         {
             return MainSavePath;
+        }
+
+        #endregion
+
+        #region Integrity & Validation
+
+        /// <summary>
+        /// Compute HMAC-SHA256 of the JSON payload using a device-bound key.
+        /// Not meant to be unbreakable — just raises the bar above plain JSON editing.
+        /// </summary>
+        private static string ComputeHMAC(string json)
+        {
+            // Derive a per-device key so saves aren't portable between machines
+            byte[] key = Encoding.UTF8.GetBytes(
+                "NF_" + SystemInfo.deviceUniqueIdentifier + "_SAVE");
+            using var hmac = new HMACSHA256(key);
+            byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(json));
+            return Convert.ToBase64String(hash);
+        }
+
+        /// <summary>
+        /// Split raw file into JSON + HMAC, verify integrity.
+        /// Returns the JSON string if valid, null if tampered or missing HMAC.
+        /// Legacy saves without HMAC are accepted once, then re-saved with HMAC.
+        /// </summary>
+        private string ExtractAndVerify(string raw, string label)
+        {
+            int sep = raw.IndexOf(HMAC_SEPARATOR, StringComparison.Ordinal);
+            if (sep < 0)
+            {
+                // Legacy save without HMAC — accept but mark dirty so next save adds one
+                Log.SystemWarn("SaveManager", $"No HMAC in {label}, accepting legacy save");
+                isDirty = true;
+                return raw;
+            }
+
+            string json = raw.Substring(0, sep);
+            string storedHmac = raw.Substring(sep + HMAC_SEPARATOR.Length).Trim();
+            string computedHmac = ComputeHMAC(json);
+
+            if (storedHmac != computedHmac)
+            {
+                Log.SystemError("SaveManager", $"HMAC mismatch in {label} — save data may be tampered");
+                return null;
+            }
+
+            return json;
+        }
+
+        /// <summary>
+        /// Clamp all loaded save data fields to valid ranges.
+        /// Prevents exploits via save file editing even if HMAC is bypassed.
+        /// </summary>
+        private void ValidateSaveData()
+        {
+            if (saveData == null) return;
+
+            // --- Audio (all volumes [0, 1]) ---
+            var audio = saveData.Settings.Audio;
+            audio.MasterVolume = Mathf.Clamp01(audio.MasterVolume);
+            audio.MusicVolume = Mathf.Clamp01(audio.MusicVolume);
+            audio.SFXVolume = Mathf.Clamp01(audio.SFXVolume);
+            audio.EngineVolume = Mathf.Clamp01(audio.EngineVolume);
+            audio.AmbientVolume = Mathf.Clamp01(audio.AmbientVolume);
+            audio.UIVolume = Mathf.Clamp01(audio.UIVolume);
+
+            // --- Display ---
+            var display = saveData.Settings.Display;
+            display.QualityLevel = Mathf.Clamp(display.QualityLevel, 0, 3);
+            display.TargetFrameRate = Mathf.Clamp(display.TargetFrameRate, 30, 300);
+            display.RefreshRate = Mathf.Clamp(display.RefreshRate, 30, 360);
+            display.ResolutionWidth = Mathf.Clamp(display.ResolutionWidth, 640, 7680);
+            display.ResolutionHeight = Mathf.Clamp(display.ResolutionHeight, 480, 4320);
+
+            // --- Controls ---
+            var controls = saveData.Settings.Controls;
+            controls.SteeringSensitivity = Mathf.Clamp(controls.SteeringSensitivity, 0.5f, 2f);
+            controls.SteeringDeadzone = Mathf.Clamp01(controls.SteeringDeadzone);
+            controls.CameraSensitivity = Mathf.Clamp(controls.CameraSensitivity, 0.5f, 2f);
+            controls.VibrationIntensity = Mathf.Clamp01(controls.VibrationIntensity);
+
+            // --- Leaderboard entries ---
+            ValidateHighScoreList(saveData.Leaderboard.AllScores);
+            ValidateHighScoreList(saveData.Leaderboard.NightflowScores);
+            ValidateHighScoreList(saveData.Leaderboard.RedlineScores);
+            ValidateHighScoreList(saveData.Leaderboard.GhostScores);
+            ValidateHighScoreList(saveData.Leaderboard.FreeflowScores);
+
+            // --- Progress ---
+            var progress = saveData.Progress;
+            progress.TotalRuns = Mathf.Max(progress.TotalRuns, 0);
+            progress.TotalDistance = Mathf.Max(progress.TotalDistance, 0f);
+            progress.TotalTimePlayed = Mathf.Max(progress.TotalTimePlayed, 0f);
+            progress.TotalCrashes = Mathf.Max(progress.TotalCrashes, 0);
+            progress.HighestScore = Mathf.Max(progress.HighestScore, 0);
+            progress.HighestSpeed = Mathf.Clamp(progress.HighestSpeed, 0f, 200f);
+
+            // --- Challenges ---
+            var challenges = saveData.Challenges;
+            challenges.TotalCompleted = Mathf.Max(challenges.TotalCompleted, 0);
+            challenges.CurrentStreak = Mathf.Max(challenges.CurrentStreak, 0);
+            challenges.BestStreak = Mathf.Max(challenges.BestStreak, 0);
+            challenges.TotalBonusEarned = Math.Max(challenges.TotalBonusEarned, 0);
+        }
+
+        private static void ValidateHighScoreList(List<HighScoreEntry> scores)
+        {
+            const int MaxScore = 999_999_999;
+            const float MaxPlausibleSpeed = 200f;   // m/s (~720 km/h)
+            const float MaxPlausibleDistance = 500_000f; // meters
+            const float MaxPlausibleTime = 36_000f;  // 10 hours
+
+            scores.RemoveAll(e =>
+                e.Score < 0 || e.Score > MaxScore ||
+                !IsFiniteAndPositive(e.Distance) || e.Distance > MaxPlausibleDistance ||
+                !IsFiniteAndPositive(e.MaxSpeed) || e.MaxSpeed > MaxPlausibleSpeed ||
+                !IsFiniteAndPositive(e.TimeSurvived) || e.TimeSurvived > MaxPlausibleTime ||
+                e.Initials == null || e.Initials.Length > 3);
+
+            // Plausibility: score should not wildly exceed distance × max multiplier
+            const float MaxScorePerMeter = 15f; // ~2.5 tier × (1 + 2 risk) × overhead
+            scores.RemoveAll(e =>
+                e.Distance > 0.1f && e.Score > e.Distance * MaxScorePerMeter);
+        }
+
+        private static bool IsFiniteAndPositive(float v)
+        {
+            return float.IsFinite(v) && v >= 0f;
         }
 
         #endregion
