@@ -219,7 +219,7 @@ namespace Nightflow.Systems
 
                 // Blend toward ideal position (don't teleport)
                 float positionBlend = m * 2f * deltaTime;
-                float3 lateralCorrection = right * (newLateralVel * deltaTime);
+                float3 lateralCorrection = right * (newLateralVel * deltaTime) * positionBlend;
 
                 transform.ValueRW.Position += lateralCorrection;
 

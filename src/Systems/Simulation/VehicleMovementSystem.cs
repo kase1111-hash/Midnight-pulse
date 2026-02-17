@@ -298,8 +298,8 @@ namespace Nightflow.Systems
                 quaternion yawRot = quaternion.RotateY(drift.YawOffset);
                 quaternion targetRot = math.mul(trackRot, yawRot);
 
-                // Smooth rotation blend
-                float rotBlend = drift.IsDrifting ? 1f : 8f * deltaTime;
+                // Smooth rotation blend (framerate-independent)
+                float rotBlend = drift.IsDrifting ? 5f * deltaTime : 8f * deltaTime;
                 transform.ValueRW.Rotation = math.slerp(
                     transform.ValueRO.Rotation,
                     targetRot,

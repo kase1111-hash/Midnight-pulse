@@ -100,13 +100,12 @@ namespace Nightflow.Systems
                 // Adjust Y position based on elevation offset
                 // Note: This modifies the visual position, physics stays on track
                 float3 pos = transform.ValueRO.Position;
-                pos.y += envState.ValueRO.ElevationOffset;
 
                 // Only apply if there's actual elevation change
                 if (math.abs(envState.ValueRO.ElevationOffset) > 0.01f)
                 {
-                    // Store original Y for lane magnetism, apply offset for rendering
-                    // The actual transform update would be handled by rendering bridge
+                    pos.y += envState.ValueRO.ElevationOffset;
+                    transform.ValueRW.Position = pos;
                 }
             }
 
@@ -127,11 +126,11 @@ namespace Nightflow.Systems
 
                 // Adjust camera target height
                 // Camera follows player elevation smoothly
-                float3 targetOffset = cameraState.ValueRO.TargetOffset;
-                targetOffset.y += elevation;
+                float3 baseOffset = cameraState.ValueRO.TargetOffset;
+                float3 targetOffset = new float3(baseOffset.x, baseOffset.y + elevation, baseOffset.z);
 
                 cameraState.ValueRW.TargetOffset = math.lerp(
-                    cameraState.ValueRO.TargetOffset,
+                    baseOffset,
                     targetOffset,
                     3f * deltaTime
                 );

@@ -109,7 +109,7 @@ namespace Nightflow.Systems
                 // At 50% health: reduced max angle, slower response
                 // At failure: severely limited steering
                 float steeringHealthFactor = failures.HasFailed(ComponentFailures.Steering)
-                    ? 0.3f  // Steering failed: very limited control
+                    ? 0.15f  // Steering failed: severely limited control
                     : 0.3f + (health.Steering * 0.7f);  // Gradual degradation
 
                 // Front damage also reduces steering (from original spec)
