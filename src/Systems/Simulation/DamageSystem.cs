@@ -142,12 +142,13 @@ namespace Nightflow.Systems
                     softBody.ValueRW.DeformationVelocity += damageImpulse * velocityImpulse;
                 }
 
-                // Update DamageState from soft-body current deformation
-                // This makes damage values "settle" physically
-                damage.ValueRW.Front = softBody.ValueRO.CurrentDeformation.x;
-                damage.ValueRW.Rear = softBody.ValueRO.CurrentDeformation.y;
-                damage.ValueRW.Left = softBody.ValueRO.CurrentDeformation.z;
-                damage.ValueRW.Right = softBody.ValueRO.CurrentDeformation.w;
+                // Update DamageState from soft-body target deformation
+                // TargetDeformation reflects the accumulated damage immediately,
+                // while CurrentDeformation lags behind via spring-damper interpolation
+                damage.ValueRW.Front = softBody.ValueRO.TargetDeformation.x;
+                damage.ValueRW.Rear = softBody.ValueRO.TargetDeformation.y;
+                damage.ValueRW.Left = softBody.ValueRO.TargetDeformation.z;
+                damage.ValueRW.Right = softBody.ValueRO.TargetDeformation.w;
                 damage.ValueRW.Total += Ed;
 
                 // =============================================================
@@ -155,8 +156,9 @@ namespace Nightflow.Systems
                 // =============================================================
 
                 // Magnetism reduction from side damage
+                // Spec: ω × (1 - 0.5 × D_side) — sideDamage is already [0,1]
                 float sideDamage = (damage.ValueRO.Left + damage.ValueRO.Right) * 0.5f;
-                float magnetismReduction = SideMagnetismPenalty * sideDamage * normalizedDamage;
+                float magnetismReduction = SideMagnetismPenalty * sideDamage;
                 laneFollower.ValueRW.MagnetStrength -= magnetismReduction;
                 laneFollower.ValueRW.MagnetStrength = math.max(laneFollower.ValueRO.MagnetStrength, 2f);
 
@@ -234,8 +236,9 @@ namespace Nightflow.Systems
                 damage.ValueRW.Left = math.saturate(damage.ValueRW.Left);
                 damage.ValueRW.Right = math.saturate(damage.ValueRW.Right);
 
+                // Spec: ω × (1 - 0.5 × D_side) — sideDamage is already [0,1]
                 float sideDamage = (damage.ValueRO.Left + damage.ValueRO.Right) * 0.5f;
-                float magnetismReduction = SideMagnetismPenalty * sideDamage * normalizedDamage;
+                float magnetismReduction = SideMagnetismPenalty * sideDamage;
                 laneFollower.ValueRW.MagnetStrength -= magnetismReduction;
                 laneFollower.ValueRW.MagnetStrength = math.max(laneFollower.ValueRO.MagnetStrength, 2f);
 

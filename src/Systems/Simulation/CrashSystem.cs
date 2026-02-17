@@ -99,9 +99,11 @@ namespace Nightflow.Systems
                     // =============================================================
                     // Condition B: Structural Damage Exceeded
                     // Damage.Total > D_max
+                    // Only set if no higher-priority reason already assigned
                     // =============================================================
 
-                    if (damage.ValueRO.Total > crashable.ValueRO.CrashThreshold)
+                    if (reason == CrashReason.None &&
+                        damage.ValueRO.Total > crashable.ValueRO.CrashThreshold)
                     {
                         reason = CrashReason.TotalDamage;
                     }
@@ -109,6 +111,7 @@ namespace Nightflow.Systems
                     // =============================================================
                     // Condition C: Compound Failure
                     // |ψ| > ψ_fail AND v_f ≈ v_min AND Damage.Total > 0.6×D_max
+                    // Only set if no higher-priority reason already assigned
                     // =============================================================
 
                     float yawThreshold = crashable.ValueRO.YawFailThreshold;
@@ -118,7 +121,7 @@ namespace Nightflow.Systems
                     bool speedFail = velocity.ValueRO.Forward <= GameConstants.MinForwardSpeed + 1f;
                     bool damageFail = damage.ValueRO.Total > damageThreshold;
 
-                    if (yawFail && speedFail && damageFail)
+                    if (reason == CrashReason.None && yawFail && speedFail && damageFail)
                     {
                         reason = CrashReason.CompoundFailure;
                     }

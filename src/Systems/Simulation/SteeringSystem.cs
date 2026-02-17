@@ -193,9 +193,10 @@ namespace Nightflow.Systems
 
                             if (!isBlocked)
                             {
-                                // Calculate speed-aware duration
+                                // Calculate speed-aware duration per spec: T = T_base × (v / v_ref)
+                                // Higher speed → longer duration (harder to change lanes at speed)
                                 float speed = velocity.ValueRO.Forward;
-                                float duration = BaseDuration * (ReferenceSpeed / math.max(speed, 10f));
+                                float duration = BaseDuration * (speed / ReferenceSpeed);
                                 duration = math.clamp(duration, MinDuration, MaxDuration);
 
                                 // Start lane change

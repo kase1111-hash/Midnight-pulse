@@ -111,7 +111,8 @@ namespace Nightflow.Systems
                     .WithAll<PlayerVehicleTag>()
                     .WithNone<CrashedTag>())
             {
-                currentMultiplier = scoreSession.ValueRO.Multiplier * scoreSession.ValueRO.RiskMultiplier;
+                // Score formula: tier * (1 + risk), so total multiplier must match
+                currentMultiplier = scoreSession.ValueRO.Multiplier * (1f + scoreSession.ValueRO.RiskMultiplier);
                 currentDistance = scoreSession.ValueRO.Distance;
                 playerActive = scoreSession.ValueRO.Active;
                 break;
@@ -173,11 +174,13 @@ namespace Nightflow.Systems
                 ? math.min(profile.HighPerformanceStreak * 0.05f, 0.1f)
                 : -math.min(profile.StrugglingStreak * 0.05f, 0.1f);
 
+            // Weights sum to 1.0 so full range [0, 1] is usable
+            // streakBonus shifts rating slightly for consistent performance patterns
             profile.SkillRating = math.saturate(
                 multiplierSkill * 0.4f +
                 survivalSkill * 0.3f +
-                avoidanceSkill * 0.2f +
-                0.5f + streakBonus // Base 0.5 with streak modifier
+                avoidanceSkill * 0.3f +
+                streakBonus
             );
 
             // =============================================================
