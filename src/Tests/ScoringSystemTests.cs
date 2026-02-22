@@ -247,5 +247,44 @@ namespace Nightflow.Tests
             // Expected: 35 m/s * 1s * 1.5 tier * (1 + 0.5 risk) = 78.75
             Assert.AreEqual(78.75f, totalScore, 0.5f);
         }
+
+        // =====================================================================
+        // Error-Path & Boundary Tests
+        // =====================================================================
+
+        [Test]
+        public void Score_NegativeDistance_ProducesNonPositive()
+        {
+            float score = CalculateScore(-100f, 30f, 0f);
+            Assert.LessOrEqual(score, 0f);
+        }
+
+        [Test]
+        public void RiskDecay_VeryLargeDeltaTime_NeverNegative()
+        {
+            float risk = 1.0f;
+            float decayed = DecayRisk(risk, 1000f);
+            Assert.GreaterOrEqual(decayed, 0f);
+        }
+
+        [Test]
+        public void BrakePenalty_AppliedTwice_StillNonNegative()
+        {
+            float risk = 0.5f;
+            risk = ApplyBrakePenalty(risk);
+            risk = ApplyBrakePenalty(risk);
+            Assert.GreaterOrEqual(risk, 0f);
+        }
+
+        [TestCase(0f, CruiseMultiplier)]
+        [TestCase(29.9f, CruiseMultiplier)]
+        [TestCase(30f, FastMultiplier)]
+        [TestCase(49.9f, FastMultiplier)]
+        [TestCase(50f, BoostedMultiplier)]
+        [TestCase(100f, BoostedMultiplier)]
+        public void SpeedTier_ParametrizedBoundaries(float speed, float expectedMultiplier)
+        {
+            Assert.AreEqual(expectedMultiplier, GetTierMultiplier(speed));
+        }
     }
 }

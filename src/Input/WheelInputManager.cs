@@ -23,6 +23,7 @@ namespace Nightflow.Input
         public event Action OnWheelDisconnected;
 
         // G920 Identification
+        // TODO: Add Thrustmaster and Fanatec wheel support — currently Logitech-only
         private const int LOGITECH_VENDOR_ID = 0x046D;
         private const int G920_PRODUCT_ID = 0xC262;
         private const int G29_PRODUCT_ID = 0xC24F;

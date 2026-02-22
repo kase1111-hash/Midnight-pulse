@@ -11,6 +11,8 @@ namespace Nightflow.Tests
     /// <summary>
     /// Tests the collision detection math: AABB overlap, broad phase radius,
     /// and impact speed formula: v_impact = max(0, dot(V, -N))
+    /// TODO: Add error-path tests for NaN/Infinity inputs and zero-dimension collision boxes
+    /// TODO: Add [TestCase] parametrization for AABB and impact speed boundary values
     /// </summary>
     [TestFixture]
     public class CollisionDetectionTests
@@ -330,6 +332,77 @@ namespace Nightflow.Tests
             float impactSpeed = 1.0f;
             bool shouldRegister = impactSpeed > MinImpactThreshold;
             Assert.IsTrue(shouldRegister);
+        }
+
+        // =====================================================================
+        // Error-Path & Boundary Tests
+        // =====================================================================
+
+        [Test]
+        public void AABB_ZeroDimensionBox_NoOverlapWithSeparation()
+        {
+            float3 posA = new float3(0, 0, 0);
+            float3 posB = new float3(5, 0, 0);
+            float3 zeroSize = new float3(0, 0, 0);
+            float3 normalSize = new float3(1, 1, 1);
+            Assert.IsFalse(AABBOverlap(posA, zeroSize, posB, normalSize));
+        }
+
+        [Test]
+        public void AABB_ZeroDimensionBox_OverlapAtSamePosition()
+        {
+            float3 pos = new float3(0, 0, 0);
+            float3 zeroSize = new float3(0, 0, 0);
+            // Zero-size box at same position: min == max on all axes, overlap is <=
+            Assert.IsTrue(AABBOverlap(pos, zeroSize, pos, zeroSize));
+        }
+
+        [Test]
+        public void Normal_VerySmallDistance_UsesFallback()
+        {
+            // Distance less than 0.01f threshold
+            float3 player = new float3(0, 0, 0);
+            float3 hazard = new float3(0.005f, 0, 0);
+            float3 normal = CalculateNormal(player, hazard);
+            // dist ≈ 0.005 < 0.01, should return fallback (0,0,1)
+            Assert.AreEqual(0f, normal.x, 0.001f);
+            Assert.AreEqual(0f, normal.y, 0.001f);
+            Assert.AreEqual(1f, normal.z, 0.001f);
+        }
+
+        [Test]
+        public void ImpactSpeed_ExtremeVelocity_StillValid()
+        {
+            float3 velocity = new float3(0, 0, 1000f);
+            float3 normal = new float3(0, 0, -1f);
+            float impact = CalculateImpactSpeed(velocity, normal);
+            Assert.AreEqual(1000f, impact, 0.001f);
+            Assert.IsTrue(float.IsFinite(impact));
+        }
+
+        [TestCase(0f, 0f, 0f, 6f, 0f, 0f, true)]     // Exactly at radius on X
+        [TestCase(0f, 0f, 0f, 0f, 6f, 0f, true)]     // Exactly at radius on Y
+        [TestCase(0f, 0f, 0f, 0f, 0f, 6f, true)]     // Exactly at radius on Z
+        [TestCase(0f, 0f, 0f, 6.01f, 0f, 0f, false)]  // Just beyond radius
+        public void BroadPhase_BoundaryDistances(
+            float px, float py, float pz, float hx, float hy, float hz, bool expected)
+        {
+            float3 player = new float3(px, py, pz);
+            float3 hazard = new float3(hx, hy, hz);
+            Assert.AreEqual(expected, BroadPhaseCheck(player, hazard));
+        }
+
+        [TestCase(0f, 0f, 30f, 0f, 0f, -1f, 30f)]    // Head-on
+        [TestCase(10f, 0f, 0f, -1f, 0f, 0f, 10f)]     // Side impact from left
+        [TestCase(0f, 0f, -20f, 0f, 0f, 1f, 0f)]      // Moving away
+        [TestCase(0f, 0f, 0f, 0f, 0f, -1f, 0f)]       // Stationary
+        public void ImpactSpeed_ParametrizedCases(
+            float vx, float vy, float vz, float nx, float ny, float nz, float expected)
+        {
+            float3 velocity = new float3(vx, vy, vz);
+            float3 normal = new float3(nx, ny, nz);
+            float impact = CalculateImpactSpeed(velocity, normal);
+            Assert.AreEqual(expected, impact, 0.01f);
         }
     }
 }

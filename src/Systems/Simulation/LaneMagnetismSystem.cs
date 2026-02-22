@@ -191,6 +191,7 @@ namespace Nightflow.Systems
                 // =============================================================
 
                 // Edge forces keep vehicle from leaving the road entirely
+                // TODO: Add rumble strip haptic feedback when player enters the soft zone
                 float halfRoadWidth = (currentSegment.NumLanes * GameConstants.LaneWidth) * 0.5f;
                 float softEdge = halfRoadWidth * SoftZoneRatio;
 

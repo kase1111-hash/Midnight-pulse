@@ -67,6 +67,7 @@ namespace Nightflow.Systems
         private int _tunnelRemaining;
         private int _tunnelTotal;
 
+        // TODO: Seed should be derived from session ID or user-configurable for shareable runs
         private uint _globalSeed;
         private int _nextSegmentIndex;
 

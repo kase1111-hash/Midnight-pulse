@@ -40,6 +40,7 @@ namespace Nightflow.Systems
         // NumLanes uses GameConstants.DefaultNumLanes
 
         // Hazard type distribution (cumulative) - base values at normal difficulty
+        // TODO: Add "near-miss" hazard placement that deliberately creates close calls for excitement
         private const float BaseTireChance = 0.20f;       // 20% loose tire
         private const float BaseDebrisChance = 0.50f;     // 30% debris (cumulative 50%)
         private const float BaseConeChance = 0.75f;       // 25% cones (cumulative 75%)

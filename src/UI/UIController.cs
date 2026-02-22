@@ -159,6 +159,8 @@ namespace Nightflow.UI
             }
         }
 
+        // FIXME: This class is 1900+ lines — split into HUDController, MenuController,
+        // NotificationController, PerformanceStatsController, ChallengeController
         private void Start()
         {
             InitializeUI();

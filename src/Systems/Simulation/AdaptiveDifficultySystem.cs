@@ -47,6 +47,7 @@ namespace Nightflow.Systems
         private const int StreakThreshold = 3;              // Consecutive runs to trigger adjustment
 
         // Rolling average weight (for exponential moving average)
+        // FIXME: EMA with weight 0.3 reacts too slowly to skill improvement — consider dual-rate filter
         private const float AverageWeight = 0.3f;           // New data contribution
 
         // Warm-up period

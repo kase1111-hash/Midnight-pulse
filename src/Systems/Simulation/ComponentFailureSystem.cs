@@ -34,6 +34,7 @@ namespace Nightflow.Systems
     public partial struct ComponentFailureSystem : ISystem
     {
         // Health degradation rates
+        // FIXME: Tire degradation is the same for all tire positions — front tires should wear faster under braking
         private const float HealthDegradeBase = 0.15f;   // Base health loss per damage unit
         private const float ImpactDegradeRate = 0.08f;   // Additional tire damage per impact
 

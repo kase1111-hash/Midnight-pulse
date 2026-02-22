@@ -180,6 +180,7 @@ namespace Nightflow.Save
                 }
 
                 // Save main data with HMAC integrity check
+                // TODO: Consider async file writes to avoid frame hitches on slower storage
                 string json = JsonUtility.ToJson(saveData, true);
                 string hmac = ComputeHMAC(json);
                 File.WriteAllText(MainSavePath, json + HMAC_SEPARATOR + hmac);

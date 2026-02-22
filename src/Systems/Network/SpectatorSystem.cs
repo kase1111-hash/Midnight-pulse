@@ -18,6 +18,7 @@ namespace Nightflow.Systems
     /// From spec:
     /// - Live spectator mode
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0 — requires multiplayer infrastructure
     [BurstCompile]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     [UpdateBefore(typeof(CameraSystem))]
@@ -287,6 +288,7 @@ namespace Nightflow.Systems
     /// <summary>
     /// Handles spectator input for camera control and target switching.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(InputSystem))]
@@ -400,6 +402,7 @@ namespace Nightflow.Systems
     /// <summary>
     /// Initializes spectator camera entity and state.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0 — singleton not consumed by active systems
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial struct SpectatorInitSystem : ISystem
     {

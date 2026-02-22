@@ -46,6 +46,7 @@ namespace Nightflow.Systems
         private const float DriftWhipMultiplier = 1.3f;   // extra rotational follow
 
         // Crash camera
+        // TODO: Add slow-motion effect during crash with time scale reduction and chromatic aberration
         private const float CrashZoomSpeed = 2f;          // zoom out speed
         private const float CrashMaxDistance = 20f;       // max zoom distance
         private const float CrashSlowMotion = 0.3f;       // time scale
