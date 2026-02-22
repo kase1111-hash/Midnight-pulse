@@ -1,7 +1,5 @@
-// ============================================================================
 // Nightflow - Game Constants
 // Centralized constants to avoid magic numbers and duplicated values
-// ============================================================================
 
 using Unity.Mathematics;
 
@@ -13,9 +11,7 @@ namespace Nightflow.Config
     /// </summary>
     public static class GameConstants
     {
-        // =====================================================================
-        // LANE & ROAD GEOMETRY
-        // =====================================================================
+        #region Lane & Road Geometry
 
         /// <summary>
         /// Width of each lane in meters.
@@ -33,9 +29,9 @@ namespace Nightflow.Config
         /// </summary>
         public const float RoadWidth = LaneWidth * DefaultNumLanes;
 
-        // =====================================================================
-        // VEHICLE PHYSICS
-        // =====================================================================
+        #endregion
+
+        #region Vehicle Physics
 
         /// <summary>
         /// Minimum forward speed in m/s.
@@ -45,6 +41,7 @@ namespace Nightflow.Config
 
         /// <summary>
         /// Maximum forward speed in m/s (for normal mode).
+        /// TODO: Consider making max speed scale with difficulty level or unlockable upgrades
         /// </summary>
         public const float MaxForwardSpeed = 80f;
 
@@ -53,9 +50,9 @@ namespace Nightflow.Config
         /// </summary>
         public const float MaxDamage = 100f;
 
-        // =====================================================================
-        // TRACK GENERATION
-        // =====================================================================
+        #endregion
+
+        #region Track Generation
 
         /// <summary>
         /// Length of each track segment in meters.
@@ -72,9 +69,9 @@ namespace Nightflow.Config
         /// </summary>
         public const int SegmentsBehind = 2;
 
-        // =====================================================================
-        // UNIT CONVERSIONS
-        // =====================================================================
+        #endregion
+
+        #region Unit Conversions
 
         /// <summary>
         /// Conversion factor from m/s to km/h.
@@ -91,9 +88,9 @@ namespace Nightflow.Config
         /// </summary>
         public const float KmhToMs = 1f / 3.6f;
 
-        // =====================================================================
-        // DAMAGE SYSTEM
-        // =====================================================================
+        #endregion
+
+        #region Damage System
 
         /// <summary>
         /// Default severity for damage calculations.
@@ -110,9 +107,9 @@ namespace Nightflow.Config
         /// </summary>
         public const float DefaultMassFactor = 0.3f;
 
-        // =====================================================================
-        // IMPULSE PHYSICS
-        // =====================================================================
+        #endregion
+
+        #region Risk & Impulse
 
         /// <summary>
         /// Base risk multiplier cap.
@@ -129,9 +126,9 @@ namespace Nightflow.Config
         /// </summary>
         public const float MinRebuildRate = 0.3f;
 
-        // =====================================================================
-        // UI PARAMETERS
-        // =====================================================================
+        #endregion
+
+        #region UI Parameters
 
         /// <summary>
         /// Score display smoothing factor.
@@ -143,9 +140,9 @@ namespace Nightflow.Config
         /// </summary>
         public const float WarningFlashRate = 4f;
 
-        // =====================================================================
-        // CRASH SYSTEM TIMING
-        // =====================================================================
+        #endregion
+
+        #region Crash System Timing
 
         /// <summary>
         /// Time in seconds after crash before autopilot engages.
@@ -156,10 +153,6 @@ namespace Nightflow.Config
         /// Default autopilot target speed after crash (m/s).
         /// </summary>
         public const float AutopilotRecoverySpeed = 20f;
-
-        // =====================================================================
-        // CRASH FLASH TIMING
-        // =====================================================================
 
         /// <summary>
         /// Flash-in duration in seconds.
@@ -176,9 +169,9 @@ namespace Nightflow.Config
         /// </summary>
         public const float CrashFlashFadeOutDuration = 0.4f;
 
-        // =====================================================================
-        // HELPER METHODS
-        // =====================================================================
+        #endregion
+
+        #region Helper Methods
 
         /// <summary>
         /// Converts speed from m/s to km/h.
@@ -213,5 +206,7 @@ namespace Nightflow.Config
             float leftEdge = roadCenter - (numLanes * LaneWidth * 0.5f);
             return leftEdge + (laneIndex + 0.5f) * LaneWidth;
         }
+
+        #endregion
     }
 }

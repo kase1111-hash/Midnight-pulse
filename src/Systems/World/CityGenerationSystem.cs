@@ -40,6 +40,7 @@ namespace Nightflow.Systems
         private const float MaxBuildingsPerBlock = 12f; // Buildings per block
 
         // Building size ranges
+        // TODO: Building dimensions should vary by distance from road — taller skyscrapers farther back
         private const float MinWidth = 10f;
         private const float MaxWidth = 30f;
         private const float MinDepth = 10f;
@@ -77,7 +78,9 @@ namespace Nightflow.Systems
                 ref var city = ref cityState.ValueRW;
                 city.GeneratedThisFrame = 0;
 
-                // Sync seed
+                // Sync seed from NetworkState if available (created by NetworkInitSystem).
+                // NOTE: NetworkInitSystem has [DisableAutoCreation] — query returns empty,
+                // falling through to the default seed. This is intentional until multiplayer is enabled.
                 if (city.Seed == 0)
                 {
                     foreach (var netState in SystemAPI.Query<RefRO<NetworkState>>())

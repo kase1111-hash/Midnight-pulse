@@ -41,6 +41,7 @@ namespace Nightflow.Rendering
         [SerializeField] private Color silhouetteColor = new Color(0.02f, 0.02f, 0.05f, 1f);
 
         [Header("Animation")]
+        // TODO: Window toggle should synchronize with music beat when BPM detection is available
         [SerializeField] private float windowToggleInterval = 8f;
         [SerializeField] private float windowLitRatio = 0.65f;
 

@@ -92,6 +92,7 @@ namespace Nightflow.Systems
                 // At full health (1.0): 100% acceleration
                 // At 50% health: 75% acceleration
                 // At engine failure: 50% acceleration (limp mode)
+                // TODO: Engine limp mode should also cap max RPM and add audio stutter
                 float engineModifier = failures.HasFailed(ComponentFailures.Engine)
                     ? 0.5f  // Engine failed: limp mode
                     : 0.5f + (health.Engine * 0.5f);  // Gradual degradation

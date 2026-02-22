@@ -35,6 +35,7 @@ namespace Nightflow.Systems
         // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
 
         // Speed parameters
+        // TODO: Traffic speed should correlate with player speed tier for better pacing
         private const float BaseFlowSpeed = 22f;          // m/s base traffic speed
         private const float SpeedVariance = 0.2f;         // ±20% speed variance
 

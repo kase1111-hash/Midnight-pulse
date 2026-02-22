@@ -17,6 +17,7 @@ namespace Nightflow.Systems
     /// Generates daily challenges based on deterministic seed.
     /// Runs once at startup and when day changes.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.2.0 — scope creep cleanup
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial struct DailyChallengeGeneratorSystem : ISystem
     {
@@ -228,6 +229,7 @@ namespace Nightflow.Systems
     /// Tracks challenge progress during gameplay.
     /// Updates progress tracker from player state.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.2.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ScoringSystem))]
@@ -299,6 +301,7 @@ namespace Nightflow.Systems
     /// <summary>
     /// Evaluates challenge completion when a run ends.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.2.0
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(CrashSystem))]
     public partial struct ChallengeCompletionSystem : ISystem

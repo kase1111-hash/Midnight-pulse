@@ -20,6 +20,7 @@ namespace Nightflow.Systems
     /// From spec:
     /// - Leaderboard integration
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0 — no backend service
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
     public partial struct LeaderboardSystem : ISystem
@@ -81,6 +82,7 @@ namespace Nightflow.Systems
     /// <summary>
     /// Submits scores to the leaderboard when runs complete.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
     [UpdateAfter(typeof(LeaderboardSystem))]
@@ -145,6 +147,7 @@ namespace Nightflow.Systems
     /// <summary>
     /// Updates local player rank tracking.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(LeaderboardSubmissionSystem))]
@@ -202,6 +205,7 @@ namespace Nightflow.Systems
     /// <summary>
     /// Manages leaderboard pagination and filtering.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct LeaderboardNavigationSystem : ISystem
@@ -237,6 +241,7 @@ namespace Nightflow.Systems
     /// <summary>
     /// Tracks statistics for leaderboard submission.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct RunStatisticsSystem : ISystem
@@ -295,6 +300,7 @@ namespace Nightflow.Systems
     /// <summary>
     /// Initializes leaderboard singleton and buffers.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0 — singleton not consumed by active systems
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial struct LeaderboardInitSystem : ISystem
     {

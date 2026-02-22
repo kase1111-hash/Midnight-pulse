@@ -22,6 +22,7 @@ namespace Nightflow.Systems
     /// - Network replication via input logs + deterministic seeds
     /// - Replicate ECS state deltas across network
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0 — no transport layer
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(InputSystem))]
@@ -127,6 +128,7 @@ namespace Nightflow.Systems
     /// Applies received network inputs to remote player vehicles.
     /// Uses interpolation for smooth visual updates.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(NetworkInputCaptureSystem))]
@@ -255,6 +257,7 @@ namespace Nightflow.Systems
     /// Captures local player state for network transmission.
     /// Prepares state snapshots for other clients.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
     public partial struct NetworkStateCaptureSystem : ISystem
@@ -317,6 +320,7 @@ namespace Nightflow.Systems
     /// <summary>
     /// Handles input acknowledgments and rollback for client-side prediction.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(NetworkStateCaptureSystem))]
@@ -420,6 +424,7 @@ namespace Nightflow.Systems
     /// <summary>
     /// Initializes network singletons on world creation.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0 — singleton not consumed by active systems
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial struct NetworkInitSystem : ISystem
     {
@@ -444,6 +449,7 @@ namespace Nightflow.Systems
     /// <summary>
     /// Manages network session lifecycle and player connections.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
     public partial struct NetworkSessionSystem : ISystem
     {

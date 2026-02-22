@@ -1,7 +1,5 @@
-// ============================================================================
 // Nightflow - Lane Magnetism Tests
 // Validates critically damped spring model and modulation factors
-// ============================================================================
 
 using NUnit.Framework;
 using Unity.Mathematics;
@@ -29,9 +27,7 @@ namespace Nightflow.Tests
         private const float HandbrakeMultiplier = 0.25f;
         private const float DriftMultiplier = 0.3f;
 
-        // =====================================================================
-        // Spring Acceleration Formula
-        // =====================================================================
+        #region Spring Acceleration Formula
 
         private static float CalculateSpringAcceleration(float modulation, float offset, float lateralVelocity)
         {
@@ -108,9 +104,9 @@ namespace Nightflow.Tests
             Assert.AreEqual(-48f, accel, 0.001f);
         }
 
-        // =====================================================================
-        // Modulation Factors
-        // =====================================================================
+        #endregion
+
+        #region Modulation Factors
 
         private static float CalculateInputModulation(float steerInput)
         {
@@ -194,9 +190,9 @@ namespace Nightflow.Tests
             Assert.Less(DriftMultiplier, 1f);
         }
 
-        // =====================================================================
-        // Combined Modulation
-        // =====================================================================
+        #endregion
+
+        #region Combined Modulation
 
         private static float CombineModulation(float baseMagnet, float mInput, bool autopilot,
             float speed, bool handbrake, bool drifting)
@@ -240,9 +236,9 @@ namespace Nightflow.Tests
             Assert.Less(drift, normal);
         }
 
-        // =====================================================================
-        // Edge Force
-        // =====================================================================
+        #endregion
+
+        #region Edge Force
 
         private static float CalculateEdgeForce(float lateralPosition, int numLanes)
         {
@@ -289,9 +285,9 @@ namespace Nightflow.Tests
             Assert.Greater(math.abs(force2), math.abs(force1));
         }
 
-        // =====================================================================
-        // Lateral Velocity Clamping
-        // =====================================================================
+        #endregion
+
+        #region Lateral Velocity Clamping
 
         [Test]
         public void LateralVelocity_ClampedToMax()
@@ -316,5 +312,78 @@ namespace Nightflow.Tests
             float clamped = math.clamp(vel, -MaxLateralSpeed, MaxLateralSpeed);
             Assert.AreEqual(vel, clamped, 0.001f);
         }
+
+        #endregion
+
+        #region Error-Path & Boundary Tests
+
+        [Test]
+        public void Spring_NegativeModulation_ReversesForce()
+        {
+            // Negative modulation shouldn't occur in production but test behavior
+            float normal = CalculateSpringAcceleration(1f, 1f, 0f);
+            float negMod = CalculateSpringAcceleration(-1f, 1f, 0f);
+            Assert.AreEqual(-normal, negMod, 0.001f);
+        }
+
+        [Test]
+        public void Spring_ExtremeOffset_ProducesLargeForce()
+        {
+            float accel = CalculateSpringAcceleration(1f, 100f, 0f);
+            // -64 * 100 = -6400
+            Assert.AreEqual(-6400f, accel, 0.1f);
+        }
+
+        [Test]
+        public void InputMod_OverSteer_ProducesNegative()
+        {
+            // Steer input > 1.0 produces negative modulation
+            float mod = CalculateInputModulation(1.5f);
+            Assert.Less(mod, 0f);
+        }
+
+        [Test]
+        public void SpeedMod_NegativeSpeed_ClampedToMin()
+        {
+            // Negative speed is nonsensical — should be clamped
+            float mod = CalculateSpeedModulation(-10f);
+            Assert.AreEqual(0.75f, mod, 0.001f);
+        }
+
+        [Test]
+        public void EdgeForce_AtExactSoftEdge_ZeroForce()
+        {
+            float halfRoad = (DefaultNumLanes * LaneWidth) * 0.5f;
+            float softEdge = halfRoad * SoftZoneRatio;
+            float force = CalculateEdgeForce(softEdge, DefaultNumLanes);
+            Assert.AreEqual(0f, force, 0.001f);
+        }
+
+        [Test]
+        public void EdgeForce_ZeroLanes_ZeroSoftEdge()
+        {
+            // Edge case: 0 lanes means soft edge = 0, any position triggers force
+            float force = CalculateEdgeForce(1f, 0);
+            Assert.Less(force, 0f);
+        }
+
+        [Test]
+        public void CombinedMod_AllModifiersActive_StillPositive()
+        {
+            float result = CombineModulation(1f, 0.5f, true, ReferenceSpeed, true, true);
+            Assert.Greater(result, 0f);
+        }
+
+        [TestCase(0f, 0f)]
+        [TestCase(1f, -64f)]
+        [TestCase(-1f, 64f)]
+        [TestCase(0.5f, -32f)]
+        public void Spring_ParametrizedOffset(float offset, float expectedAccel)
+        {
+            float accel = CalculateSpringAcceleration(1f, offset, 0f);
+            Assert.AreEqual(expectedAccel, accel, 0.01f);
+        }
+
+        #endregion
     }
 }

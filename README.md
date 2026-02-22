@@ -174,7 +174,7 @@ See [Build System](build/README.md) for complete build documentation.
 
 ## Architecture Highlights
 
-- **131 C# Files** across a modular ECS architecture
+- **143 C# Files** across a modular ECS architecture
 - **70+ Systems** organized by function (Simulation, Presentation, Audio, UI, Network, World)
 - **21 Component Files** defining 60+ component types
 - **Burst Compiled** hot paths for performance

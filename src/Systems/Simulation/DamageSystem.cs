@@ -49,6 +49,7 @@ namespace Nightflow.Systems
         private const float RiskCapDamageMultiplier = 0.7f; // Cap reduced by 70% of damage ratio
 
         // Phase 2: Soft-body damage impulse parameters
+        // TODO: These should be per-material — metal deforms differently than plastic bumpers
         private const float ImpactVelocityScale = 0.5f;   // How much impact speed affects deformation velocity
         private const float MinImpactForImpulse = 5f;     // Minimum impact speed to add velocity impulse
 

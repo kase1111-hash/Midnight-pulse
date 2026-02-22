@@ -31,6 +31,7 @@ namespace Nightflow.Audio
         [SerializeField] private AudioMixerGroup ambientGroup;
 
         [Header("Audio Clips - Engine (ignored if Collection is assigned)")]
+        // TODO: Add crossfade blending between RPM layers based on actual engine load, not just speed
         [SerializeField] private AudioClip engineIdle;
         [SerializeField] private AudioClip engineLowRPM;
         [SerializeField] private AudioClip engineMidRPM;

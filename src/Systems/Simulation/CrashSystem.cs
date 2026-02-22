@@ -94,6 +94,8 @@ namespace Nightflow.Systems
                         }
                     }
 
+                    // FIXME: Condition A uses CrashSpeed threshold from config, but there's no
+                    // visual/audio feedback as the player approaches lethal impact speed. Add pre-crash warning.
                     // =============================================================
                     // Condition B: Structural Damage Exceeded
                     // Damage.Total > D_max

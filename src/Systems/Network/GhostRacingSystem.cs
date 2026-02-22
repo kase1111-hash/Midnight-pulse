@@ -23,6 +23,7 @@ namespace Nightflow.Systems
     /// - Record: globalSeed + fixed-timestep input log
     /// - Second PlayerVehicle entity driven by log (identical sim)
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0 — no multiplayer transport layer
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(ReplayPlaybackSystem))]
@@ -164,6 +165,7 @@ namespace Nightflow.Systems
     /// Spawns ghost vehicles for ghost racing mode.
     /// Creates ghosts from downloaded run data.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct GhostRaceSpawnSystem : ISystem
     {
@@ -262,6 +264,7 @@ namespace Nightflow.Systems
     /// Updates ghost run references for ghost racing mode.
     /// Handles ghost run selection based on difficulty.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateBefore(typeof(GhostRaceSpawnSystem))]
@@ -300,6 +303,7 @@ namespace Nightflow.Systems
     /// Uploads completed runs for ghost racing.
     /// Prepares run data for leaderboard submission.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
     public partial struct GhostRunUploadSystem : ISystem
@@ -365,6 +369,7 @@ namespace Nightflow.Systems
     /// <summary>
     /// Initializes ghost race singleton on world creation.
     /// </summary>
+    [DisableAutoCreation] // Deferred to v0.3.0 — singleton not consumed by active systems
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial struct GhostRaceInitSystem : ISystem
     {

@@ -42,6 +42,7 @@ namespace Nightflow.Systems
         private const int NumLanes = 4;
 
         // Blocking check parameters
+        // FIXME: Block check range is fixed but should scale with player speed — at 80m/s, 20m ahead is only 0.25s reaction time
         private const float BlockCheckAhead = 20f;
         private const float BlockCheckBehind = 10f;
         // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth

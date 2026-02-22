@@ -33,6 +33,7 @@ namespace Nightflow.Systems
         private const float PlayerHalfLength = 2.2f;     // ~4.4m long
 
         // Collision detection radius (broad phase)
+        // TODO: Replace AABB with OBB for rotated vehicles — current boxes don't account for yaw
         private const float BroadPhaseRadius = 6f;
 
         [BurstCompile]
@@ -71,7 +72,7 @@ namespace Nightflow.Systems
                 playerEntity = entity;
                 playerActive = true;
 
-                // Reconstruct velocity vector
+                // FIXME: Velocity vector reconstruction assumes forward-only motion, ignores lateral drift component
                 float3 forward = math.forward(playerRot);
                 float3 right = math.mul(playerRot, new float3(1, 0, 0));
                 playerVelocity = forward * velocity.ValueRO.Forward + right * velocity.ValueRO.Lateral;

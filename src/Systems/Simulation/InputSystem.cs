@@ -63,6 +63,7 @@ namespace Nightflow.Systems
             bool handbrake = GetHandbrakeInput(bindingManager);
 
             // Apply deadzone and sensitivity curves
+            // TODO: Add per-device deadzone profiles — DualSense triggers have different feel than Xbox
             float processedSteer = ProcessSteerInput(rawSteer);
             float processedThrottle = ApplyDeadzone(rawThrottle, triggerDeadzone);
             float processedBrake = ApplyDeadzone(rawBrake, triggerDeadzone);

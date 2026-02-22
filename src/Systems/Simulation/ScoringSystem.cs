@@ -30,6 +30,7 @@ namespace Nightflow.Systems
         private const float BoostedMultiplier = 2.5f;
 
         // Risk parameters
+        // TODO: Make these configurable via GameplayConfig ScriptableObject instead of hardcoded
         private const float RiskDecay = 0.8f;           // per second
         private const float BrakePenalty = 0.5f;        // 50% reduction
         private const float BrakeCooldown = 2.0f;       // seconds

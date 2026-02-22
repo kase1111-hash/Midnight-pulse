@@ -29,6 +29,7 @@ namespace Nightflow.Systems
     public partial struct ImpulseSystem : ISystem
     {
         // Impulse parameters (from spec)
+        // HACK: VirtualMass is a tuning constant, not a real mass — name is misleading, should be "ImpulseResistance"
         private const float ImpulseScale = 1.2f;        // k_i
         private const float VirtualMass = 1200f;        // m_virtual
         private const float YawKickScale = 0.5f;        // k_y

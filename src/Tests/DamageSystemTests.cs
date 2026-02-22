@@ -1,7 +1,5 @@
-// ============================================================================
 // Nightflow - Damage System Tests
 // Validates damage energy formula, directional weights, and risk cap degradation
-// ============================================================================
 
 using NUnit.Framework;
 using Unity.Mathematics;
@@ -25,9 +23,7 @@ namespace Nightflow.Tests
         private const float RearSlipPenalty = 0.6f;
         private const float RiskCapDamageMultiplier = 0.7f;
 
-        // =====================================================================
-        // Damage Energy Formula: E_d = k_d * v_impact^2 * Severity
-        // =====================================================================
+        #region Damage Energy Formula: E_d = k_d * v_impact^2 * Severity
 
         private static float CalculateDamageEnergy(float impactSpeed, float severity)
         {
@@ -91,9 +87,9 @@ namespace Nightflow.Tests
             Assert.AreEqual(0.1f, ed, 0.001f);
         }
 
-        // =====================================================================
-        // Directional Weight Distribution
-        // =====================================================================
+        #endregion
+
+        #region Directional Weight Distribution
 
         private struct DirectionalWeights
         {
@@ -213,9 +209,9 @@ namespace Nightflow.Tests
             Assert.AreEqual(0.25f, w.Right, 0.001f);
         }
 
-        // =====================================================================
-        // Risk Cap Degradation
-        // =====================================================================
+        #endregion
+
+        #region Risk Cap Degradation
 
         private static float CalculateRiskCap(float totalDamage)
         {
@@ -267,9 +263,9 @@ namespace Nightflow.Tests
             Assert.Greater(cap50, cap75);
         }
 
-        // =====================================================================
-        // Rebuild Rate Degradation
-        // =====================================================================
+        #endregion
+
+        #region Rebuild Rate Degradation
 
         private static float CalculateRebuildRate(float totalDamage)
         {
@@ -308,9 +304,9 @@ namespace Nightflow.Tests
             Assert.AreEqual(GameConstants.MinRebuildRate, rate, 0.001f);
         }
 
-        // =====================================================================
-        // Handling Penalty Coefficients
-        // =====================================================================
+        #endregion
+
+        #region Handling Penalty Coefficients
 
         [Test]
         public void Penalties_AreInRange()
@@ -363,9 +359,9 @@ namespace Nightflow.Tests
             Assert.AreEqual(1.3f, degraded, 0.001f);
         }
 
-        // =====================================================================
-        // Cascade Failure Threshold
-        // =====================================================================
+        #endregion
+
+        #region Cascade Failure Threshold
 
         [Test]
         public void MaxDamage_CausesCrash()
@@ -384,9 +380,9 @@ namespace Nightflow.Tests
             Assert.IsFalse(shouldCrash);
         }
 
-        // =====================================================================
-        // Damage Zone Saturation (clamping to [0,1])
-        // =====================================================================
+        #endregion
+
+        #region Damage Zone Saturation (clamping to [0,1])
 
         [Test]
         public void DamageZone_Saturated_ClampsToOne()
@@ -411,5 +407,84 @@ namespace Nightflow.Tests
             float clamped = math.saturate(zone);
             Assert.AreEqual(0.6f, clamped, 0.001f);
         }
+
+        #endregion
+
+        #region Error-Path & Boundary Tests
+
+        [Test]
+        public void DamageEnergy_NegativeImpactSpeed_TreatedAsPositive()
+        {
+            // Squared term makes negative speed produce positive damage
+            float ed = CalculateDamageEnergy(-10f, 0.3f);
+            Assert.Greater(ed, 0f);
+        }
+
+        [Test]
+        public void DamageEnergy_NegativeSeverity_ProducesNegativeDamage()
+        {
+            // Negative severity is nonsensical — system should guard against this
+            float ed = CalculateDamageEnergy(10f, -0.3f);
+            Assert.Less(ed, 0f);
+        }
+
+        [Test]
+        public void DamageEnergy_ExtremeSpeed_ProducesLargeValue()
+        {
+            // At MaxForwardSpeed with max severity
+            float ed = CalculateDamageEnergy(GameConstants.MaxForwardSpeed, 1.0f);
+            // 0.04 * 80^2 * 1.0 = 256 — exceeds MaxDamage, needs capping in caller
+            Assert.Greater(ed, GameConstants.MaxDamage);
+        }
+
+        [Test]
+        public void RiskCap_NegativeDamage_ExceedsBaseCap()
+        {
+            // Negative damage is nonsensical — cap goes above base
+            float cap = CalculateRiskCap(-50f);
+            Assert.Greater(cap, GameConstants.BaseRiskCap);
+        }
+
+        [Test]
+        public void RebuildRate_NegativeDamage_ExceedsOne()
+        {
+            float rate = CalculateRebuildRate(-100f);
+            Assert.Greater(rate, 1f);
+        }
+
+        [Test]
+        public void Weights_NearZeroNormal_FallsBackToEqual()
+        {
+            // Very small normal that's below the 0.01 threshold
+            float3 normal = new float3(0.001f, 0, 0.001f);
+            var w = CalculateWeights(normal);
+            // Total components are too small, falls back to equal distribution
+            float sum = w.Front + w.Rear + w.Left + w.Right;
+            Assert.AreEqual(1f, sum, 0.01f);
+        }
+
+        [TestCase(0f, 0.3f, 0f)]
+        [TestCase(10f, 1.0f, 4f)]
+        [TestCase(20f, 1.0f, 16f)]
+        [TestCase(50f, 0.5f, 50f)]
+        public void DamageEnergy_ParametrizedCases(float speed, float severity, float expected)
+        {
+            float ed = CalculateDamageEnergy(speed, severity);
+            Assert.AreEqual(expected, ed, 0.01f);
+        }
+
+        [TestCase(0f, 2.0f)]
+        [TestCase(50f)]
+        [TestCase(100f)]
+        [TestCase(200f, 0.5f)]
+        public void RiskCap_ParametrizedDamage(float damage, float expectedMin = 0f)
+        {
+            float cap = CalculateRiskCap(damage);
+            Assert.GreaterOrEqual(cap, GameConstants.MinRiskCap);
+            if (expectedMin > 0f)
+                Assert.AreEqual(expectedMin, cap, 0.1f);
+        }
+
+        #endregion
     }
 }

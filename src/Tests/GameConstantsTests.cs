@@ -1,7 +1,5 @@
-// ============================================================================
 // Nightflow - Game Constants Tests
 // Validates centralized constants and helper methods
-// ============================================================================
 
 using NUnit.Framework;
 using Nightflow.Config;
@@ -11,9 +9,7 @@ namespace Nightflow.Tests
     [TestFixture]
     public class GameConstantsTests
     {
-        // =====================================================================
-        // Constant Range Validation
-        // =====================================================================
+        #region Constant Range Validation
 
         [Test]
         public void LaneWidth_IsPositive()
@@ -78,9 +74,9 @@ namespace Nightflow.Tests
             Assert.Greater(GameConstants.CrashFlashFadeOutDuration, 0f);
         }
 
-        // =====================================================================
-        // Unit Conversion Tests
-        // =====================================================================
+        #endregion
+
+        #region Unit Conversion Tests
 
         [Test]
         public void ToKmh_ConvertsCorrectly()
@@ -142,9 +138,9 @@ namespace Nightflow.Tests
             Assert.Greater(GameConstants.ToKmh(metersPerSecond), metersPerSecond);
         }
 
-        // =====================================================================
-        // Lane Center Calculation Tests
-        // =====================================================================
+        #endregion
+
+        #region Lane Center Calculation Tests
 
         [Test]
         public void GetLaneCenterX_Lane0_IsLeftmost()
@@ -204,5 +200,112 @@ namespace Nightflow.Tests
             float expected = -1.8f;
             Assert.AreEqual(expected, GameConstants.GetLaneCenterX(0, 2), 0.001f);
         }
+
+        #endregion
+
+        #region Error-Path & Boundary Tests
+
+        [Test]
+        public void ToKmh_NegativeSpeed_ReturnsNegative()
+        {
+            float result = GameConstants.ToKmh(-10f);
+            Assert.Less(result, 0f);
+        }
+
+        [Test]
+        public void ToMph_NegativeSpeed_ReturnsNegative()
+        {
+            float result = GameConstants.ToMph(-10f);
+            Assert.Less(result, 0f);
+        }
+
+        [Test]
+        public void FromKmh_NegativeKmh_ReturnsNegative()
+        {
+            float result = GameConstants.FromKmh(-36f);
+            Assert.Less(result, 0f);
+        }
+
+        [Test]
+        public void ToMph_FromKmh_ConsistentConversion()
+        {
+            // 1 m/s in km/h and mph should maintain ratio: mph/kmh ≈ 0.621
+            float kmh = GameConstants.ToKmh(1f);
+            float mph = GameConstants.ToMph(1f);
+            float ratio = mph / kmh;
+            Assert.AreEqual(0.621f, ratio, 0.01f);
+        }
+
+        [Test]
+        public void GetLaneCenterX_SingleLane_CenteredAtZero()
+        {
+            float center = GameConstants.GetLaneCenterX(0, 1);
+            Assert.AreEqual(0f, center, 0.001f);
+        }
+
+        [Test]
+        public void GetLaneCenterX_NegativeLaneIndex_StillComputes()
+        {
+            // Negative index is nonsensical but should not throw
+            float result = GameConstants.GetLaneCenterX(-1);
+            Assert.IsFalse(float.IsNaN(result));
+        }
+
+        [Test]
+        public void GetLaneCenterX_LargeIndex_BeyondRoad()
+        {
+            // Lane index beyond road bounds
+            float result = GameConstants.GetLaneCenterX(100);
+            float halfRoad = GameConstants.RoadWidth * 0.5f;
+            Assert.Greater(result, halfRoad);
+        }
+
+        [Test]
+        public void MinForwardSpeed_IsPositive()
+        {
+            Assert.Greater(GameConstants.MinForwardSpeed, 0f);
+        }
+
+        [Test]
+        public void DefaultDamageSeverity_InRange()
+        {
+            Assert.Greater(GameConstants.DefaultDamageSeverity, 0f);
+            Assert.LessOrEqual(GameConstants.DefaultDamageSeverity, 1f);
+        }
+
+        [Test]
+        public void FallbackDamageSeverity_InRange()
+        {
+            Assert.Greater(GameConstants.FallbackDamageSeverity, 0f);
+            Assert.LessOrEqual(GameConstants.FallbackDamageSeverity, 1f);
+        }
+
+        [Test]
+        public void AutopilotRecoverySpeed_WithinSpeedRange()
+        {
+            Assert.GreaterOrEqual(GameConstants.AutopilotRecoverySpeed, GameConstants.MinForwardSpeed);
+            Assert.LessOrEqual(GameConstants.AutopilotRecoverySpeed, GameConstants.MaxForwardSpeed);
+        }
+
+        [TestCase(0, 4, -5.4f)]
+        [TestCase(1, 4, -1.8f)]
+        [TestCase(2, 4, 1.8f)]
+        [TestCase(3, 4, 5.4f)]
+        public void GetLaneCenterX_ParametrizedLanes(int laneIndex, int numLanes, float expectedX)
+        {
+            float result = GameConstants.GetLaneCenterX(laneIndex, numLanes);
+            Assert.AreEqual(expectedX, result, 0.01f);
+        }
+
+        [TestCase(0f, 0f)]
+        [TestCase(1f, 3.6f)]
+        [TestCase(10f, 36f)]
+        [TestCase(27.778f, 100f)]
+        public void ToKmh_ParametrizedConversion(float ms, float expectedKmh)
+        {
+            Assert.AreEqual(expectedKmh, GameConstants.ToKmh(ms), 0.1f);
+        }
+
+        #endregion
     }
 }

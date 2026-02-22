@@ -37,6 +37,7 @@ namespace Nightflow.Systems
         private const float SteerSmoothing = 5f;
 
         // Hazard avoidance
+        // TODO: Autopilot should vary its driving style (cautious vs aggressive) based on player's typical playstyle
         private const float HazardDetectionRange = 80f;
         private const float HazardAvoidanceStrength = 1.5f;
         private const float LaneChangeThreshold = 0.5f;
