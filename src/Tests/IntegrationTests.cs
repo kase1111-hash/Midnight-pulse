@@ -1,7 +1,5 @@
-// ============================================================================
 // Nightflow - Integration Tests
 // Validates multi-system call chains work correctly end-to-end
-// ============================================================================
 
 using NUnit.Framework;
 using Unity.Mathematics;
@@ -10,7 +8,7 @@ namespace Nightflow.Tests
 {
     /// <summary>
     /// Integration tests that verify cross-system data flow.
-    /// These simulate the call chains: Collision → Damage → Risk → Scoring → Crash.
+    /// These simulate the call chains: Collision -> Damage -> Risk -> Scoring -> Crash.
     /// </summary>
     [TestFixture]
     public class IntegrationTests
@@ -26,9 +24,7 @@ namespace Nightflow.Tests
         private const float BoostedThreshold = 50f;
         private const float SideMagnetismPenalty = 0.5f;
 
-        // =====================================================================
-        // Collision → Damage → Risk Chain
-        // =====================================================================
+        #region Collision -> Damage -> Risk Chain
 
         private static float CalculateDamageEnergy(float impactSpeed, float severity)
         {
@@ -60,7 +56,7 @@ namespace Nightflow.Tests
             // Step 2: Impact speed produces damage energy
             float severity = 1.0f;
             float damageEnergy = CalculateDamageEnergy(impactSpeed, severity);
-            // 0.04 * 40² * 1.0 = 64
+            // 0.04 * 40^2 * 1.0 = 64
             Assert.AreEqual(64f, damageEnergy, 0.001f);
 
             // Step 3: Accumulated damage reduces risk cap
@@ -78,13 +74,13 @@ namespace Nightflow.Tests
             float impactSpeed = 80f;
             float severity = 1.5f;
             float damageEnergy = CalculateDamageEnergy(impactSpeed, severity);
-            // 0.04 * 80² * 1.5 = 0.04 * 6400 * 1.5 = 384 → capped to 100
+            // 0.04 * 80^2 * 1.5 = 0.04 * 6400 * 1.5 = 384 -> capped to 100
             Assert.AreEqual(MaxDamage, damageEnergy, 0.001f);
         }
 
-        // =====================================================================
-        // Damage → Handling Degradation Chain
-        // =====================================================================
+        #endregion
+
+        #region Damage -> Handling Degradation Chain
 
         [Test]
         public void DamageToHandling_SideDamageReducesMagnetism()
@@ -107,9 +103,9 @@ namespace Nightflow.Tests
             Assert.Greater(halfDamage, fullDamage);
         }
 
-        // =====================================================================
-        // Score Accumulation with Risk and Damage
-        // =====================================================================
+        #endregion
+
+        #region Score Accumulation with Risk and Damage
 
         private static float GetTierMultiplier(float speed)
         {
@@ -142,9 +138,9 @@ namespace Nightflow.Tests
             Assert.Less(maxRiskHeavyDamage, maxRiskNoDamage);
         }
 
-        // =====================================================================
-        // Crash Condition Integration
-        // =====================================================================
+        #endregion
+
+        #region Crash Condition Integration
 
         private static bool ShouldCrash_TotalDamage(float totalDamage, float threshold)
         {
@@ -172,7 +168,7 @@ namespace Nightflow.Tests
             totalDamage += CalculateDamageEnergy(30f, 1.0f); // 0.04 * 900 = 36
             Assert.IsFalse(ShouldCrash_TotalDamage(totalDamage, crashThreshold));
 
-            totalDamage += CalculateDamageEnergy(35f, 1.0f); // 0.04 * 1225 = 49 → total = 110, capped hits
+            totalDamage += CalculateDamageEnergy(35f, 1.0f); // 0.04 * 1225 = 49 -> total = 110, capped hits
             // 25 + 36 + 49 = 110, but each hit capped at MaxDamage individually
             // totalDamage = 25 + 36 + 49 = 110
             Assert.IsTrue(ShouldCrash_TotalDamage(totalDamage, crashThreshold));
@@ -202,9 +198,9 @@ namespace Nightflow.Tests
                 yawThreshold: 2.0f, speedThreshold: 10f, damageThreshold: 50f));
         }
 
-        // =====================================================================
-        // Track Generation Determinism
-        // =====================================================================
+        #endregion
+
+        #region Track Generation Determinism
 
         private static uint NextRandom(ref uint state)
         {
@@ -252,5 +248,7 @@ namespace Nightflow.Tests
 
             Assert.AreNotEqual(val1, val2);
         }
+
+        #endregion
     }
 }

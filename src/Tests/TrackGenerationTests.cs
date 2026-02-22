@@ -1,7 +1,5 @@
-// ============================================================================
 // Nightflow - Track Generation Tests
 // Validates deterministic seeding, spline math, and segment management
-// ============================================================================
 
 using NUnit.Framework;
 using Unity.Mathematics;
@@ -16,9 +14,7 @@ namespace Nightflow.Tests
     [TestFixture]
     public class TrackGenerationTests
     {
-        // =====================================================================
-        // Deterministic Seeding
-        // =====================================================================
+        #region Deterministic Seeding
 
         [Test]
         public void Random_SameSeed_SameResult()
@@ -65,9 +61,9 @@ namespace Nightflow.Tests
             Assert.AreNotEqual(0u, 42u); // Placeholder - real check is in system
         }
 
-        // =====================================================================
-        // Segment Length and Layout
-        // =====================================================================
+        #endregion
+
+        #region Segment Length and Layout
 
         [Test]
         public void SegmentLength_MatchesConstant()
@@ -93,9 +89,9 @@ namespace Nightflow.Tests
             Assert.Greater(GameConstants.SegmentsBehind, 0);
         }
 
-        // =====================================================================
-        // Hermite Spline Math
-        // =====================================================================
+        #endregion
+
+        #region Hermite Spline Math
 
         /// <summary>
         /// Evaluates a cubic Hermite spline at parameter t.
@@ -196,9 +192,9 @@ namespace Nightflow.Tests
             }
         }
 
-        // =====================================================================
-        // Smoothstep (used in lane changes)
-        // =====================================================================
+        #endregion
+
+        #region Smoothstep (used in lane changes)
 
         private static float Smoothstep(float t)
         {
@@ -248,5 +244,111 @@ namespace Nightflow.Tests
         {
             Assert.AreEqual(1f, Smoothstep(2f), 0.001f);
         }
+
+        #endregion
+
+        #region Error-Path & Boundary Tests
+
+        [Test]
+        public void Hermite_SameEndpoints_ReturnsConstant()
+        {
+            float3 p = new float3(5, 0, 100);
+            float3 t = float3.zero;
+            float3 result = HermiteEvaluate(p, t, p, t, 0.5f);
+            Assert.AreEqual(p.x, result.x, 0.001f);
+            Assert.AreEqual(p.z, result.z, 0.001f);
+        }
+
+        [Test]
+        public void Hermite_ZeroTangents_LinearInterpolation()
+        {
+            float3 p0 = new float3(0, 0, 0);
+            float3 p1 = new float3(10, 0, 200);
+            float3 t = float3.zero;
+
+            // With zero tangents, Hermite degenerates but still passes through endpoints
+            float3 start = HermiteEvaluate(p0, t, p1, t, 0f);
+            float3 end = HermiteEvaluate(p0, t, p1, t, 1f);
+            Assert.AreEqual(p0.x, start.x, 0.001f);
+            Assert.AreEqual(p1.x, end.x, 0.001f);
+        }
+
+        [Test]
+        public void Hermite_NegativeParameter_StillComputes()
+        {
+            float3 p0 = new float3(0, 0, 0);
+            float3 t0 = new float3(0, 0, 100);
+            float3 p1 = new float3(5, 0, 200);
+            float3 t1 = new float3(0, 0, 100);
+
+            // t < 0 is outside normal range but should not throw
+            float3 result = HermiteEvaluate(p0, t0, p1, t1, -0.5f);
+            Assert.IsFalse(float.IsNaN(result.x));
+            Assert.IsFalse(float.IsNaN(result.z));
+        }
+
+        [Test]
+        public void Hermite_ParameterAboveOne_StillComputes()
+        {
+            float3 p0 = new float3(0, 0, 0);
+            float3 t0 = new float3(0, 0, 100);
+            float3 p1 = new float3(5, 0, 200);
+            float3 t1 = new float3(0, 0, 100);
+
+            float3 result = HermiteEvaluate(p0, t0, p1, t1, 1.5f);
+            Assert.IsFalse(float.IsNaN(result.x));
+            Assert.IsFalse(float.IsNaN(result.z));
+        }
+
+        [Test]
+        public void Smoothstep_VeryLargeNegative_ClampsToZero()
+        {
+            Assert.AreEqual(0f, Smoothstep(-1000f), 0.001f);
+        }
+
+        [Test]
+        public void Smoothstep_VeryLargePositive_ClampsToOne()
+        {
+            Assert.AreEqual(1f, Smoothstep(1000f), 0.001f);
+        }
+
+        [Test]
+        public void Smoothstep_OutputAlwaysInRange()
+        {
+            for (float t = -2f; t <= 3f; t += 0.1f)
+            {
+                float val = Smoothstep(t);
+                Assert.GreaterOrEqual(val, 0f, $"Below 0 at t={t}");
+                Assert.LessOrEqual(val, 1f, $"Above 1 at t={t}");
+            }
+        }
+
+        [Test]
+        public void Random_LargeSequence_AllValuesInRange()
+        {
+            var rng = new Unity.Mathematics.Random(99999);
+            for (int i = 0; i < 1000; i++)
+            {
+                float val = rng.NextFloat();
+                Assert.GreaterOrEqual(val, 0f, $"Below 0 at iteration {i}");
+                Assert.Less(val, 1f, $"At or above 1 at iteration {i}");
+            }
+        }
+
+        [TestCase(0f, 0f)]
+        [TestCase(0.25f)]
+        [TestCase(0.5f, 0.5f)]
+        [TestCase(0.75f)]
+        [TestCase(1f, 1f)]
+        public void Smoothstep_ParametrizedValues(float input, float expected = -1f)
+        {
+            float result = Smoothstep(input);
+            Assert.GreaterOrEqual(result, 0f);
+            Assert.LessOrEqual(result, 1f);
+            if (expected >= 0f)
+                Assert.AreEqual(expected, result, 0.001f);
+        }
+
+        #endregion
     }
 }

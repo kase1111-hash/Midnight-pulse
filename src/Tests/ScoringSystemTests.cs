@@ -1,7 +1,5 @@
-// ============================================================================
 // Nightflow - Scoring System Tests
 // Validates score formula, speed tiers, risk multiplier, and brake penalty
-// ============================================================================
 
 using NUnit.Framework;
 using Unity.Mathematics;
@@ -29,9 +27,7 @@ namespace Nightflow.Tests
         private const float BrakePenalty = 0.5f;
         private const float BrakeCooldown = 2.0f;
 
-        // =====================================================================
-        // Speed Tier Classification
-        // =====================================================================
+        #region Speed Tier Classification
 
         private static float GetTierMultiplier(float speed)
         {
@@ -78,9 +74,9 @@ namespace Nightflow.Tests
             Assert.AreEqual(CruiseMultiplier, GetTierMultiplier(0f));
         }
 
-        // =====================================================================
-        // Score Formula
-        // =====================================================================
+        #endregion
+
+        #region Score Formula
 
         private static float CalculateScore(float distance, float speed, float riskMultiplier)
         {
@@ -154,9 +150,9 @@ namespace Nightflow.Tests
             Assert.Less(midRisk, highRisk);
         }
 
-        // =====================================================================
-        // Risk Multiplier Decay
-        // =====================================================================
+        #endregion
+
+        #region Risk Multiplier Decay
 
         private static float DecayRisk(float currentRisk, float deltaTime)
         {
@@ -196,9 +192,9 @@ namespace Nightflow.Tests
             Assert.AreEqual(2.0f - RiskDecay, decayed, 0.001f);
         }
 
-        // =====================================================================
-        // Brake Penalty
-        // =====================================================================
+        #endregion
+
+        #region Brake Penalty
 
         private static float ApplyBrakePenalty(float currentRisk)
         {
@@ -226,9 +222,9 @@ namespace Nightflow.Tests
             Assert.Greater(BrakeCooldown, 0f);
         }
 
-        // =====================================================================
-        // Integration: Score Accumulation Over Multiple Frames
-        // =====================================================================
+        #endregion
+
+        #region Integration: Score Accumulation Over Multiple Frames
 
         [Test]
         public void ScoreAccumulation_MultipleFrames_SumsCorrectly()
@@ -248,9 +244,9 @@ namespace Nightflow.Tests
             Assert.AreEqual(78.75f, totalScore, 0.5f);
         }
 
-        // =====================================================================
-        // Error-Path & Boundary Tests
-        // =====================================================================
+        #endregion
+
+        #region Error-Path & Boundary Tests
 
         [Test]
         public void Score_NegativeDistance_ProducesNonPositive()
@@ -286,5 +282,7 @@ namespace Nightflow.Tests
         {
             Assert.AreEqual(expectedMultiplier, GetTierMultiplier(speed));
         }
+
+        #endregion
     }
 }

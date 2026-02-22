@@ -1,7 +1,5 @@
-// ============================================================================
 // Nightflow - Collision Detection Tests
 // Validates AABB overlap, broad phase culling, and impact speed calculation
-// ============================================================================
 
 using NUnit.Framework;
 using Unity.Mathematics;
@@ -24,9 +22,7 @@ namespace Nightflow.Tests
         private const float BroadPhaseRadius = 6f;
         private const float MinImpactThreshold = 0.5f;
 
-        // =====================================================================
-        // AABB Overlap Tests
-        // =====================================================================
+        #region AABB Overlap Tests
 
         private static bool AABBOverlap(float3 posA, float3 sizeA, float3 posB, float3 sizeB)
         {
@@ -127,9 +123,9 @@ namespace Nightflow.Tests
             Assert.IsFalse(AABBOverlap(playerPos, playerSize, hazardPos, hazardSize));
         }
 
-        // =====================================================================
-        // Broad Phase Tests
-        // =====================================================================
+        #endregion
+
+        #region Broad Phase Tests
 
         private static bool BroadPhaseCheck(float3 playerPos, float3 hazardPos)
         {
@@ -177,9 +173,9 @@ namespace Nightflow.Tests
             Assert.IsFalse(BroadPhaseCheck(player, hazard));
         }
 
-        // =====================================================================
-        // Impact Speed Tests
-        // =====================================================================
+        #endregion
+
+        #region Impact Speed Tests
 
         private static float CalculateImpactSpeed(float3 velocity, float3 normal)
         {
@@ -253,9 +249,9 @@ namespace Nightflow.Tests
             Assert.GreaterOrEqual(impact, 0f);
         }
 
-        // =====================================================================
-        // Collision Normal Calculation
-        // =====================================================================
+        #endregion
+
+        #region Collision Normal Calculation
 
         private static float3 CalculateNormal(float3 playerPos, float3 hazardPos)
         {
@@ -308,9 +304,9 @@ namespace Nightflow.Tests
             Assert.AreEqual(1f, normal.z, 0.001f);
         }
 
-        // =====================================================================
-        // Minimum Impact Threshold
-        // =====================================================================
+        #endregion
+
+        #region Minimum Impact Threshold
 
         [Test]
         public void MinImpactThreshold_IsPositive()
@@ -334,9 +330,9 @@ namespace Nightflow.Tests
             Assert.IsTrue(shouldRegister);
         }
 
-        // =====================================================================
-        // Error-Path & Boundary Tests
-        // =====================================================================
+        #endregion
+
+        #region Error-Path & Boundary Tests
 
         [Test]
         public void AABB_ZeroDimensionBox_NoOverlapWithSeparation()
@@ -404,5 +400,7 @@ namespace Nightflow.Tests
             float impact = CalculateImpactSpeed(velocity, normal);
             Assert.AreEqual(expected, impact, 0.01f);
         }
+
+        #endregion
     }
 }
