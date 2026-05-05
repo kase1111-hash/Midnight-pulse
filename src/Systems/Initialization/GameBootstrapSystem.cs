@@ -42,6 +42,9 @@ namespace Nightflow.Systems
 
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
+            try
+            {
+
             // =============================================================
             // Create Initial Track Segments
             // =============================================================
@@ -545,7 +548,12 @@ namespace Nightflow.Systems
 
             // Playback command buffer
             ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+
+            }
+            finally
+            {
+                ecb.Dispose();
+            }
         }
 
         private Entity CreateTrackSegment(

@@ -9,7 +9,7 @@
     "steeringReductionSpeed": 200,
     "laneChangeTime": 0.4,
     "laneChangeCooldown": 0.2,
-    "laneWidth": 3.5,
+    "laneWidth": 3.6,
     "boostSpeedMultiplier": 1.3,
     "boostDuration": 3,
     "boostCooldown": 8,

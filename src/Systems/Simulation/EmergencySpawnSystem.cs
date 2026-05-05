@@ -73,47 +73,53 @@ namespace Nightflow.Systems
 
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-            // =============================================================
-            // Count Active Emergencies & Despawn Passed Ones
-            // =============================================================
-
-            int activeCount = 0;
-            float despawnZ = playerPos.z + DespawnDistanceAhead;
-
-            foreach (var (emergencyAI, transform, entity) in
-                SystemAPI.Query<RefRO<EmergencyAI>, RefRO<WorldTransform>>()
-                    .WithAll<EmergencyVehicleTag>()
-                    .WithEntityAccess())
+            try
             {
-                if (transform.ValueRO.Position.z > despawnZ)
+                // =============================================================
+                // Count Active Emergencies & Despawn Passed Ones
+                // =============================================================
+
+                int activeCount = 0;
+                float despawnZ = playerPos.z + DespawnDistanceAhead;
+
+                foreach (var (emergencyAI, transform, entity) in
+                    SystemAPI.Query<RefRO<EmergencyAI>, RefRO<WorldTransform>>()
+                        .WithAll<EmergencyVehicleTag>()
+                        .WithEntityAccess())
                 {
-                    // Emergency has passed player, despawn
-                    ecb.DestroyEntity(entity);
+                    if (transform.ValueRO.Position.z > despawnZ)
+                    {
+                        // Emergency has passed player, despawn
+                        ecb.DestroyEntity(entity);
+                    }
+                    else
+                    {
+                        activeCount++;
+                    }
                 }
-                else
+
+                // =============================================================
+                // Spawn Timer
+                // =============================================================
+
+                // Calculate spawn interval based on difficulty
+                float intervalReduction = DifficultyScale * distanceTraveled;
+                float currentInterval = math.max(MinSpawnInterval, BaseSpawnInterval - intervalReduction);
+
+                _spawnTimer -= deltaTime;
+
+                if (_spawnTimer <= 0 && activeCount < MaxActiveEmergencies)
                 {
-                    activeCount++;
+                    SpawnEmergencyVehicle(ref ecb, playerPos);
+                    _spawnTimer = currentInterval;
                 }
+
+                ecb.Playback(state.EntityManager);
             }
-
-            // =============================================================
-            // Spawn Timer
-            // =============================================================
-
-            // Calculate spawn interval based on difficulty
-            float intervalReduction = DifficultyScale * distanceTraveled;
-            float currentInterval = math.max(MinSpawnInterval, BaseSpawnInterval - intervalReduction);
-
-            _spawnTimer -= deltaTime;
-
-            if (_spawnTimer <= 0 && activeCount < MaxActiveEmergencies)
+            finally
             {
-                SpawnEmergencyVehicle(ref ecb, playerPos);
-                _spawnTimer = currentInterval;
+                ecb.Dispose();
             }
-
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
         }
 
         private void SpawnEmergencyVehicle(ref EntityCommandBuffer ecb, float3 playerPos)

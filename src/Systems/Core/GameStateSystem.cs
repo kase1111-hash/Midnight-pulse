@@ -7,6 +7,7 @@ using Unity.Entities;
 using Unity.Burst;
 using Unity.Mathematics;
 using Nightflow.Components;
+using Nightflow.Config;
 using Nightflow.Tags;
 
 namespace Nightflow.Systems
@@ -156,7 +157,7 @@ namespace Nightflow.Systems
                                         .WithAll<PlayerVehicleTag>())
                                     {
                                         autopilot.ValueRW.Enabled = true;
-                                        autopilot.ValueRW.TargetSpeed = 25f; // Medium speed
+                                        autopilot.ValueRW.TargetSpeed = GameConstants.AutopilotRecoverySpeed;
                                         break;
                                     }
                                     gameState.ValueRW.AutopilotQueued = false;
@@ -212,7 +213,7 @@ namespace Nightflow.Systems
                         if (gameState.ValueRO.IdleTimer >= IdleTimeoutForAutopilot)
                         {
                             autopilot.ValueRW.Enabled = true;
-                            autopilot.ValueRW.TargetSpeed = 25f;
+                            autopilot.ValueRW.TargetSpeed = GameConstants.AutopilotRecoverySpeed;
                             gameState.ValueRW.PlayerControlActive = false;
                         }
                     }

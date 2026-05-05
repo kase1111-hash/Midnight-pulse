@@ -12,6 +12,7 @@ using System.Text;
 using UnityEngine;
 using Unity.Entities;
 using Nightflow.Components;
+using Nightflow.Config;
 using Nightflow.Utilities;
 
 namespace Nightflow.Save
@@ -473,7 +474,10 @@ namespace Nightflow.Save
             // Validate entry before adding
             if (entry.Score < 0 || entry.Score > 999_999_999) return;
             if (!float.IsFinite(entry.Distance) || entry.Distance < 0f) return;
-            if (!float.IsFinite(entry.MaxSpeed) || entry.MaxSpeed < 0f || entry.MaxSpeed > 200f) return;
+            // Reject impossible speeds. MaxForwardSpeed is the in-game cap; allow a small
+            // tolerance for transient impulse spikes before clamping kicks in.
+            const float maxRecordableSpeed = GameConstants.MaxForwardSpeed * 1.25f;
+            if (!float.IsFinite(entry.MaxSpeed) || entry.MaxSpeed < 0f || entry.MaxSpeed > maxRecordableSpeed) return;
             if (!float.IsFinite(entry.TimeSurvived) || entry.TimeSurvived < 0f) return;
             if (entry.Initials == null || entry.Initials.Length == 0)
                 entry.Initials = "AAA";
@@ -590,11 +594,22 @@ namespace Nightflow.Save
             return saveData?.GhostRecordings.FirstOrDefault(g => g.Id == id);
         }
 
+        // Ghost IDs must be GUIDs to prevent path traversal when used as filenames.
+        private static bool IsValidGhostId(string id)
+        {
+            return !string.IsNullOrEmpty(id) && Guid.TryParse(id, out _);
+        }
+
         /// <summary>
         /// Save a ghost recording.
         /// </summary>
         public void SaveGhostRecording(GhostRecording ghost)
         {
+            if (ghost == null || !IsValidGhostId(ghost.Id))
+            {
+                Log.SystemError("SaveManager", "Refused to save ghost with missing or non-GUID Id");
+                return;
+            }
             if (saveData == null) saveData = new NightflowSaveData();
 
             // Add to list
@@ -632,6 +647,7 @@ namespace Nightflow.Save
         public void DeleteGhostRecording(string id)
         {
             if (saveData == null) return;
+            if (!IsValidGhostId(id)) return;
 
             var ghost = saveData.GhostRecordings.FirstOrDefault(g => g.Id == id);
             if (ghost != null)
@@ -674,6 +690,12 @@ namespace Nightflow.Save
                         {
                             string json = File.ReadAllText(file);
                             var ghost = JsonUtility.FromJson<GhostRecording>(json);
+
+                            if (ghost == null || !IsValidGhostId(ghost.Id))
+                            {
+                                Log.SystemWarn("SaveManager", $"Skipping ghost file with invalid Id: {file}");
+                                continue;
+                            }
 
                             // Ensure it's not already in the list
                             if (!saveData.GhostRecordings.Exists(g => g.Id == ghost.Id))

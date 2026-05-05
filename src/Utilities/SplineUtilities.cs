@@ -162,12 +162,24 @@ namespace Nightflow.Utilities
         [BurstCompile]
         public static float ApproximateArcLength(float3 p0, float3 t0, float3 p1, float3 t1, int samples = 16)
         {
+            return ApproximateArcLengthTo(p0, t0, p1, t1, 1f, samples);
+        }
+
+        /// <summary>
+        /// Approximate arc length of the spline segment from t=0 to t=tEnd via trapezoidal sampling.
+        /// </summary>
+        [BurstCompile]
+        public static float ApproximateArcLengthTo(float3 p0, float3 t0, float3 p1, float3 t1, float tEnd, int samples = 16)
+        {
+            tEnd = math.saturate(tEnd);
+            if (tEnd <= 0f || samples <= 0) return 0f;
+
             float length = 0f;
             float3 prevPos = p0;
 
             for (int i = 1; i <= samples; i++)
             {
-                float t = i / (float)samples;
+                float t = (i / (float)samples) * tEnd;
                 float3 pos = EvaluatePosition(p0, t0, p1, t1, t);
                 length += math.distance(prevPos, pos);
                 prevPos = pos;
@@ -178,7 +190,8 @@ namespace Nightflow.Utilities
 
         /// <summary>
         /// Finds parameter t for a given arc length along the spline.
-        /// Uses binary search for accuracy.
+        /// Uses binary search with proper partial arc-length integration so the returned t
+        /// is accurate for non-uniform Hermite splines.
         /// </summary>
         [BurstCompile]
         public static float ArcLengthToParameter(float3 p0, float3 t0, float3 p1, float3 t1,
@@ -193,7 +206,7 @@ namespace Nightflow.Utilities
             for (int i = 0; i < iterations; i++)
             {
                 float tMid = (tLow + tHigh) * 0.5f;
-                float lengthAtMid = ApproximateArcLength(p0, t0, p1, t1, 8) * tMid; // Approximation
+                float lengthAtMid = ApproximateArcLengthTo(p0, t0, p1, t1, tMid, 8);
 
                 if (lengthAtMid < targetLength)
                     tLow = tMid;

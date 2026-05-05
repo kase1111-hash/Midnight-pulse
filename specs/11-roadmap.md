@@ -62,7 +62,7 @@
 - [x] ReflectionSystem with configurable SSR quality levels
 - [ ] Hardware raytracing support (future enhancement, not currently planned)
 
-### Multiplayer - IN PROGRESS (Deferred to v0.3.0)
+### Multiplayer - DEFERRED (v0.3.0)
 > **Note:** These systems are architectural scaffolding. No network transport layer or backend services exist. All server I/O is marked as "external service" in code.
 
 - [ ] Network replication via input logs + deterministic seeds (~70% — framework only, no transport layer)
@@ -86,8 +86,8 @@
 - [x] Force feedback effects
 - [x] Configurable deadzones
 
-### Challenge System - COMPLETE (Deferred to v0.2.0)
-> **Note:** Fully implemented but deferred until core single-player gameplay loop is validated through playtesting.
+### Challenge System - DEFERRED (v0.2.0)
+> **Note:** Implementation exists but is disabled at runtime. Deferred until the core single-player loop is validated through playtesting.
 
 - [x] Daily challenge generation
 - [x] Challenge-specific leaderboards

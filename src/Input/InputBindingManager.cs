@@ -43,9 +43,6 @@ namespace Nightflow.Input
         private float lastGamepadInputTime;
         private const float InputModeSwapDelay = 0.5f;
 
-        // Cache for input state
-        private Dictionary<InputAction, bool> actionStates = new Dictionary<InputAction, bool>();
-        private Dictionary<InputAction, float> axisStates = new Dictionary<InputAction, float>();
 
         // Keys that cannot be rebound
         private static readonly HashSet<KeyCode> ForbiddenKeys = new HashSet<KeyCode>
@@ -101,7 +98,6 @@ namespace Nightflow.Input
             else
             {
                 DetectInputMode();
-                UpdateInputStates();
             }
         }
 
@@ -413,18 +409,6 @@ namespace Nightflow.Input
 
         #endregion
 
-        #region Input State Cache
-
-        private void UpdateInputStates()
-        {
-            foreach (InputAction action in Enum.GetValues(typeof(InputAction)))
-            {
-                actionStates[action] = IsActionPressed(action);
-                axisStates[action] = GetActionAxis(action);
-            }
-        }
-
-        #endregion
 
         #region Rebinding
 

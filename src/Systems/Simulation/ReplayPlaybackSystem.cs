@@ -169,6 +169,9 @@ namespace Nightflow.Systems
             EntityManager entityManager = state.EntityManager;
             EntityCommandBuffer ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
 
+            try
+            {
+
             foreach (var replaySystemState in SystemAPI.Query<RefRW<ReplaySystemState>>())
             {
                 // Check if we should spawn a ghost
@@ -246,7 +249,12 @@ namespace Nightflow.Systems
             }
 
             ecb.Playback(entityManager);
-            ecb.Dispose();
+
+            }
+            finally
+            {
+                ecb.Dispose();
+            }
         }
     }
 }
