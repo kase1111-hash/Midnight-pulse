@@ -28,7 +28,7 @@ namespace Nightflow.Systems
         // Road geometry parameters - using GameConstants for GameConstants.LaneWidth and NumLanes
         private const float ShoulderWidth = 1.5f;                   // Each side
         // RoadWidth uses GameConstants.RoadWidth (14.4m total)
-        // TotalWidth = RoadWidth + ShoulderWidth * 2f (17.4m)
+        private const float TotalWidth = GameConstants.RoadWidth + ShoulderWidth * 2f; // 17.4m
 
         // Mesh resolution
         private const int LengthSegmentsHigh = 40;                  // LOD 0

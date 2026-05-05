@@ -40,6 +40,9 @@ namespace Nightflow.Systems
             float deltaTime = SystemAPI.Time.DeltaTime;
             EntityCommandBuffer ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
 
+            try
+            {
+
             // Get player position and lane info
             float playerZ = 0f;
             int playerLane = 0;
@@ -166,7 +169,12 @@ namespace Nightflow.Systems
             }
 
             ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+
+            }
+            finally
+            {
+                ecb.Dispose();
+            }
         }
 
         /// <summary>
