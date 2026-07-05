@@ -51,11 +51,13 @@ namespace Nightflow.Rendering
 
         private void Update()
         {
-            if (Application.isPlaying)
-            {
-                _time += Time.deltaTime;
-            }
+            // Per-frame writes only while playing; in edit mode the settings
+            // were applied once in OnEnable (avoids dirtying the scene every
+            // frame and fighting user tweaks in the Lighting window)
+            if (!Application.isPlaying)
+                return;
 
+            _time += Time.deltaTime;
             Apply();
         }
 
@@ -106,6 +108,13 @@ namespace Nightflow.Rendering
         {
             if (_skyboxMaterial != null)
             {
+                // Detach before destroying so the scene isn't left pointing
+                // at a destroyed material (magenta sky / missing reference)
+                if (RenderSettings.skybox == _skyboxMaterial)
+                {
+                    RenderSettings.skybox = null;
+                }
+
                 if (Application.isPlaying)
                     Destroy(_skyboxMaterial);
                 else

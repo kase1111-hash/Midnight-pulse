@@ -451,13 +451,27 @@ namespace Nightflow.Systems
             corners[6] = center + new float3(halfExtents.x, halfExtents.y, halfExtents.z);
             corners[7] = center + new float3(-halfExtents.x, halfExtents.y, halfExtents.z);
 
+            // Corner UVs chosen so every face spans the full 0-1 quad
+            // (top ring diagonally flipped relative to bottom); UV-radial
+            // emitter shaders then get a bright core per face instead of
+            // sampling a single dark corner
+            float2[] cornerUVs = new float2[8];
+            cornerUVs[0] = new float2(0, 0);
+            cornerUVs[1] = new float2(1, 0);
+            cornerUVs[2] = new float2(1, 1);
+            cornerUVs[3] = new float2(0, 1);
+            for (int i = 0; i < 4; i++)
+            {
+                cornerUVs[i + 4] = new float2(1, 1) - cornerUVs[i];
+            }
+
             for (int i = 0; i < 8; i++)
             {
                 vertices.Add(new MeshVertex
                 {
                     Position = corners[i],
                     Normal = math.normalize(corners[i] - center),
-                    UV = new float2(0, 0),
+                    UV = cornerUVs[i],
                     Color = color
                 });
             }

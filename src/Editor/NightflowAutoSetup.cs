@@ -564,6 +564,10 @@ namespace Nightflow.Editor
                 sceneModified = true;
             }
 
+            // Keep runtime-only shaders from being stripped out of builds
+            // (project setting, does not dirty the scene)
+            NightflowSetupWizard.EnsureAlwaysIncludedShaders();
+
             if (sceneModified)
             {
                 EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
