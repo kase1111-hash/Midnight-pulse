@@ -41,6 +41,7 @@ Shader "Nightflow/NeonWireframe"
             #pragma fragment frag
             #pragma target 4.0
             #pragma multi_compile_instancing
+            #pragma multi_compile_fog
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
@@ -59,6 +60,7 @@ Shader "Nightflow/NeonWireframe"
                 float3 positionWS : TEXCOORD0;
                 float3 normalWS : TEXCOORD1;
                 float2 uv : TEXCOORD2;
+                float fogFactor : TEXCOORD3;
                 float4 color : COLOR;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
@@ -69,8 +71,9 @@ Shader "Nightflow/NeonWireframe"
                 float3 positionWS : TEXCOORD0;
                 float3 normalWS : TEXCOORD1;
                 float2 uv : TEXCOORD2;
+                float fogFactor : TEXCOORD3;
                 float4 color : COLOR;
-                float3 barycentricCoords : TEXCOORD3;
+                float3 barycentricCoords : TEXCOORD4;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -98,6 +101,7 @@ Shader "Nightflow/NeonWireframe"
                 output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 output.uv = TRANSFORM_TEX(input.uv, _MainTex);
+                output.fogFactor = ComputeFogFactor(output.positionCS.z);
                 output.color = input.color;
 
                 return output;
@@ -119,6 +123,7 @@ Shader "Nightflow/NeonWireframe"
                     output[i].positionWS = input[i].positionWS;
                     output[i].normalWS = input[i].normalWS;
                     output[i].uv = input[i].uv;
+                    output[i].fogFactor = input[i].fogFactor;
                     output[i].color = input[i].color;
 
                     // Assign barycentric coordinates
@@ -170,6 +175,9 @@ Shader "Nightflow/NeonWireframe"
 
                 // HDR output for bloom
                 finalColor.rgb *= 1.0 + glow;
+
+                // Fade into atmospheric fog so distant wireframes dissolve into haze
+                finalColor.rgb = MixFog(finalColor.rgb, input.fogFactor);
 
                 return finalColor;
             }

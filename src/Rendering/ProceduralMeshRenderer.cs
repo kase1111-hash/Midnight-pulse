@@ -36,6 +36,7 @@ namespace Nightflow.Rendering
         [SerializeField] private Material overpassMaterial;
         [SerializeField] private Material hazardMaterial;
         [SerializeField] private Material vehicleMaterial;
+        [SerializeField] private Material lightEmitterMaterial;
 
         [Header("Rendering Settings")]
         [SerializeField] private int renderLayer = 0;
@@ -50,6 +51,7 @@ namespace Nightflow.Rendering
         private Dictionary<int, CachedMesh> _trackMeshes = new Dictionary<int, CachedMesh>();
         private Dictionary<int, CachedMesh> _hazardMeshes = new Dictionary<int, CachedMesh>();
         private Dictionary<int, CachedMesh> _vehicleMeshes = new Dictionary<int, CachedMesh>();
+        private Dictionary<int, CachedMesh> _lightMeshes = new Dictionary<int, CachedMesh>();
 
         // Mesh data lists for building meshes
         private List<Vector3> _vertices = new List<Vector3>();
@@ -109,6 +111,9 @@ namespace Nightflow.Rendering
             // Query and render vehicle meshes
             RenderVehicles();
 
+            // Query and render light fixture meshes (streetlights, tunnel lights)
+            RenderLightFixtures();
+
             _lastFrameRenderedCount = _renderedMeshCount;
         }
 
@@ -135,13 +140,14 @@ namespace Nightflow.Rendering
 
         private void CreateDefaultMaterials()
         {
-            // Road surface: dark with slight blue tint
+            // Road surface: dark, near-solid fill with a faint glowing grid
             if (roadMaterial == null)
             {
                 roadMaterial = CreateWireframeMaterial(
                     new Color(0.1f, 0.1f, 0.15f, 1f),
                     new Color(0.2f, 0.3f, 0.5f, 1f),
-                    1.0f
+                    1.0f,
+                    0.9f
                 );
                 roadMaterial.name = "Road_Generated";
             }
@@ -152,28 +158,33 @@ namespace Nightflow.Rendering
                 barrierMaterial = CreateWireframeMaterial(
                     new Color(0.3f, 0.3f, 0.35f, 1f),
                     new Color(0.5f, 0.5f, 0.55f, 1f),
-                    0.8f
+                    0.8f,
+                    0.5f
                 );
                 barrierMaterial.name = "Barrier_Generated";
             }
 
-            // Lane markings: neon blue glow
+            // Lane markings: thin quads read as solid neon lines under the
+            // wireframe shader (vertex colors carry blue/orange per line)
             if (laneMarkingMaterial == null)
             {
-                laneMarkingMaterial = CreateEmissiveMaterial(
+                laneMarkingMaterial = CreateWireframeMaterial(
                     new Color(0.27f, 0.53f, 1f, 1f),
-                    2.0f
+                    new Color(0.27f, 0.53f, 1f, 1f),
+                    2.5f,
+                    0.6f
                 );
                 laneMarkingMaterial.name = "LaneMarking_Generated";
             }
 
-            // Tunnel walls: darker with cyan accent
+            // Tunnel walls: darker with cyan accent, mostly solid for enclosure
             if (tunnelMaterial == null)
             {
                 tunnelMaterial = CreateWireframeMaterial(
                     new Color(0.05f, 0.08f, 0.1f, 1f),
                     new Color(0f, 0.6f, 0.8f, 1f),
-                    0.6f
+                    0.6f,
+                    0.85f
                 );
                 tunnelMaterial.name = "Tunnel_Generated";
             }
@@ -184,36 +195,64 @@ namespace Nightflow.Rendering
                 overpassMaterial = CreateWireframeMaterial(
                     new Color(0.12f, 0.1f, 0.08f, 1f),
                     new Color(1f, 0.6f, 0.2f, 1f),
-                    0.9f
+                    0.9f,
+                    0.85f
                 );
                 overpassMaterial.name = "Overpass_Generated";
             }
 
-            // Hazards: bright orange/red warning
+            // Hazards: bright orange/red warning wireframes
             if (hazardMaterial == null)
             {
-                hazardMaterial = CreateEmissiveMaterial(
+                hazardMaterial = CreateWireframeMaterial(
                     new Color(1f, 0.4f, 0f, 1f),
-                    3.0f
+                    new Color(1f, 0.4f, 0f, 1f),
+                    2.5f,
+                    0.2f
                 );
                 hazardMaterial.name = "Hazard_Generated";
             }
 
-            // Vehicles: cyan wireframe
+            // Vehicles: glowing wireframe shells (vertex colors carry
+            // cyan for player, magenta for traffic)
             if (vehicleMaterial == null)
             {
                 vehicleMaterial = CreateWireframeMaterial(
                     new Color(0.05f, 0.1f, 0.15f, 1f),
                     new Color(0f, 1f, 0.8f, 1f),
-                    1.5f
+                    1.5f,
+                    0.15f
                 );
                 vehicleMaterial.name = "Vehicle_Generated";
             }
+
+            // Light emitters: additive glow quads on streetlights/tunnel
+            // lights (vertex colors carry sodium/fluorescent hues)
+            if (lightEmitterMaterial == null)
+            {
+                lightEmitterMaterial = CreateEmissiveMaterial(Color.white, 3.0f);
+                lightEmitterMaterial.name = "LightEmitter_Generated";
+            }
         }
 
-        private Material CreateWireframeMaterial(Color baseColor, Color edgeColor, float glowIntensity)
+        private Material CreateWireframeMaterial(Color baseColor, Color edgeColor, float glowIntensity, float fillAlpha = 0.08f)
         {
-            // Try to find URP unlit shader first
+            // Prefer the neon wireframe shader: glowing triangle edges over a
+            // dim fill, HDR output for bloom, and global-fog blending.
+            // Vertex colors carry the palette, so the wire tint stays white.
+            Shader neonShader = Shader.Find("Nightflow/NeonWireframe");
+            if (neonShader != null)
+            {
+                Material neonMat = new Material(neonShader);
+                neonMat.SetColor("_WireColor", Color.white);
+                neonMat.SetFloat("_GlowIntensity", 1.0f + glowIntensity * 1.2f);
+                neonMat.SetFloat("_FillAlpha", fillAlpha);
+                neonMat.SetFloat("_PulseSpeed", 0.4f);
+                neonMat.SetFloat("_PulseAmount", 0.08f);
+                return neonMat;
+            }
+
+            // Fallback: stock unlit shader (flat color, no wireframe glow)
             Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
             if (shader == null)
                 shader = Shader.Find("Unlit/Color");
@@ -244,10 +283,23 @@ namespace Nightflow.Rendering
 
         private Material CreateEmissiveMaterial(Color emissionColor, float intensity)
         {
-            // Try additive particle shader for maximum glow
-            Shader shader = Shader.Find("Particles/Standard Unlit");
+            // Prefer the neon emitter shader: additive HDR glow with soft
+            // radial falloff, feeds bloom, and dims into the global fog
+            Shader emitterShader = Shader.Find("Nightflow/NeonEmitter");
+            if (emitterShader != null)
+            {
+                Material emitterMat = new Material(emitterShader);
+                emitterMat.SetColor("_EmissionColor", emissionColor);
+                emitterMat.SetFloat("_EmissionIntensity", intensity);
+                emitterMat.SetFloat("_GlowRadius", 1.2f);
+                return emitterMat;
+            }
+
+            // Fallback: URP particle shader first (built-in particle shaders
+            // render broken under URP), then legacy options
+            Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
             if (shader == null)
-                shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+                shader = Shader.Find("Particles/Standard Unlit");
             if (shader == null)
                 shader = Shader.Find("Unlit/Color");
 
@@ -300,7 +352,7 @@ namespace Nightflow.Rendering
                 if (!_trackMeshes.TryGetValue(entityIndex, out var cachedMesh) ||
                     cachedMesh.Mesh == null)
                 {
-                    cachedMesh = BuildMeshFromEntity(entity, meshData);
+                    cachedMesh = BuildMeshFromEntity(entity, $"TrackSegment_{entity.Index}");
                     _trackMeshes[entityIndex] = cachedMesh;
                 }
 
@@ -424,7 +476,7 @@ namespace Nightflow.Rendering
             entities.Dispose();
         }
 
-        private CachedMesh BuildMeshFromEntity(Entity entity, ProceduralMeshData meshData)
+        private CachedMesh BuildMeshFromEntity(Entity entity, string meshName)
         {
             var cachedMesh = new CachedMesh();
 
@@ -466,7 +518,7 @@ namespace Nightflow.Rendering
 
             // Create mesh
             Mesh mesh = new Mesh();
-            mesh.name = $"TrackSegment_{entity.Index}";
+            mesh.name = meshName;
             mesh.indexFormat = _vertices.Count > 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16;
 
             mesh.SetVertices(_vertices);
@@ -530,6 +582,52 @@ namespace Nightflow.Rendering
             return cachedMesh;
         }
 
+        private void RenderLightFixtures()
+        {
+            if (!_isInitialized) return;
+
+            var query = _entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<LightSourceTag>(),
+                ComponentType.ReadOnly<LightFixtureMeshData>()
+            );
+
+            var entities = query.ToEntityArray(Allocator.Temp);
+
+            foreach (var entity in entities)
+            {
+                var meshData = _entityManager.GetComponentData<LightFixtureMeshData>(entity);
+
+                // Skip if mesh hasn't been generated yet
+                if (!meshData.IsGenerated)
+                    continue;
+
+                int entityIndex = entity.Index;
+
+                if (!_lightMeshes.TryGetValue(entityIndex, out var cachedMesh) ||
+                    cachedMesh.Mesh == null)
+                {
+                    cachedMesh = BuildMeshFromEntity(entity, $"LightFixture_{entity.Index}");
+                    _lightMeshes[entityIndex] = cachedMesh;
+                }
+
+                if (cachedMesh.Mesh != null && cachedMesh.Mesh.vertexCount > 0)
+                {
+                    var transform = _entityManager.GetComponentData<WorldTransform>(entity);
+                    Matrix4x4 matrix = Matrix4x4.TRS(
+                        new Vector3(transform.Position.x, transform.Position.y, transform.Position.z),
+                        new Quaternion(transform.Rotation.value.x, transform.Rotation.value.y,
+                                       transform.Rotation.value.z, transform.Rotation.value.w),
+                        Vector3.one
+                    );
+
+                    RenderCachedMesh(cachedMesh, matrix);
+                    _renderedMeshCount++;
+                }
+            }
+
+            entities.Dispose();
+        }
+
         private CachedMesh BuildMeshFromBuffers(Entity entity, Material defaultMaterial)
         {
             var cachedMesh = new CachedMesh();
@@ -589,6 +687,8 @@ namespace Nightflow.Rendering
                 2 => laneMarkingMaterial, // Lane markings
                 3 => tunnelMaterial,    // Tunnel walls
                 4 => overpassMaterial,  // Overpass
+                9 => barrierMaterial,   // Light structure (poles/arms)
+                10 => lightEmitterMaterial, // Light emitter (glowing head)
                 _ => roadMaterial
             };
         }
@@ -658,6 +758,18 @@ namespace Nightflow.Rendering
                 }
             }
             _vehicleMeshes.Clear();
+
+            foreach (var kvp in _lightMeshes)
+            {
+                if (kvp.Value.Mesh != null)
+                {
+                    if (Application.isPlaying)
+                        Destroy(kvp.Value.Mesh);
+                    else
+                        DestroyImmediate(kvp.Value.Mesh);
+                }
+            }
+            _lightMeshes.Clear();
 
             if (showDebugInfo)
             {

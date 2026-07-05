@@ -362,6 +362,7 @@ namespace Nightflow.Editor
             camera.fieldOfView = 75f;
             camera.nearClipPlane = 0.3f;
             camera.farClipPlane = 1000f;
+            camera.allowHDR = true; // Required for bloom to pick up HDR neon
 
             // Add URP camera data
             var cameraData = cameraGO.AddComponent<UniversalAdditionalCameraData>();
@@ -461,6 +462,16 @@ namespace Nightflow.Editor
             var fogGO = new GameObject("GroundFog");
             fogGO.transform.SetParent(renderingRoot.transform);
             fogGO.AddComponent<GroundFogRenderer>();
+
+            // Atmosphere - owns global distance fog and the night skybox
+            var atmosphereGO = new GameObject("Atmosphere");
+            atmosphereGO.transform.SetParent(renderingRoot.transform);
+            atmosphereGO.AddComponent<AtmosphereController>();
+
+            // Particle materials - feeds spark/smoke/speed-line materials to ECS
+            var particleGO = new GameObject("ParticleMaterials");
+            particleGO.transform.SetParent(renderingRoot.transform);
+            particleGO.AddComponent<ParticleMaterialProvider>();
         }
 
         private static void CreateLightingHierarchy()
@@ -482,10 +493,13 @@ namespace Nightflow.Editor
             // Ambient light settings via RenderSettings
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.02f, 0.02f, 0.04f);
+
+            // Baseline fog; AtmosphereController re-applies (and animates)
+            // these every frame at runtime
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogColor = new Color(0.01f, 0.01f, 0.02f);
-            RenderSettings.fogDensity = 0.002f;
+            RenderSettings.fogColor = new Color(0.055f, 0.05f, 0.12f);
+            RenderSettings.fogDensity = 0.008f;
         }
 
         private static T CreateAssetIfNotExists<T>(string path) where T : ScriptableObject

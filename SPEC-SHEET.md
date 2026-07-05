@@ -11,7 +11,7 @@
 **Genre:** Endless procedural night-time freeway driving (flow runner)
 **Core Inspiration:** Subway Surfers x BeamNG x OutRun x high-speed night aesthetics
 **Target Platforms:** PC (primary), Console (stretch)
-**Engine:** Unity DOTS 1.0+ (HDRP/Entities.Graphics)
+**Engine:** Unity DOTS 1.0+ (URP/Entities.Graphics)
 
 ---
 

@@ -122,6 +122,17 @@ namespace Nightflow.Rendering
             // Glow material (additive blend)
             if (glowMaterial == null)
             {
+                // Prefer the vertex glow shader; the moon rides above the
+                // haze, so its halo ignores distance fog
+                var glowShader = Shader.Find("Nightflow/NeonVertexGlow");
+                if (glowShader != null)
+                {
+                    glowMaterial = new Material(glowShader);
+                    glowMaterial.SetFloat("_Intensity", 1.5f);
+                    glowMaterial.SetFloat("_FogInfluence", 0f);
+                    return;
+                }
+
                 var shader = Shader.Find("Particles/Standard Unlit");
                 if (shader == null) shader = Shader.Find("Unlit/Transparent");
 

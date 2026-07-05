@@ -75,26 +75,62 @@ namespace Nightflow.Rendering
 
         private void CreateDefaultMaterialsIfNeeded()
         {
+            // Prefer the custom Nightflow particle shaders: they read the
+            // per-instance _Colors array set by ParticleRenderSystem and
+            // handle fog, soft particles, and neon glow. Fall back to stock
+            // shaders only if they are missing from the build.
+
             // Create spark material (bright additive)
             if (sparkMaterial == null)
             {
-                sparkMaterial = CreateDefaultParticleMaterial("Nightflow_SparkParticle",
-                    new Color(1f, 0.6f, 0.1f, 1f), 3f);
+                sparkMaterial = TryCreateNightflowMaterial("Nightflow/NeonParticle",
+                    "Nightflow_SparkParticle", new Color(1f, 0.6f, 0.1f, 1f))
+                    ?? CreateDefaultParticleMaterial("Nightflow_SparkParticle",
+                        new Color(1f, 0.6f, 0.1f, 1f), 3f);
             }
 
-            // Create smoke material (soft additive)
+            // Create smoke material (soft alpha-blended)
             if (smokeMaterial == null)
             {
-                smokeMaterial = CreateDefaultParticleMaterial("Nightflow_SmokeParticle",
-                    new Color(0.3f, 0.3f, 0.3f, 0.5f), 0f);
+                smokeMaterial = TryCreateNightflowMaterial("Nightflow/SmokeParticle",
+                    "Nightflow_SmokeParticle", new Color(0.3f, 0.3f, 0.3f, 0.5f))
+                    ?? CreateDefaultParticleMaterial("Nightflow_SmokeParticle",
+                        new Color(0.3f, 0.3f, 0.3f, 0.5f), 0f);
             }
 
             // Create speed line material (bright additive)
             if (speedLineMaterial == null)
             {
-                speedLineMaterial = CreateDefaultParticleMaterial("Nightflow_SpeedLineParticle",
-                    new Color(0.8f, 0.9f, 1f, 0.6f), 1f);
+                speedLineMaterial = TryCreateNightflowMaterial("Nightflow/SpeedLines",
+                    "Nightflow_SpeedLineParticle", new Color(0.8f, 0.9f, 1f, 0.6f))
+                    ?? CreateDefaultParticleMaterial("Nightflow_SpeedLineParticle",
+                        new Color(0.8f, 0.9f, 1f, 0.6f), 1f);
             }
+        }
+
+        /// <summary>
+        /// Creates a material from a custom Nightflow shader, or null if the
+        /// shader isn't available.
+        /// </summary>
+        private Material TryCreateNightflowMaterial(string shaderName, string materialName, Color tint)
+        {
+            var shader = Shader.Find(shaderName);
+            if (shader == null)
+            {
+                return null;
+            }
+
+            var mat = new Material(shader);
+            mat.name = materialName;
+            if (mat.HasProperty("_TintColor"))
+            {
+                mat.SetColor("_TintColor", tint);
+            }
+
+            // Required by Graphics.DrawMeshInstanced in ParticleRenderSystem
+            mat.enableInstancing = true;
+
+            return mat;
         }
 
         private Material CreateDefaultParticleMaterial(string name, Color color, float emission)
@@ -148,6 +184,9 @@ namespace Nightflow.Rendering
             mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
             mat.SetInt("_ZWrite", 0);
             mat.renderQueue = 3000; // Transparent queue
+
+            // Required by Graphics.DrawMeshInstanced in ParticleRenderSystem
+            mat.enableInstancing = true;
 
             return mat;
         }

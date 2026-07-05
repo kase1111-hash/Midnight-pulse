@@ -6,7 +6,7 @@ A **synthwave driving game** featuring procedural night highway generation for a
 
 **Genre:** Endless **procedural driving** / **night driving game** (flow runner)
 **Core Inspiration:** Subway Surfers x BeamNG x OutRun x high-speed night aesthetics
-**Engine:** Unity DOTS 1.0+ (HDRP/Entities.Graphics)
+**Engine:** Unity DOTS 1.0+ (URP/Entities.Graphics)
 **Version:** 0.1.0-alpha (2026-01-02)
 
 ---

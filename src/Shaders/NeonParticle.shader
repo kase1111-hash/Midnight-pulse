@@ -38,6 +38,7 @@ Shader "Nightflow/NeonParticle"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
+            #pragma multi_compile_fog
             #pragma multi_compile _ _SOFT_PARTICLES_ON
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -56,6 +57,7 @@ Shader "Nightflow/NeonParticle"
                 float2 uv : TEXCOORD0;
                 float4 color : COLOR;
                 float4 projectedPosition : TEXCOORD1;
+                float fogFactor : TEXCOORD2;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -87,6 +89,7 @@ Shader "Nightflow/NeonParticle"
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
                 output.uv = TRANSFORM_TEX(input.uv, _MainTex);
                 output.projectedPosition = ComputeScreenPos(output.positionCS);
+                output.fogFactor = ComputeFogFactor(output.positionCS.z);
 
                 // Get per-instance color or use tint
                 #ifdef UNITY_INSTANCING_ENABLED
@@ -139,6 +142,9 @@ Shader "Nightflow/NeonParticle"
                 // Add extra glow at center
                 float coreGlow = pow(1.0 - saturate(dist * 1.5), 3.0);
                 finalColor += color.rgb * coreGlow * 0.5;
+
+                // Additive blend: dim into fog rather than tint
+                finalColor = MixFogColor(finalColor, half3(0, 0, 0), input.fogFactor);
 
                 return half4(finalColor * alpha, alpha);
             }

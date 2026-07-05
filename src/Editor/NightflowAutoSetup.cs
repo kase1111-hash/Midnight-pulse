@@ -234,6 +234,8 @@ namespace Nightflow.Editor
             public bool HasProceduralMeshRenderer;
             public bool HasUIController;
             public bool HasPostProcessingController;
+            public bool HasAtmosphereController;
+            public bool HasParticleMaterialProvider;
 
             public bool IsValid =>
                 HasConfigs &&
@@ -245,7 +247,9 @@ namespace Nightflow.Editor
                 HasMainCamera &&
                 HasCameraSyncBridge &&
                 HasProceduralMeshRenderer &&
-                HasUIController;
+                HasUIController &&
+                HasAtmosphereController &&
+                HasParticleMaterialProvider;
 
             public List<string> MissingItems
             {
@@ -262,6 +266,8 @@ namespace Nightflow.Editor
                     if (!HasCameraSyncBridge) items.Add("CameraSyncBridge");
                     if (!HasProceduralMeshRenderer) items.Add("ProceduralMeshRenderer");
                     if (!HasUIController) items.Add("UIController");
+                    if (!HasAtmosphereController) items.Add("AtmosphereController");
+                    if (!HasParticleMaterialProvider) items.Add("ParticleMaterialProvider");
                     return items;
                 }
             }
@@ -312,6 +318,8 @@ namespace Nightflow.Editor
             result.HasProceduralMeshRenderer = Object.FindFirstObjectByType<ProceduralMeshRenderer>() != null;
             result.HasUIController = Object.FindFirstObjectByType<UIController>() != null;
             result.HasPostProcessingController = Object.FindFirstObjectByType<PostProcessingController>() != null;
+            result.HasAtmosphereController = Object.FindFirstObjectByType<AtmosphereController>() != null;
+            result.HasParticleMaterialProvider = Object.FindFirstObjectByType<ParticleMaterialProvider>() != null;
 
             return result;
         }
@@ -427,8 +435,10 @@ namespace Nightflow.Editor
                     camera.fieldOfView = 75f;
                     camera.nearClipPlane = 0.3f;
                     camera.farClipPlane = 1000f;
+                    camera.allowHDR = true; // Required for bloom to pick up HDR neon
 
-                    cameraGO.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+                    var cameraData = cameraGO.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+                    cameraData.renderPostProcessing = true; // Volume effects are silently skipped without this
                     cameraGO.AddComponent<AudioListener>();
                     cameraGO.AddComponent<CameraSyncBridge>();
 
@@ -445,6 +455,20 @@ namespace Nightflow.Editor
                 {
                     // Camera exists, just add missing components
                     var mainCamera = Camera.main.gameObject;
+
+                    // Volume effects are silently skipped unless the camera
+                    // opts into post-processing
+                    var cameraData = mainCamera.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+                    if (cameraData == null)
+                    {
+                        cameraData = mainCamera.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+                        sceneModified = true;
+                    }
+                    if (!cameraData.renderPostProcessing)
+                    {
+                        cameraData.renderPostProcessing = true;
+                        sceneModified = true;
+                    }
 
                     if (!validation.HasCameraSyncBridge)
                     {
@@ -469,15 +493,30 @@ namespace Nightflow.Editor
             }
 
             // Step 4: Create Rendering hierarchy if needed
-            if (!validation.HasProceduralMeshRenderer)
+            if (!validation.HasProceduralMeshRenderer ||
+                !validation.HasAtmosphereController ||
+                !validation.HasParticleMaterialProvider)
             {
                 var renderingRoot = FindOrCreateRoot("[Rendering]");
 
-                CreateChildWithComponent<ProceduralMeshRenderer>(renderingRoot, "ProceduralMeshRenderer");
-                CreateChildWithComponent<StarFieldRenderer>(renderingRoot, "StarField");
-                CreateChildWithComponent<CitySkylineRenderer>(renderingRoot, "CitySkyline");
-                CreateChildWithComponent<MoonRenderer>(renderingRoot, "Moon");
-                CreateChildWithComponent<GroundFogRenderer>(renderingRoot, "GroundFog");
+                if (!validation.HasProceduralMeshRenderer)
+                {
+                    CreateChildWithComponent<ProceduralMeshRenderer>(renderingRoot, "ProceduralMeshRenderer");
+                    CreateChildWithComponent<StarFieldRenderer>(renderingRoot, "StarField");
+                    CreateChildWithComponent<CitySkylineRenderer>(renderingRoot, "CitySkyline");
+                    CreateChildWithComponent<MoonRenderer>(renderingRoot, "Moon");
+                    CreateChildWithComponent<GroundFogRenderer>(renderingRoot, "GroundFog");
+                }
+
+                if (!validation.HasAtmosphereController)
+                {
+                    CreateChildWithComponent<AtmosphereController>(renderingRoot, "Atmosphere");
+                }
+
+                if (!validation.HasParticleMaterialProvider)
+                {
+                    CreateChildWithComponent<ParticleMaterialProvider>(renderingRoot, "ParticleMaterials");
+                }
 
                 sceneModified = true;
             }
