@@ -41,6 +41,7 @@ Shader "Nightflow/RoadSurface"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
+            #pragma multi_compile_fog
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
@@ -59,6 +60,7 @@ Shader "Nightflow/RoadSurface"
                 float3 normalWS : TEXCOORD1;
                 float2 uv : TEXCOORD2;
                 float3 viewDirWS : TEXCOORD3;
+                float fogFactor : TEXCOORD4;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -90,6 +92,7 @@ Shader "Nightflow/RoadSurface"
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 output.uv = input.uv;
                 output.viewDirWS = GetWorldSpaceViewDir(output.positionWS);
+                output.fogFactor = ComputeFogFactor(output.positionCS.z);
 
                 return output;
             }
@@ -175,6 +178,9 @@ Shader "Nightflow/RoadSurface"
                 finalColor += grid * float3(0.1, 0.1, 0.15); // Grid adds subtle blue
                 finalColor += lineColor * _GlowIntensity;
                 finalColor += reflection * float3(0.05, 0.1, 0.15); // Sky reflection tint
+
+                // Distant road dissolves into atmospheric haze
+                finalColor = MixFog(finalColor, input.fogFactor);
 
                 return half4(finalColor, 1);
             }

@@ -44,6 +44,7 @@ Shader "Nightflow/VehicleWireframe"
             #pragma fragment frag
             #pragma target 4.0
             #pragma multi_compile_instancing
+            #pragma multi_compile_fog
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
@@ -64,6 +65,7 @@ Shader "Nightflow/VehicleWireframe"
                 float2 uv : TEXCOORD2;
                 float4 color : COLOR;
                 float3 viewDirWS : TEXCOORD3;
+                float fogFactor : TEXCOORD4;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -76,6 +78,7 @@ Shader "Nightflow/VehicleWireframe"
                 float4 color : COLOR;
                 float3 viewDirWS : TEXCOORD3;
                 float3 barycentricCoords : TEXCOORD4;
+                float fogFactor : TEXCOORD5;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -103,6 +106,7 @@ Shader "Nightflow/VehicleWireframe"
                 output.uv = input.uv;
                 output.color = input.color;
                 output.viewDirWS = GetWorldSpaceViewDir(output.positionWS);
+                output.fogFactor = ComputeFogFactor(output.positionCS.z);
 
                 return output;
             }
@@ -125,6 +129,7 @@ Shader "Nightflow/VehicleWireframe"
                     output[i].color = input[i].color;
                     output[i].viewDirWS = input[i].viewDirWS;
                     output[i].barycentricCoords = float3(i == 0, i == 1, i == 2);
+                    output[i].fogFactor = input[i].fogFactor;
 
                     outputStream.Append(output[i]);
                 }
@@ -183,6 +188,9 @@ Shader "Nightflow/VehicleWireframe"
 
                 // HDR boost for bloom
                 finalColor *= 1.0 + (wireIntensity + glow) * 0.5;
+
+                // Fade into atmospheric fog
+                finalColor = MixFog(finalColor, input.fogFactor);
 
                 // Alpha
                 float alpha = saturate(wireIntensity + glow * 0.3 + rim * 0.2 + _FillAlpha);

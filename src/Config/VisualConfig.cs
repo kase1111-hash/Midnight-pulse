@@ -101,7 +101,7 @@ namespace Nightflow.Config
         [Header("Glow")]
         [Tooltip("Glow intensity multiplier")]
         [Range(0.5f, 5f)]
-        public float glowIntensity = 2f;
+        public float glowIntensity = 2.5f;
 
         [Tooltip("Glow falloff exponent")]
         [Range(0.5f, 10f)]
@@ -204,17 +204,17 @@ namespace Nightflow.Config
         [Tooltip("Enable bloom")]
         public bool bloomEnabled = true;
 
-        [Tooltip("Bloom threshold")]
+        [Tooltip("Bloom threshold - low so every neon edge halos in the haze")]
         [Range(0.5f, 2f)]
-        public float bloomThreshold = 0.8f;
+        public float bloomThreshold = 0.65f;
 
         [Tooltip("Bloom intensity")]
         [Range(0.5f, 5f)]
-        public float bloomIntensity = 1.5f;
+        public float bloomIntensity = 2.2f;
 
-        [Tooltip("Bloom scatter (spread)")]
+        [Tooltip("Bloom scatter (spread) - high for soft, smoky halos")]
         [Range(0f, 1f)]
-        public float bloomScatter = 0.7f;
+        public float bloomScatter = 0.75f;
 
         [Header("Motion Blur")]
         [Tooltip("Enable motion blur")]

@@ -42,6 +42,7 @@ Shader "Nightflow/NeonEmitter"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
+            #pragma multi_compile_fog
             #pragma shader_feature _ENABLESTROBE_ON
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -63,6 +64,7 @@ Shader "Nightflow/NeonEmitter"
                 float2 uv : TEXCOORD2;
                 float4 color : COLOR;
                 float3 viewDirWS : TEXCOORD3;
+                float fogFactor : TEXCOORD4;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -90,6 +92,7 @@ Shader "Nightflow/NeonEmitter"
                 output.uv = input.uv;
                 output.color = input.color;
                 output.viewDirWS = GetWorldSpaceViewDir(output.positionWS);
+                output.fogFactor = ComputeFogFactor(output.positionCS.z);
 
                 return output;
             }
@@ -140,6 +143,10 @@ Shader "Nightflow/NeonEmitter"
 
                 // Final color with HDR intensity for bloom
                 float3 finalColor = emissionColor.rgb * intensity * _EmissionIntensity;
+
+                // Additive blend: fog dims distant lights toward black so they
+                // read as soft glows swallowed by the haze
+                finalColor = MixFogColor(finalColor, half3(0, 0, 0), input.fogFactor);
 
                 // Alpha based on intensity for proper blending
                 float alpha = saturate(intensity);

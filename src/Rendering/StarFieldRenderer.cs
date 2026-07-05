@@ -112,7 +112,18 @@ namespace Nightflow.Rendering
         {
             if (starMaterial == null)
             {
-                // Use additive shader for stars
+                // Prefer the vertex glow shader; stars sit above the haze so
+                // they barely take fog
+                var glowShader = Shader.Find("Nightflow/NeonVertexGlow");
+                if (glowShader != null)
+                {
+                    starMaterial = new Material(glowShader);
+                    starMaterial.SetFloat("_Intensity", 1.2f);
+                    starMaterial.SetFloat("_FogInfluence", 0.1f);
+                    return;
+                }
+
+                // Fallback: additive shader for stars
                 var shader = Shader.Find("Particles/Standard Unlit");
                 if (shader == null) shader = Shader.Find("Unlit/Transparent");
                 if (shader == null) shader = Shader.Find("Unlit/Color");

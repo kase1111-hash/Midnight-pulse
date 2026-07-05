@@ -21,7 +21,7 @@ The game version is defined in the `VERSION` file at the project root. This sing
 - Unity.Burst
 - Unity.Collections
 - Unity.Mathematics
-- HDRP (High Definition Render Pipeline)
+- URP (Universal Render Pipeline)
 
 ### Installing Inno Setup
 
@@ -146,7 +146,7 @@ build.bat --unity "C:\Program Files\Unity\Hub\Editor\2023.2.0f1\Editor\Unity.exe
 1. Check `Build\Windows\build.log` for errors
 2. Ensure all scenes are added to Build Settings in Unity
 3. Verify Entities package is properly installed
-4. Confirm HDRP is configured correctly
+4. Confirm URP is configured correctly
 
 ### Unity DOTS Issues
 

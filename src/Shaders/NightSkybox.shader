@@ -25,8 +25,8 @@ Shader "Nightflow/NightSkybox"
         _StarTwinkleSpeed ("Twinkle Speed", Range(0, 5)) = 1.0
 
         [Header(Fog)]
-        _FogColor ("Fog Color", Color) = (0.03, 0.02, 0.05, 1)
-        _FogDensity ("Fog Density", Range(0, 1)) = 0.1
+        _FogColor ("Fog Color", Color) = (0.055, 0.05, 0.12, 1)
+        _FogDensity ("Fog Density", Range(0, 1)) = 0.45
     }
 
     SubShader
@@ -36,6 +36,7 @@ Shader "Nightflow/NightSkybox"
             "RenderType" = "Background"
             "Queue" = "Background"
             "PreviewType" = "Skybox"
+            "RenderPipeline" = "UniversalPipeline"
         }
 
         Cull Off

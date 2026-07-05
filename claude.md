@@ -13,7 +13,7 @@
 | Layer | Technology |
 |-------|------------|
 | Engine | Unity 2023 LTS with DOTS 1.0+ (ECS) |
-| Rendering | HDRP + Entities.Graphics |
+| Rendering | URP + Entities.Graphics |
 | Language | C# |
 | Physics | Custom impulse-based (Unity.Physics) |
 | Performance | Unity.Burst for hot paths |

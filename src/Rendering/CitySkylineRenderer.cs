@@ -116,8 +116,19 @@ namespace Nightflow.Rendering
             // Create window material if not assigned (additive for glow effect)
             if (windowMaterial == null)
             {
-                // Try to find an additive shader, fall back to unlit
-                var shader = Shader.Find("Particles/Standard Unlit");
+                // Prefer the vertex glow shader: additive HDR, partially
+                // fogged so distant windows read as soft halos in the haze
+                var shader = Shader.Find("Nightflow/NeonVertexGlow");
+                if (shader != null)
+                {
+                    windowMaterial = new Material(shader);
+                    windowMaterial.SetFloat("_Intensity", 2f);
+                    windowMaterial.SetFloat("_FogInfluence", 0.35f);
+                    return;
+                }
+
+                // Fallback: any additive-capable shader
+                shader = Shader.Find("Particles/Standard Unlit");
                 if (shader == null) shader = Shader.Find("Unlit/Color");
 
                 windowMaterial = new Material(shader);

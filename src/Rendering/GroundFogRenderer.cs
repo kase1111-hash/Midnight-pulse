@@ -30,11 +30,11 @@ namespace Nightflow.Rendering
         [SerializeField] private float baseHeight = -5f;
 
         [Tooltip("Total thickness of fog layer (meters)")]
-        [SerializeField] private float thickness = 15f;
+        [SerializeField] private float thickness = 18f;
 
         [Tooltip("Number of fog planes for volumetric effect")]
         [Range(4, 16)]
-        [SerializeField] private int layerCount = 8;
+        [SerializeField] private int layerCount = 10;
 
         [Tooltip("Size of each fog plane (meters)")]
         [SerializeField] private float planeSize = 600f;
@@ -42,7 +42,7 @@ namespace Nightflow.Rendering
         [Header("Fog Density")]
         [Tooltip("Maximum fog opacity at core")]
         [Range(0.1f, 1f)]
-        [SerializeField] private float maxDensity = 0.7f;
+        [SerializeField] private float maxDensity = 0.85f;
 
         [Tooltip("How sharply fog fades at edges (vertical falloff)")]
         [Range(0.5f, 5f)]
@@ -55,8 +55,8 @@ namespace Nightflow.Rendering
         [SerializeField] private float fadeEndDistance = 400f;
 
         [Header("Fog Colors")]
-        [SerializeField] private Color fogColor = new Color(0.15f, 0.18f, 0.25f, 1f);
-        [SerializeField] private Color fogColorAlt = new Color(0.1f, 0.15f, 0.22f, 1f);
+        [SerializeField] private Color fogColor = new Color(0.14f, 0.14f, 0.25f, 1f);
+        [SerializeField] private Color fogColorAlt = new Color(0.09f, 0.12f, 0.22f, 1f);
 
         [Tooltip("How much color shifts over time")]
         [Range(0f, 1f)]
@@ -80,7 +80,7 @@ namespace Nightflow.Rendering
         [SerializeField] private Color glowColor = new Color(0.2f, 0.4f, 0.5f, 1f);
 
         [Range(0f, 0.5f)]
-        [SerializeField] private float glowIntensity = 0.15f;
+        [SerializeField] private float glowIntensity = 0.2f;
 
         // Mesh data
         private Mesh _fogMesh;
@@ -123,8 +123,17 @@ namespace Nightflow.Rendering
         {
             if (fogMaterial == null)
             {
-                // Use transparent shader for fog
-                var shader = Shader.Find("Particles/Standard Unlit");
+                // Prefer the dedicated fog shader: animated smoke noise,
+                // vertex-color density, and global-fog blending built in
+                var shader = Shader.Find("Nightflow/GroundFog");
+                if (shader != null)
+                {
+                    fogMaterial = new Material(shader);
+                    return;
+                }
+
+                // Fallback: generic transparent shader for fog
+                shader = Shader.Find("Particles/Standard Unlit");
                 if (shader == null) shader = Shader.Find("Unlit/Transparent");
                 if (shader == null) shader = Shader.Find("Unlit/Color");
 

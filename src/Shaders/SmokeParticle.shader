@@ -40,6 +40,7 @@ Shader "Nightflow/SmokeParticle"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
+            #pragma multi_compile_fog
             #pragma multi_compile _ _SOFT_PARTICLES_ON
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -59,6 +60,7 @@ Shader "Nightflow/SmokeParticle"
                 float4 color : COLOR;
                 float4 projectedPosition : TEXCOORD1;
                 float3 worldPos : TEXCOORD2;
+                float fogFactor : TEXCOORD3;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -127,6 +129,7 @@ Shader "Nightflow/SmokeParticle"
                 output.uv = TRANSFORM_TEX(input.uv, _MainTex);
                 output.projectedPosition = ComputeScreenPos(output.positionCS);
                 output.worldPos = TransformObjectToWorld(input.positionOS.xyz);
+                output.fogFactor = ComputeFogFactor(output.positionCS.z);
 
                 #ifdef UNITY_INSTANCING_ENABLED
                     output.color = UNITY_ACCESS_INSTANCED_PROP(Props, _Colors);
@@ -183,6 +186,9 @@ Shader "Nightflow/SmokeParticle"
                 // Darken edges for volumetric look
                 float edgeDarken = 1.0 - pow(dist, 0.5) * 0.3;
                 smokeColor *= edgeDarken;
+
+                // Alpha blend: distant smoke takes on the fog color
+                smokeColor = MixFog(smokeColor, input.fogFactor);
 
                 return half4(smokeColor, alpha);
             }
