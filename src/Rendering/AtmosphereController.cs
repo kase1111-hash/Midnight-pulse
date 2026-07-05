@@ -49,6 +49,17 @@ namespace Nightflow.Rendering
             Apply();
         }
 
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            // Keep inspector tweaks live in edit mode without per-frame writes
+            if (!Application.isPlaying && isActiveAndEnabled)
+            {
+                Apply();
+            }
+        }
+#endif
+
         private void Update()
         {
             // Per-frame writes only while playing; in edit mode the settings
