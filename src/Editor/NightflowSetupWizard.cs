@@ -276,6 +276,9 @@ namespace Nightflow.Editor
             CreateRenderingHierarchy();
             CreateLightingHierarchy();
 
+            // Keep runtime-only shaders from being stripped out of builds
+            EnsureAlwaysIncludedShaders();
+
             // Save scene
             string scenePath = $"{ScenesPath}/{sceneName}.unity";
             EditorSceneManager.SaveScene(scene, scenePath);
@@ -287,6 +290,82 @@ namespace Nightflow.Editor
             EditorSceneManager.MarkSceneDirty(scene);
 
             Log.System("NightflowSetup", $"Scene '{sceneName}' created successfully with all components!");
+        }
+
+        /// <summary>
+        /// Shaders that are only referenced via Shader.Find at runtime.
+        /// Without a serialized reference Unity strips them from player
+        /// builds, so they must be registered as Always Included Shaders.
+        /// </summary>
+        private static readonly string[] RuntimeShaderNames =
+        {
+            "Nightflow/NeonWireframe",
+            "Nightflow/VehicleWireframe",
+            "Nightflow/NeonEmitter",
+            "Nightflow/NeonParticle",
+            "Nightflow/SmokeParticle",
+            "Nightflow/SpeedLines",
+            "Nightflow/RoadSurface",
+            "Nightflow/GroundFog",
+            "Nightflow/NeonVertexGlow",
+            "Nightflow/NightSkybox",
+        };
+
+        /// <summary>
+        /// Adds every runtime-found Nightflow shader to the project's
+        /// Always Included Shaders list (GraphicsSettings) if missing.
+        /// </summary>
+        public static void EnsureAlwaysIncludedShaders()
+        {
+            var graphicsSettings = AssetDatabase.LoadAssetAtPath<Object>(
+                "ProjectSettings/GraphicsSettings.asset");
+            if (graphicsSettings == null)
+            {
+                Log.SystemWarn("NightflowSetup", "Could not load GraphicsSettings.asset; " +
+                    "add Nightflow shaders to Always Included Shaders manually.");
+                return;
+            }
+
+            var serializedSettings = new SerializedObject(graphicsSettings);
+            var alwaysIncluded = serializedSettings.FindProperty("m_AlwaysIncludedShaders");
+            if (alwaysIncluded == null)
+            {
+                return;
+            }
+
+            bool modified = false;
+
+            foreach (string shaderName in RuntimeShaderNames)
+            {
+                var shader = Shader.Find(shaderName);
+                if (shader == null)
+                    continue;
+
+                bool alreadyIncluded = false;
+                for (int i = 0; i < alwaysIncluded.arraySize; i++)
+                {
+                    if (alwaysIncluded.GetArrayElementAtIndex(i).objectReferenceValue == shader)
+                    {
+                        alreadyIncluded = true;
+                        break;
+                    }
+                }
+
+                if (!alreadyIncluded)
+                {
+                    int index = alwaysIncluded.arraySize;
+                    alwaysIncluded.InsertArrayElementAtIndex(index);
+                    alwaysIncluded.GetArrayElementAtIndex(index).objectReferenceValue = shader;
+                    modified = true;
+                }
+            }
+
+            if (modified)
+            {
+                serializedSettings.ApplyModifiedProperties();
+                AssetDatabase.SaveAssets();
+                Log.System("NightflowSetup", "Registered Nightflow shaders in Always Included Shaders.");
+            }
         }
 
         private static string SanitizeSceneName(string name)

@@ -52,6 +52,8 @@ namespace Nightflow.Rendering
         private Dictionary<int, CachedMesh> _hazardMeshes = new Dictionary<int, CachedMesh>();
         private Dictionary<int, CachedMesh> _vehicleMeshes = new Dictionary<int, CachedMesh>();
         private Dictionary<int, CachedMesh> _lightMeshes = new Dictionary<int, CachedMesh>();
+        private HashSet<int> _liveLightIndices = new HashSet<int>();
+        private List<int> _staleLightKeys = new List<int>();
 
         // Mesh data lists for building meshes
         private List<Vector3> _vertices = new List<Vector3>();
@@ -593,6 +595,8 @@ namespace Nightflow.Rendering
 
             var entities = query.ToEntityArray(Allocator.Temp);
 
+            _liveLightIndices.Clear();
+
             foreach (var entity in entities)
             {
                 var meshData = _entityManager.GetComponentData<LightFixtureMeshData>(entity);
@@ -602,11 +606,17 @@ namespace Nightflow.Rendering
                     continue;
 
                 int entityIndex = entity.Index;
+                _liveLightIndices.Add(entityIndex);
 
+                // Streetlights churn constantly as segments cull, so guard
+                // against entity index reuse via the entity version
                 if (!_lightMeshes.TryGetValue(entityIndex, out var cachedMesh) ||
-                    cachedMesh.Mesh == null)
+                    cachedMesh.Mesh == null ||
+                    cachedMesh.Version != entity.Version)
                 {
+                    DestroyCachedMesh(cachedMesh);
                     cachedMesh = BuildMeshFromEntity(entity, $"LightFixture_{entity.Index}");
+                    cachedMesh.Version = entity.Version;
                     _lightMeshes[entityIndex] = cachedMesh;
                 }
 
@@ -626,6 +636,31 @@ namespace Nightflow.Rendering
             }
 
             entities.Dispose();
+
+            // Evict caches for fixtures that were destroyed (endless run =
+            // unbounded growth otherwise)
+            _staleLightKeys.Clear();
+            foreach (var kvp in _lightMeshes)
+            {
+                if (!_liveLightIndices.Contains(kvp.Key))
+                    _staleLightKeys.Add(kvp.Key);
+            }
+            foreach (int key in _staleLightKeys)
+            {
+                DestroyCachedMesh(_lightMeshes[key]);
+                _lightMeshes.Remove(key);
+            }
+        }
+
+        private static void DestroyCachedMesh(CachedMesh cachedMesh)
+        {
+            if (cachedMesh.Mesh == null)
+                return;
+
+            if (Application.isPlaying)
+                Destroy(cachedMesh.Mesh);
+            else
+                DestroyImmediate(cachedMesh.Mesh);
         }
 
         private CachedMesh BuildMeshFromBuffers(Entity entity, Material defaultMaterial)

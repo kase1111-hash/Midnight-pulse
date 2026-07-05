@@ -441,40 +441,58 @@ namespace Nightflow.Systems
         {
             int baseIndex = vertices.Length;
 
-            float3[] corners = new float3[8];
-            corners[0] = center + new float3(-halfExtents.x, -halfExtents.y, -halfExtents.z);
-            corners[1] = center + new float3(halfExtents.x, -halfExtents.y, -halfExtents.z);
-            corners[2] = center + new float3(halfExtents.x, -halfExtents.y, halfExtents.z);
-            corners[3] = center + new float3(-halfExtents.x, -halfExtents.y, halfExtents.z);
-            corners[4] = center + new float3(-halfExtents.x, halfExtents.y, -halfExtents.z);
-            corners[5] = center + new float3(halfExtents.x, halfExtents.y, -halfExtents.z);
-            corners[6] = center + new float3(halfExtents.x, halfExtents.y, halfExtents.z);
-            corners[7] = center + new float3(-halfExtents.x, halfExtents.y, halfExtents.z);
-
+            // Corners 0-3 = bottom ring (-y), 4-7 = top ring (+y); each
+            // ring winds (-x,-z) -> (+x,-z) -> (+x,+z) -> (-x,+z).
+            // No managed arrays: this runs inside a Burst-compiled system.
             for (int i = 0; i < 8; i++)
             {
+                int ring = i & 3;
+                float sx = (ring == 1 || ring == 2) ? 1f : -1f;
+                float sz = (ring >= 2) ? 1f : -1f;
+                float sy = (i < 4) ? -1f : 1f;
+
+                float3 corner = center + new float3(
+                    sx * halfExtents.x, sy * halfExtents.y, sz * halfExtents.z);
+
+                // Corner UVs chosen so every face spans the full 0-1 quad
+                // (top ring diagonally flipped relative to bottom); UV-radial
+                // emitter shaders then get a bright core per face instead of
+                // sampling a single dark corner
+                float2 uv = new float2(sx * 0.5f + 0.5f, sz * 0.5f + 0.5f);
+                if (i >= 4)
+                {
+                    uv = new float2(1f, 1f) - uv;
+                }
+
                 vertices.Add(new MeshVertex
                 {
-                    Position = corners[i],
-                    Normal = math.normalize(corners[i] - center),
-                    UV = new float2(0, 0),
+                    Position = corner,
+                    Normal = math.normalize(corner - center),
+                    UV = uv,
                     Color = color
                 });
             }
 
-            int[] indices = {
-                0, 2, 1, 0, 3, 2,
-                4, 5, 6, 4, 6, 7,
-                0, 1, 5, 0, 5, 4,
-                2, 3, 7, 2, 7, 6,
-                0, 4, 7, 0, 7, 3,
-                1, 2, 6, 1, 6, 5
-            };
+            AddBoxTriangle(triangles, baseIndex, 0, 2, 1);
+            AddBoxTriangle(triangles, baseIndex, 0, 3, 2);
+            AddBoxTriangle(triangles, baseIndex, 4, 5, 6);
+            AddBoxTriangle(triangles, baseIndex, 4, 6, 7);
+            AddBoxTriangle(triangles, baseIndex, 0, 1, 5);
+            AddBoxTriangle(triangles, baseIndex, 0, 5, 4);
+            AddBoxTriangle(triangles, baseIndex, 2, 3, 7);
+            AddBoxTriangle(triangles, baseIndex, 2, 7, 6);
+            AddBoxTriangle(triangles, baseIndex, 0, 4, 7);
+            AddBoxTriangle(triangles, baseIndex, 0, 7, 3);
+            AddBoxTriangle(triangles, baseIndex, 1, 2, 6);
+            AddBoxTriangle(triangles, baseIndex, 1, 6, 5);
+        }
 
-            for (int i = 0; i < indices.Length; i++)
-            {
-                triangles.Add(new MeshTriangle { Index = baseIndex + indices[i] });
-            }
+        private static void AddBoxTriangle(
+            DynamicBuffer<MeshTriangle> triangles, int baseIndex, int a, int b, int c)
+        {
+            triangles.Add(new MeshTriangle { Index = baseIndex + a });
+            triangles.Add(new MeshTriangle { Index = baseIndex + b });
+            triangles.Add(new MeshTriangle { Index = baseIndex + c });
         }
     }
 }
