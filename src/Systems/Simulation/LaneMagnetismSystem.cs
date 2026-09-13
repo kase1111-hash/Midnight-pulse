@@ -55,13 +55,17 @@ namespace Nightflow.Systems
             // Find the track segment the player is on
             // We'll use this for proper lane frame calculation
 
-            foreach (var (laneFollower, velocity, input, autopilot, driftState, steeringState, transform, detection) in
+            foreach (var (laneFollower, velocity, input, driftState, steeringState, transform, entity) in
                 SystemAPI.Query<RefRW<LaneFollower>, RefRW<Velocity>, RefRO<PlayerInput>,
-                               RefRO<Autopilot>, RefRO<DriftState>, RefRO<SteeringState>,
-                               RefRW<WorldTransform>, RefRO<EmergencyDetection>>()
-                    .WithAll<PlayerVehicleTag>()
-                    .WithNone<CrashedTag>())
+                               RefRO<DriftState>, RefRO<SteeringState>, RefRW<WorldTransform>>()
+                    .WithAll<PlayerVehicleTag, Autopilot, EmergencyDetection>()
+                    .WithNone<CrashedTag>()
+                    .WithEntityAccess())
             {
+                // Read-only companions fetched by entity to keep the query at 6 types
+                var autopilot = SystemAPI.GetComponentRO<Autopilot>(entity);
+                var detection = SystemAPI.GetComponentRO<EmergencyDetection>(entity);
+
                 float playerZ = transform.ValueRO.Position.z;
 
                 // Find the spline segment this vehicle is on

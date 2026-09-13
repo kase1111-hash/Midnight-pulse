@@ -194,8 +194,9 @@ namespace Nightflow.Systems.Presentation
         public void OnUpdate(ref SystemState state)
         {
             // Process collision events for player vehicle
-            foreach (var (collisionBuffer, _, flashEffect) in
-                SystemAPI.Query<DynamicBuffer<CollisionEvent>, RefRO<PlayerVehicleTag>, RefRW<CrashFlashEffect>>())
+            foreach (var (collisionBuffer, flashEffect) in
+                SystemAPI.Query<DynamicBuffer<CollisionEffectEvent>, RefRW<CrashFlashEffect>>()
+                    .WithAll<PlayerVehicleTag>())
             {
                 for (int i = 0; i < collisionBuffer.Length; i++)
                 {

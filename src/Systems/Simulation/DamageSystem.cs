@@ -60,14 +60,19 @@ namespace Nightflow.Systems
             // Phase 2: Process damage with soft-body physics integration
             // =============================================================
 
-            foreach (var (damage, impulse, collision, laneFollower, riskState, softBody) in
+            foreach (var (damage, impulse, collision, laneFollower, riskState, softBody, autopilot) in
                 SystemAPI.Query<RefRW<DamageState>, RefRO<ImpulseData>,
                                RefRO<CollisionEvent>, RefRW<LaneFollower>, RefRW<RiskState>,
-                               RefRW<SoftBodyState>>()
+                               RefRW<SoftBodyState>, RefRO<Autopilot>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithNone<CrashedTag>())
             {
                 if (!collision.ValueRO.Occurred || impulse.ValueRO.Magnitude < 0.1f)
+                    continue;
+
+                // The autopilot takes the bump (impulse) but no structural damage:
+                // the self-driving loop must never crash while unattended.
+                if (autopilot.ValueRO.Enabled)
                     continue;
 
                 // =============================================================
@@ -163,9 +168,8 @@ namespace Nightflow.Systems
                 // Magnetism reduction from side damage
                 // Spec: ω × (1 - 0.5 × D_side) — sideDamage is already [0,1]
                 float sideDamage = (damage.ValueRO.Left + damage.ValueRO.Right) * 0.5f;
-                float magnetismReduction = SideMagnetismPenalty * sideDamage;
-                laneFollower.ValueRW.MagnetStrength -= magnetismReduction;
-                laneFollower.ValueRW.MagnetStrength = math.max(laneFollower.ValueRO.MagnetStrength, 2f);
+                laneFollower.ValueRW.MagnetStrength = GameConstants.DefaultMagnetStrength *
+                    (1f - SideMagnetismPenalty * math.saturate(sideDamage));
 
                 // =============================================================
                 // Reduce Risk Cap and Rebuild Rate Based on Damage
@@ -189,13 +193,17 @@ namespace Nightflow.Systems
             // Fallback: Handle vehicles without SoftBodyState
             // =============================================================
 
-            foreach (var (damage, impulse, collision, laneFollower, riskState) in
+            foreach (var (damage, impulse, collision, laneFollower, riskState, autopilot) in
                 SystemAPI.Query<RefRW<DamageState>, RefRO<ImpulseData>,
-                               RefRO<CollisionEvent>, RefRW<LaneFollower>, RefRW<RiskState>>()
+                               RefRO<CollisionEvent>, RefRW<LaneFollower>, RefRW<RiskState>,
+                               RefRO<Autopilot>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithNone<CrashedTag, SoftBodyState>())
             {
                 if (!collision.ValueRO.Occurred || impulse.ValueRO.Magnitude < 0.1f)
+                    continue;
+
+                if (autopilot.ValueRO.Enabled)
                     continue;
 
                 float severity = GameConstants.DefaultDamageSeverity;
@@ -247,9 +255,8 @@ namespace Nightflow.Systems
 
                 // Spec: ω × (1 - 0.5 × D_side) — sideDamage is already [0,1]
                 float sideDamage = (damage.ValueRO.Left + damage.ValueRO.Right) * 0.5f;
-                float magnetismReduction = SideMagnetismPenalty * sideDamage;
-                laneFollower.ValueRW.MagnetStrength -= magnetismReduction;
-                laneFollower.ValueRW.MagnetStrength = math.max(laneFollower.ValueRO.MagnetStrength, 2f);
+                laneFollower.ValueRW.MagnetStrength = GameConstants.DefaultMagnetStrength *
+                    (1f - SideMagnetismPenalty * math.saturate(sideDamage));
 
                 float damageRatio = damage.ValueRO.Total / GameConstants.MaxDamage;
                 float riskCapReduction = damageRatio * RiskCapDamageMultiplier;

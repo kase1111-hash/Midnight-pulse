@@ -36,8 +36,31 @@ namespace Nightflow.Components
     }
 
     /// <summary>
-    /// Autopilot state. When enabled, overrides PlayerInput with AI-driven control.
-    /// Activates after crash, score save, or player request.
+    /// Why the autopilot is currently (or was last) engaged.
+    /// </summary>
+    public enum AutopilotReason : byte
+    {
+        /// <summary>Autopilot is not engaged.</summary>
+        None = 0,
+
+        /// <summary>Attract mode at boot, before the player ever takes the wheel.</summary>
+        Boot = 1,
+
+        /// <summary>Engaged by the crash flow after the vehicle reset.</summary>
+        Crash = 2,
+
+        /// <summary>Player released all controls for longer than the idle timeout.</summary>
+        Idle = 3,
+
+        /// <summary>A menu (main, pause, settings, ...) is open; the car keeps flowing underneath.</summary>
+        Menu = 4
+    }
+
+    /// <summary>
+    /// Autopilot state. When enabled, AutopilotSystem writes PlayerInput so the
+    /// vehicle drives itself through the exact same steering/movement pipeline
+    /// as the player. Engaged at boot, after crashes, while menus are open, and
+    /// after the idle timeout; any control input hands the wheel back.
     /// </summary>
     public struct Autopilot : IComponentData
     {
@@ -49,6 +72,16 @@ namespace Nightflow.Components
 
         /// <summary>Preferred lane index. -1 = any lane.</summary>
         public int LanePreference;
+
+        /// <summary>Why the autopilot is engaged (None while the player drives).</summary>
+        public AutopilotReason Reason;
+
+        /// <summary>
+        /// Set by InputSystem every frame: the human moved a control (steer,
+        /// throttle, brake or handbrake) above the takeover threshold.
+        /// Read by GameStateSystem to hand control back to the player.
+        /// </summary>
+        public bool HumanInputDetected;
     }
 
     /// <summary>
@@ -77,6 +110,16 @@ namespace Nightflow.Components
 
         /// <summary>Direction of lane change: -1 = left, +1 = right.</summary>
         public int LaneChangeDir;
+
+        /// <summary>
+        /// Programmatic lane change request (set by AutopilotSystem).
+        /// Consumed by SteeringSystem, which applies the same blocked-lane
+        /// checks as a steering-triggered change.
+        /// </summary>
+        public bool LaneChangeRequested;
+
+        /// <summary>Requested lane change direction: -1 = left, +1 = right.</summary>
+        public int LaneChangeDirection;
     }
 
     /// <summary>

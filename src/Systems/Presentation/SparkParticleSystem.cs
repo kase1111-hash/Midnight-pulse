@@ -46,7 +46,7 @@ namespace Nightflow.Systems.Presentation
 
             // Process collision events and spawn sparks
             foreach (var (collisionBuffer, emitter, particleBuffer) in
-                SystemAPI.Query<DynamicBuffer<CollisionEvent>, RefRW<ParticleEmitter>, DynamicBuffer<Particle>>())
+                SystemAPI.Query<DynamicBuffer<CollisionEffectEvent>, RefRW<ParticleEmitter>, DynamicBuffer<Particle>>())
             {
                 if (emitter.ValueRO.Type != ParticleType.Spark)
                     continue;
@@ -86,7 +86,7 @@ namespace Nightflow.Systems.Presentation
             }
 
             // Clear processed collision events
-            foreach (var collisionBuffer in SystemAPI.Query<DynamicBuffer<CollisionEvent>>())
+            foreach (var collisionBuffer in SystemAPI.Query<DynamicBuffer<CollisionEffectEvent>>())
             {
                 collisionBuffer.Clear();
             }
@@ -106,7 +106,7 @@ namespace Nightflow.Systems.Presentation
         }
 
         [BurstCompile]
-        private void SpawnSparks(ref DynamicBuffer<Particle> particles, CollisionEvent collision, ref Random rng)
+        private void SpawnSparks(ref DynamicBuffer<Particle> particles, CollisionEffectEvent collision, ref Random rng)
         {
             // Determine spark count based on collision type
             int sparkCount = collision.Type switch

@@ -220,6 +220,17 @@ namespace Nightflow.Save
         }
 
         /// <summary>
+        /// Rank (1-based) a score would take on the mode's board; 0 = not on board.
+        /// </summary>
+        public static int GetPotentialRank(int score, Components.GameMode mode)
+        {
+            var saveManager = SaveManager.Instance;
+            if (saveManager == null) return 0;
+
+            return saveManager.GetPotentialRank(score, ConvertToSaveMode(mode));
+        }
+
+        /// <summary>
         /// Get potential rank for a score.
         /// </summary>
         public static int GetPotentialRank(int score, Components.GameMode mode)

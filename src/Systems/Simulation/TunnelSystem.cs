@@ -167,7 +167,7 @@ namespace Nightflow.Systems
                 if (isEntry && tunnelProgress < 0.3f)
                 {
                     float squeezeAmount = (0.3f - tunnelProgress) / 0.3f;
-                    cameraState.ValueRW.TargetFOV -= SqueezeFOVReduction * squeezeAmount * tunnelBlend;
+                    cameraState.ValueRW.FOVOffset -= SqueezeFOVReduction * squeezeAmount * tunnelBlend;
                 }
 
                 break;

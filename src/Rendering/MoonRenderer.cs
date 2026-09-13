@@ -168,6 +168,13 @@ namespace Nightflow.Rendering
 
         private void Update()
         {
+            // The camera may be created after this renderer (auto-setup order);
+            // keep retrying so the effect follows the player instead of the origin
+            if (targetCamera == null)
+            {
+                targetCamera = Camera.main;
+            }
+
             // Recalculate phase periodically (every frame is fine, it's cheap)
             CalculateMoonPhase();
 

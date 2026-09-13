@@ -190,6 +190,13 @@ namespace Nightflow.Rendering
 
         private void Update()
         {
+            // The camera may be created after this renderer (auto-setup order);
+            // without it the fog would sit at the origin and fall behind the car
+            if (targetCamera == null)
+            {
+                targetCamera = Camera.main;
+            }
+
             if (_layers == null || _layers.Length != layerCount)
             {
                 InitializeLayers();

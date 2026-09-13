@@ -192,18 +192,35 @@ namespace Nightflow.Systems
 
                 foreach (var gameState in SystemAPI.Query<RefRO<GameState>>())
                 {
-                    uiState.ValueRW.ShowPauseMenu = gameState.ValueRO.IsPaused;
-                    uiState.ValueRW.ShowCrashOverlay =
-                        gameState.ValueRO.CrashPhase != CrashFlowPhase.None;
-                    uiState.ValueRW.ShowScoreSummary =
-                        gameState.ValueRO.CrashPhase == CrashFlowPhase.Summary;
-                    uiState.ValueRW.OverlayAlpha = gameState.ValueRO.FadeAlpha;
+                    bool summary = gameState.ValueRO.CrashPhase == CrashFlowPhase.Summary;
+
+                    // Only the pause menu shows the pause overlay (the main menu is
+                    // not "paused": the world keeps moving underneath it)
+                    uiState.ValueRW.ShowPauseMenu = gameState.ValueRO.CurrentMenu == MenuState.Pause;
+
+                    // The game-over panel appears once the fade to black completes
+                    uiState.ValueRW.ShowCrashOverlay = summary;
+                    uiState.ValueRW.ShowScoreSummary = summary;
+                    uiState.ValueRW.OverlayAlpha =
+                        gameState.ValueRO.CrashPhase != CrashFlowPhase.None
+                            ? gameState.ValueRO.FadeAlpha
+                            : 0f;
 
                     // Update ScoreSummaryDisplay singleton when entering summary phase
-                    if (gameState.ValueRO.CrashPhase == CrashFlowPhase.Summary)
+                    if (summary)
                     {
                         UpdateScoreSummaryDisplay(ref state);
                     }
+                    break;
+                }
+
+                // =============================================================
+                // Pilot Indicator
+                // =============================================================
+
+                foreach (var autopilot in SystemAPI.Query<RefRO<Autopilot>>().WithAll<PlayerVehicleTag>())
+                {
+                    uiState.ValueRW.AutopilotActive = autopilot.ValueRO.Enabled;
                     break;
                 }
 

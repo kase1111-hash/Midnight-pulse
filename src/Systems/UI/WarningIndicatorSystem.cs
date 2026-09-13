@@ -49,7 +49,7 @@ namespace Nightflow.Systems.UI
             float3 playerPos = float3.zero;
             float3 playerForward = new float3(0, 0, 1);
 
-            foreach (var (transform, _) in SystemAPI.Query<RefRO<LocalTransform>, RefRO<PlayerVehicleTag>>())
+            foreach (var transform in SystemAPI.Query<RefRO<WorldTransform>>().WithAll<PlayerVehicleTag>())
             {
                 playerPos = transform.ValueRO.Position;
                 playerForward = math.forward(transform.ValueRO.Rotation);

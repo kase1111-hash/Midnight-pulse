@@ -38,6 +38,8 @@ Whether you're looking for a **night driving simulator** to unwind or a **vaporw
 
 **Critical Rule:** No scene reloads. Ever.
 
+**The car never stops.** Menus and the crash sequence are overlays on a world that keeps moving: the autopilot drives under the title screen, through the pause menu and after every crash, and the moment you touch the controls the wheel is yours and the score starts counting. Walk away for ten seconds and the autopilot takes over again with your run frozen until you come back.
+
 ---
 
 ## Features

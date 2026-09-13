@@ -14,6 +14,10 @@ namespace Nightflow.Systems
     /// <summary>
     /// Calculates and accumulates score based on distance, speed tier, and risk.
     /// Score = Distance × Speed_Tier × (1 + RiskMultiplier)
+    ///
+    /// Only the player earns points: while the autopilot drives (menus, idle,
+    /// post-crash attract mode) nothing accumulates, and the run resumes the
+    /// moment the player takes the wheel back.
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -40,14 +44,16 @@ namespace Nightflow.Systems
         {
             float deltaTime = SystemAPI.Time.DeltaTime;
 
-            foreach (var (scoreSession, riskState, velocity, input, speedTier, summary) in
+            foreach (var (scoreSession, riskState, velocity, input, speedTier, summary, autopilot) in
                 SystemAPI.Query<RefRW<ScoreSession>, RefRW<RiskState>,
                                RefRO<Velocity>, RefRO<PlayerInput>, RefRW<SpeedTier>,
-                               RefRW<ScoreSummary>>()
+                               RefRW<ScoreSummary>, RefRO<Autopilot>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithNone<CrashedTag>())
             {
-                if (!scoreSession.ValueRO.Active)
+                // No run, or the autopilot is driving (idle/menu): the score is
+                // frozen until the player moves the controls again.
+                if (!scoreSession.ValueRO.Active || autopilot.ValueRO.Enabled)
                     continue;
 
                 // =============================================================

@@ -13,6 +13,9 @@ namespace Nightflow.Systems.UI
     /// <summary>
     /// Manages the complete game flow from title screen through gameplay and back.
     /// Handles transitions: Title → Mode Select → Play → Pause → Crash → Summary → Title
+    ///
+    /// Menus are overlays: they never set IsPaused or zero the time scale. The
+    /// car keeps driving on autopilot underneath every screen.
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -89,8 +92,7 @@ namespace Nightflow.Systems.UI
                     break;
 
                 case MenuState.ScoreSummary:
-                    ProcessScoreSummary(ref gameState.ValueRW, ref uiState.ValueRW,
-                        hasSessionState ? ref sessionState.ValueRW : ref sessionState.ValueRW, deltaTime);
+                    ProcessScoreSummary(ref gameState.ValueRW, ref uiState.ValueRW, deltaTime);
                     break;
 
                 case MenuState.None:
@@ -101,7 +103,7 @@ namespace Nightflow.Systems.UI
             // Update session state
             if (hasSessionState)
             {
-                UpdateSessionState(ref gameState.ValueRO, ref sessionState.ValueRW);
+                UpdateSessionState(in gameState.ValueRO, ref sessionState.ValueRW);
             }
         }
 
@@ -131,9 +133,7 @@ namespace Nightflow.Systems.UI
             uiState.ShowPressStart = !mainMenu.InputReceived && mainMenu.ShowPressStart;
             uiState.MainMenuSelection = mainMenu.SelectedIndex;
 
-            // Menu is paused state
-            gameState.TimeScale = 0f;
-            gameState.IsPaused = true;
+            // Menu overlay only: the world keeps moving with the autopilot at the wheel
             gameState.MenuVisible = true;
         }
 
@@ -144,8 +144,6 @@ namespace Nightflow.Systems.UI
             uiState.ShowMainMenu = false;
 
             // Mode select uses existing mode selection UI
-            gameState.TimeScale = 0f;
-            gameState.IsPaused = true;
             gameState.MenuVisible = true;
         }
 
@@ -155,8 +153,6 @@ namespace Nightflow.Systems.UI
             uiState.ShowMainMenu = false;
 
             // Leaderboard visibility is handled by LeaderboardUIState
-            gameState.TimeScale = 0f;
-            gameState.IsPaused = true;
             gameState.MenuVisible = true;
         }
 
@@ -165,8 +161,6 @@ namespace Nightflow.Systems.UI
         {
             uiState.ShowMainMenu = false;
 
-            gameState.TimeScale = 0f;
-            gameState.IsPaused = true;
             gameState.MenuVisible = true;
         }
 
@@ -176,14 +170,11 @@ namespace Nightflow.Systems.UI
             uiState.ShowMainMenu = false;
             uiState.ShowCredits = true;
 
-            gameState.TimeScale = 0f;
-            gameState.IsPaused = true;
             gameState.MenuVisible = true;
         }
 
         [BurstCompile]
-        private void ProcessScoreSummary(ref GameState gameState, ref UIState uiState,
-            ref GameSessionState sessionState, float deltaTime)
+        private void ProcessScoreSummary(ref GameState gameState, ref UIState uiState, float deltaTime)
         {
             uiState.ShowScoreSummary = true;
             uiState.ShowCrashOverlay = true;
@@ -192,7 +183,7 @@ namespace Nightflow.Systems.UI
         }
 
         [BurstCompile]
-        private void UpdateSessionState(ref GameState gameState, ref GameSessionState sessionState)
+        private void UpdateSessionState(in GameState gameState, ref GameSessionState sessionState)
         {
             // Determine current phase from game state
             if (gameState.CurrentMenu == MenuState.MainMenu)
@@ -215,14 +206,13 @@ namespace Nightflow.Systems.UI
                     sessionState.CurrentPhase = GameFlowPhase.Crashing;
                 }
             }
-            else if (gameState.IsPaused && gameState.CurrentMenu == MenuState.Pause)
+            else if (gameState.CurrentMenu == MenuState.Pause)
             {
                 sessionState.CurrentPhase = GameFlowPhase.Paused;
             }
-            else if (gameState.CurrentMenu == MenuState.None && !gameState.IsPaused)
+            else if (gameState.CurrentMenu == MenuState.None)
             {
                 sessionState.CurrentPhase = GameFlowPhase.Playing;
-                sessionState.SessionActive = true;
             }
         }
 
@@ -237,9 +227,16 @@ namespace Nightflow.Systems.UI
         {
             gameState.CurrentMenu = MenuState.MainMenu;
             gameState.MenuVisible = true;
-            gameState.IsPaused = true;
-            gameState.TimeScale = 0f;
-            gameState.CrashPhase = CrashFlowPhase.None;
+            gameState.IsPaused = false;
+            gameState.TimeScale = 1f;
+
+            // Leaving the crash summary (or any point of the crash flow) for the
+            // menu still needs the wreck reset and handed to the autopilot; the
+            // flow tail (Reset → FadeIn) runs underneath the menu overlay.
+            if (gameState.CrashPhase != CrashFlowPhase.None)
+            {
+                ScreenFlowSystem.RequestVehicleReset(ref gameState);
+            }
 
             // Clear gameplay overlays
             uiState.ShowPauseMenu = false;
@@ -305,7 +302,11 @@ namespace Nightflow.Systems.UI
             gameState.MenuVisible = false;
             gameState.IsPaused = false;
             gameState.TimeScale = 1f;
-            gameState.PlayerControlActive = true;
+            gameState.IdleTimer = 0f;
+
+            // The autopilot keeps driving until the first control input; that
+            // input starts the scoring run (GameStateSystem handles the handoff).
+            gameState.PlayerControlActive = false;
             gameState.AutopilotQueued = false;
 
             // Clear all menu overlays
@@ -335,10 +336,7 @@ namespace Nightflow.Systems.UI
 
                 case MenuState.Pause:
                     // Resume gameplay
-                    gameState.CurrentMenu = MenuState.None;
-                    gameState.MenuVisible = false;
-                    gameState.IsPaused = false;
-                    gameState.TimeScale = 1f;
+                    ScreenFlowSystem.ResumeFromPause(ref gameState);
                     uiState.ShowPauseMenu = false;
                     break;
 

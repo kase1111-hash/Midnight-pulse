@@ -52,8 +52,9 @@ namespace Nightflow.Systems.Presentation
             float3 playerPos = float3.zero;
             float3 playerForward = new float3(0, 0, 1);
 
-            foreach (var (transform, velocity, _) in
-                SystemAPI.Query<RefRO<LocalTransform>, RefRO<VehicleVelocity>, RefRO<PlayerVehicleTag>>())
+            foreach (var (transform, velocity) in
+                SystemAPI.Query<RefRO<WorldTransform>, RefRO<VehicleVelocity>>()
+                    .WithAll<PlayerVehicleTag>())
             {
                 playerSpeed = math.length(velocity.ValueRO.Linear) * 3.6f; // Convert to km/h
                 playerPos = transform.ValueRO.Position;

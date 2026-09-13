@@ -171,6 +171,58 @@ namespace Nightflow.Config
 
         #endregion
 
+        #region Game Flow (Pilot Handoff, Crash Flow, Menus)
+
+        /// <summary>
+        /// Seconds without any control input before the autopilot takes the
+        /// wheel back and the run is suspended (attract mode).
+        /// </summary>
+        public const float IdleTimeoutForAutopilot = 10f;
+
+        /// <summary>
+        /// Minimum processed input magnitude (after deadzone) that counts as the
+        /// player "moving the controls" and taking over from the autopilot.
+        /// </summary>
+        public const float AutopilotTakeoverThreshold = 0.05f;
+
+        /// <summary>
+        /// Deceleration applied to a crashed vehicle while the crash sequence
+        /// plays (1/s, exponential). The car coasts; it never stops.
+        /// </summary>
+        public const float CrashCoastDrag = 0.6f;
+
+        /// <summary>Crash flow: impact slow-motion phase length (s).</summary>
+        public const float CrashImpactDuration = 0.3f;
+
+        /// <summary>Crash flow: extended screen-shake phase length (s).</summary>
+        public const float CrashShakeDuration = 0.5f;
+
+        /// <summary>Crash flow: fade-to-black length (s).</summary>
+        public const float CrashFadeOutDuration = 0.8f;
+
+        /// <summary>Crash flow: minimum time the score summary stays up (s).</summary>
+        public const float CrashSummaryMinDuration = 2f;
+
+        /// <summary>Crash flow: summary auto-dismisses after this long (s).</summary>
+        public const float CrashSummaryAutoDismissDuration = 7f;
+
+        /// <summary>Crash flow: vehicle reset phase length (s).</summary>
+        public const float CrashResetDuration = 0.3f;
+
+        /// <summary>Crash flow: fade-back-in length (s).</summary>
+        public const float CrashFadeInDuration = 0.5f;
+
+        /// <summary>Presentation time-scale hint during the impact phase.</summary>
+        public const float CrashSlowMotionScale = 0.3f;
+
+        /// <summary>Seconds after unpausing before the game can be paused again.</summary>
+        public const float PauseCooldownDuration = 5f;
+
+        /// <summary>Default lane magnetism strength for the player vehicle.</summary>
+        public const float DefaultMagnetStrength = 1f;
+
+        #endregion
+
         #region Helper Methods
 
         /// <summary>

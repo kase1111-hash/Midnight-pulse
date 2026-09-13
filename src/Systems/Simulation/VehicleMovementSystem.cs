@@ -17,6 +17,11 @@ namespace Nightflow.Systems
     /// <summary>
     /// Handles vehicle forward movement, drift mechanics, and yaw dynamics.
     ///
+    /// The autopilot drives through this exact same path: AutopilotSystem writes
+    /// PlayerInput, so there is no separate AI movement model. A crashed vehicle
+    /// coasts (see the crashed branch) so the car never stops, not even during
+    /// the crash sequence.
+    ///
     /// Critical Rule: v_f >= v_min (8 m/s)
     /// This is why spins never stall the run - forward velocity is always maintained.
     ///
@@ -72,11 +77,12 @@ namespace Nightflow.Systems
 
             bool isRedlineMode = currentMode == GameMode.Redline;
 
-            foreach (var (velocity, input, driftState, damage, transform, laneFollower, componentHealth, failureState) in
+            foreach (var (velocity, input, driftState, damage, transform, laneFollower, entity) in
                 SystemAPI.Query<RefRW<Velocity>, RefRO<PlayerInput>, RefRW<DriftState>,
-                               RefRO<DamageState>, RefRW<WorldTransform>, RefRO<LaneFollower>,
-                               RefRO<ComponentHealth>, RefRO<ComponentFailureState>>()
-                    .WithNone<CrashedTag, AutopilotActiveTag>())
+                               RefRO<DamageState>, RefRW<WorldTransform>, RefRO<LaneFollower>>()
+                    .WithAll<PlayerVehicleTag>()
+                    .WithNone<CrashedTag>()
+                    .WithEntityAccess())
             {
                 ref var vel = ref velocity.ValueRW;
                 ref var drift = ref driftState.ValueRW;
@@ -84,9 +90,15 @@ namespace Nightflow.Systems
                 // =============================================================
                 // Phase 2 Damage: Component Failure Effects
                 // =============================================================
+                // Optional components (added by ComponentHealthInitSystem); the car
+                // must move from frame one, so default to full health when absent.
 
-                var health = componentHealth.ValueRO;
-                var failures = failureState.ValueRO;
+                var health = SystemAPI.HasComponent<ComponentHealth>(entity)
+                    ? SystemAPI.GetComponent<ComponentHealth>(entity)
+                    : ComponentHealth.FullHealth;
+                var failures = SystemAPI.HasComponent<ComponentFailureState>(entity)
+                    ? SystemAPI.GetComponent<ComponentFailureState>(entity)
+                    : default;
 
                 // Engine health affects acceleration
                 // At full health (1.0): 100% acceleration
@@ -255,29 +267,8 @@ namespace Nightflow.Systems
                 // Find Current Spline Frame
                 // =============================================================
 
-                float playerZ = transform.ValueRO.Position.z;
-                float3 forward = new float3(0, 0, 1);
-                float3 right = new float3(1, 0, 0);
-                float3 up = new float3(0, 1, 0);
-
-                foreach (var (segment, spline) in
-                    SystemAPI.Query<RefRO<TrackSegment>, RefRO<HermiteSpline>>()
-                        .WithAll<TrackSegmentTag>())
-                {
-                    if (playerZ >= segment.ValueRO.StartZ && playerZ <= segment.ValueRO.EndZ)
-                    {
-                        float t = (playerZ - segment.ValueRO.StartZ) /
-                                  (segment.ValueRO.EndZ - segment.ValueRO.StartZ);
-                        t = math.saturate(t);
-
-                        float3 tangent = SplineUtilities.EvaluateTangent(
-                            spline.ValueRO.P0, spline.ValueRO.T0,
-                            spline.ValueRO.P1, spline.ValueRO.T1, t);
-
-                        SplineUtilities.BuildFrenetFrame(tangent, out forward, out right, out up);
-                        break;
-                    }
-                }
+                FindTrackFrame(ref state, transform.ValueRO.Position.z,
+                    out float3 forward, out float3 right, out float3 up);
 
                 // =============================================================
                 // Update World Transform
@@ -306,40 +297,97 @@ namespace Nightflow.Systems
                     targetRot,
                     math.saturate(rotBlend)
                 );
+
+                SyncWorldVelocity(ref state, entity, forward, right, vel.Forward, vel.Lateral, drift.YawRate);
             }
 
             // =============================================================
-            // Handle Autopilot Vehicles
+            // Crashed Vehicle: coast through the crash sequence
             // =============================================================
+            // The wreck keeps rolling along the track (never below v_min) with
+            // its spin damping out, so the world never freezes on screen.
+            // Player input is ignored until CrashSystem resets the vehicle.
 
-            foreach (var (velocity, autopilot, transform) in
-                SystemAPI.Query<RefRW<Velocity>, RefRO<Autopilot>, RefRW<WorldTransform>>()
-                    .WithAll<AutopilotActiveTag>())
+            foreach (var (velocity, driftState, transform, entity) in
+                SystemAPI.Query<RefRW<Velocity>, RefRW<DriftState>, RefRW<WorldTransform>>()
+                    .WithAll<PlayerVehicleTag, CrashedTag>()
+                    .WithEntityAccess())
             {
-                if (!autopilot.ValueRO.Enabled)
-                    continue;
+                ref var vel = ref velocity.ValueRW;
+                ref var drift = ref driftState.ValueRW;
 
-                // Autopilot maintains steady speed
-                float targetSpeed = autopilot.ValueRO.TargetSpeed;
+                vel.Forward = GameFlowLogic.CoastingSpeed(vel.Forward, deltaTime);
+                vel.Lateral *= math.exp(-3f * deltaTime);
 
-                if (velocity.ValueRO.Forward < targetSpeed)
+                // Spin bleeds off; the yaw offset settles wherever the wreck ends up
+                drift.YawRate *= math.exp(-YawDamping * deltaTime);
+                drift.YawRate = math.clamp(drift.YawRate, -MaxYawRate, MaxYawRate);
+                drift.YawOffset += drift.YawRate * deltaTime;
+                drift.IsDrifting = false;
+                vel.Angular = drift.YawRate;
+
+                FindTrackFrame(ref state, transform.ValueRO.Position.z,
+                    out float3 forward, out float3 right, out float3 up);
+
+                transform.ValueRW.Position += forward * vel.Forward * deltaTime;
+
+                quaternion trackRot = quaternion.LookRotation(forward, up);
+                quaternion targetRot = math.mul(trackRot, quaternion.RotateY(drift.YawOffset));
+                transform.ValueRW.Rotation = math.slerp(
+                    transform.ValueRO.Rotation, targetRot, math.saturate(5f * deltaTime));
+
+                SyncWorldVelocity(ref state, entity, forward, right, vel.Forward, vel.Lateral, drift.YawRate);
+            }
+        }
+
+        /// <summary>
+        /// Mirrors the lane-relative velocity into the world-space VehicleVelocity
+        /// that audio (engine/wind/music) and speed-line effects read.
+        /// </summary>
+        private void SyncWorldVelocity(ref SystemState state, Entity entity,
+            float3 forward, float3 right, float forwardSpeed, float lateralSpeed, float yawRate)
+        {
+            if (!SystemAPI.HasComponent<VehicleVelocity>(entity))
+                return;
+
+            SystemAPI.SetComponent(entity, new VehicleVelocity
+            {
+                Linear = forward * forwardSpeed + right * lateralSpeed,
+                Angular = new float3(0f, yawRate, 0f)
+            });
+        }
+
+        /// <summary>
+        /// Frenet frame of the track spline at the given Z. Falls back to the
+        /// world axes when no segment covers that Z (segment gap while the
+        /// generator catches up), so the car always has a forward direction.
+        /// </summary>
+        private void FindTrackFrame(ref SystemState state, float playerZ,
+            out float3 forward, out float3 right, out float3 up)
+        {
+            forward = new float3(0, 0, 1);
+            right = new float3(1, 0, 0);
+            up = new float3(0, 1, 0);
+
+            foreach (var (segment, spline) in
+                SystemAPI.Query<RefRO<TrackSegment>, RefRO<HermiteSpline>>()
+                    .WithAll<TrackSegmentTag>())
+            {
+                if (playerZ >= segment.ValueRO.StartZ && playerZ <= segment.ValueRO.EndZ)
                 {
-                    velocity.ValueRW.Forward += 10f * deltaTime;
+                    float length = segment.ValueRO.EndZ - segment.ValueRO.StartZ;
+                    if (math.abs(length) < 0.001f)
+                        break;
+
+                    float t = math.saturate((playerZ - segment.ValueRO.StartZ) / length);
+
+                    float3 tangent = SplineUtilities.EvaluateTangent(
+                        spline.ValueRO.P0, spline.ValueRO.T0,
+                        spline.ValueRO.P1, spline.ValueRO.T1, t);
+
+                    SplineUtilities.BuildFrenetFrame(tangent, out forward, out right, out up);
+                    break;
                 }
-                else if (velocity.ValueRO.Forward > targetSpeed + 5f)
-                {
-                    velocity.ValueRW.Forward -= 5f * deltaTime;
-                }
-
-                // Ensure minimum speed
-                velocity.ValueRW.Forward = math.max(velocity.ValueRO.Forward, GameConstants.MinForwardSpeed);
-
-                // Simple forward movement
-                float3 forward = math.mul(transform.ValueRO.Rotation, new float3(0, 0, 1));
-                transform.ValueRW.Position += forward * velocity.ValueRO.Forward * deltaTime;
-
-                // Decay lateral velocity (framerate-independent)
-                velocity.ValueRW.Lateral *= math.exp(-3f * deltaTime);
             }
         }
     }

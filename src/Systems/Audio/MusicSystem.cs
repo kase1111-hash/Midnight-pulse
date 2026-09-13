@@ -55,8 +55,8 @@ namespace Nightflow.Systems.Audio
             float damageLevel = 0f;
             float multiplier = 1f;
 
-            foreach (var (velocity, _) in
-                SystemAPI.Query<RefRO<VehicleVelocity>, RefRO<PlayerVehicleTag>>())
+            foreach (var velocity in
+                SystemAPI.Query<RefRO<VehicleVelocity>>().WithAll<PlayerVehicleTag>())
             {
                 playerSpeed = math.length(velocity.ValueRO.Linear) * 3.6f; // km/h
                 break;
@@ -284,8 +284,8 @@ namespace Nightflow.Systems.Audio
 
             // Get player speed
             float currentSpeed = 0f;
-            foreach (var (velocity, _) in
-                SystemAPI.Query<RefRO<VehicleVelocity>, RefRO<PlayerVehicleTag>>())
+            foreach (var velocity in
+                SystemAPI.Query<RefRO<VehicleVelocity>>().WithAll<PlayerVehicleTag>())
             {
                 currentSpeed = math.length(velocity.ValueRO.Linear) * 3.6f;
                 break;

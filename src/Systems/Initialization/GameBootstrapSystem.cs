@@ -33,6 +33,9 @@ namespace Nightflow.Systems
         public void OnCreate(ref SystemState state)
         {
             _initialized = false;
+
+            // Archetypes are used by spawn systems (ghost vehicle); build them once
+            Nightflow.Archetypes.EntityArchetypes.Initialize(state.EntityManager);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -104,9 +107,18 @@ namespace Nightflow.Systems
                 Rotation = quaternion.identity
             });
 
-            // Vehicle control
+            // Vehicle control - the autopilot drives from the first frame
+            // (attract mode under the main menu); the player's first control
+            // input hands over the wheel and starts the scoring run.
             ecb.AddComponent(playerEntity, new PlayerInput());
-            ecb.AddComponent(playerEntity, new Autopilot { Enabled = false });
+            ecb.AddComponent(playerEntity, new Autopilot
+            {
+                Enabled = true,
+                TargetSpeed = GameConstants.AutopilotRecoverySpeed,
+                LanePreference = -1,
+                Reason = AutopilotReason.Boot,
+                HumanInputDetected = false
+            });
             ecb.AddComponent(playerEntity, new SteeringState
             {
                 CurrentAngle = 0f,
@@ -123,8 +135,9 @@ namespace Nightflow.Systems
                 CurrentLane = PlayerStartLane,
                 TargetLane = PlayerStartLane,
                 LateralOffset = 0f,
-                MagnetStrength = 1f,
-                SplineParameter = PlayerStartZ / GameConstants.SegmentLength
+                MagnetStrength = GameConstants.DefaultMagnetStrength,
+                SplineParameter = PlayerStartZ / GameConstants.SegmentLength,
+                TotalLanes = GameConstants.DefaultNumLanes
             });
 
             // Damage & crash
@@ -143,23 +156,11 @@ namespace Nightflow.Systems
             ecb.AddComponent(playerEntity, new ImpulseData());
             ecb.AddComponent(playerEntity, new CrashState());
 
-            // Scoring
-            ecb.AddComponent(playerEntity, new ScoreSession
-            {
-                Active = true,
-                Distance = 0f,
-                Score = 0f,
-                Multiplier = 1f,
-                RiskMultiplier = 0f,
-                HighestMultiplier = 1f
-            });
-            ecb.AddComponent(playerEntity, new RiskState
-            {
-                Value = 0f,
-                Cap = 1f,
-                RebuildRate = 1f,
-                BrakePenaltyActive = false
-            });
+            // Scoring - no run until the player takes the wheel
+            var session = GameFlowLogic.NewScoreSession();
+            session.Active = false;
+            ecb.AddComponent(playerEntity, session);
+            ecb.AddComponent(playerEntity, GameFlowLogic.NewRiskState());
             ecb.AddComponent(playerEntity, new ScoreSummary
             {
                 FinalScore = 0f,
@@ -195,6 +196,7 @@ namespace Nightflow.Systems
 
             // Tags
             ecb.AddComponent<PlayerVehicleTag>(playerEntity);
+            ecb.AddComponent<AutopilotActiveTag>(playerEntity);
 
             // Input log buffer for replay
             ecb.AddBuffer<InputLogEntry>(playerEntity);
@@ -389,23 +391,25 @@ namespace Nightflow.Systems
                 ShowCredits = false,
                 OverlayAlpha = 0f,
                 ShowPressStart = true,    // Show "Press Start" initially
-                MainMenuSelection = 0
+                MainMenuSelection = 0,
+                AutopilotActive = true
             });
 
             ecb.AddComponent(uiEntity, new GameState
             {
-                IsPaused = true,          // Game paused at main menu
+                IsPaused = false,         // The main menu is an overlay, not a pause
                 PauseCooldown = 0f,
-                PauseCooldownMax = 5f,
+                PauseCooldownMax = GameConstants.PauseCooldownDuration,
                 CrashPhase = CrashFlowPhase.None,
                 CrashPhaseTimer = 0f,
                 FadeAlpha = 0f,
                 AutopilotQueued = false,
-                PlayerControlActive = false,  // No player control at menu
+                PlayerControlActive = false,  // Autopilot drives under the menu
                 IdleTimer = 0f,
                 CurrentMenu = MenuState.MainMenu,  // Start at main menu
                 MenuVisible = true,
-                TimeScale = 0f            // Time stopped at menu
+                TimeScale = 1f,           // The world never stops
+                VehicleResetPending = false
             });
 
             ecb.AddComponent<UIControllerTag>(uiEntity);
@@ -637,7 +641,7 @@ namespace Nightflow.Systems
                     Position = position,
                     Forward = forward,
                     Right = right,
-                    Up = up,
+                    ArcLength = t * length,
                     Parameter = t
                 });
             }

@@ -283,7 +283,7 @@ namespace Nightflow.Systems
             // Light emitter for rendering
             ecb.AddComponent(entity, new LightEmitter
             {
-                Color = new float4(1f, 0.3f, 0.8f, 1f), // Magenta for traffic
+                Color = new float3(1f, 0.3f, 0.8f), // Magenta for traffic
                 Intensity = 0.7f
             });
 

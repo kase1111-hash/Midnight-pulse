@@ -90,7 +90,7 @@ namespace Nightflow.Systems
                 {
                     CurrentMode = GameMode.Nightflow,
                     ModeSelectActive = false,
-                    SessionSeed = GenerateRandomSeed(),
+                    SessionSeed = GenerateRandomSeed(ref state),
                     IsRecording = false,
                     IsPlayingGhost = false,
                     RedlineMaxSpeed = 0f,
@@ -143,7 +143,7 @@ namespace Nightflow.Systems
             }
         }
 
-        private uint GenerateRandomSeed()
+        private uint GenerateRandomSeed(ref SystemState state)
         {
             // Use time-based seed generation
             return (uint)((Unity.Mathematics.Random.CreateFromIndex(12345).NextUInt() ^

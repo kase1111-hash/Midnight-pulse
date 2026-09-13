@@ -295,6 +295,17 @@ public struct WeatherAffectedTag : IComponentData { }
 3. **No Scene Reloads:** Continuous gameplay loop, reset via entity state only
 4. **ECB Disposal:** Always dispose `EntityCommandBuffer` after playback
 5. **Burst Safety:** No managed types in Burst-compiled code
+6. **The World Never Stops:** Menus and the crash sequence are overlays. Nothing zeroes the time scale or gates simulation on `IsPaused`; the autopilot drives whenever the player does not
+7. **Query Arity:** `SystemAPI.Query` takes at most 7 type arguments; fetch extra components with `SystemAPI.GetComponent(entity)` and never put zero-sized tags in `RefRO`/`RefRW`
+
+## Game Flow (who drives, who scores)
+
+- `GameStateSystem` (Simulation, right after `InputSystem`) is the **only** writer of flow transitions on the `GameState` singleton: crash phases, pilot handoff, run start. `ScreenFlowSystem`/`UISystem` only derive UI flags from it.
+- `GameFlowLogic` holds the pure rules (`EvaluatePilot`, `AdvanceCrashPhase`, `CoastingSpeed`, fresh-run defaults) so they are unit-testable without a World (`src/Tests/GameFlowLogicTests.cs`).
+- `InputSystem` reports human intent on `Autopilot.HumanInputDetected`; it never decides the handoff. Any menu open ⇒ autopilot drives and input cannot grab the wheel. Idle for `IdleTimeoutForAutopilot` ⇒ autopilot, score frozen. Input while autopilot drives ⇒ player takes over; if no run is active a fresh `ScoreSession` starts.
+- `AutopilotSystem` writes `PlayerInput`; movement, steering and lane magnetism do not special-case the autopilot (`AutopilotActiveTag` is informational). While the autopilot drives: no score, no risk events, no structural damage, no crash evaluation.
+- Crash: `CrashSystem` sets `IsCrashed`, closes the run, starts the flow (`ScreenFlowSystem.TriggerCrash`). `GameStateSystem` times Impact → Shake → FadeOut → Summary → Reset → FadeIn and raises `GameState.VehicleResetPending` on Reset; `CrashSystem` consumes it (`ResetVehicle`) and hands the car to the autopilot. Menus that leave the summary call `ScreenFlowSystem.RequestVehicleReset`, never clear `CrashPhase` directly.
+- Managed UI (`MenuController`) must go through the static helpers on `ScreenFlowSystem` / `MenuNavigationSystem` rather than poking `GameState` fields.
 
 ## Version
 

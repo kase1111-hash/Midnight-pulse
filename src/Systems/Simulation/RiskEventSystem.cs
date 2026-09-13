@@ -162,6 +162,29 @@ namespace Nightflow.Systems
             _trackedHazardMinDistance = new FixedList128Bytes<float>();
         }
 
+        /// <summary>
+        /// Clears per-run trackers so the next player-controlled frame starts
+        /// from a clean slate (called every frame the autopilot drives).
+        /// </summary>
+        private void ResetTracking(int playerLane)
+        {
+            _accumulatedYaw = 0f;
+            _wasInDrift = false;
+            _lastDriftYaw = 0f;
+            _emergencyWasClose = false;
+            _lastSegmentIndex = -1;
+            _segmentDamageAccum = 0f;
+            _segmentStartDamage = 0f;
+            _laneChangeTimes.Clear();
+            _lastLane = playerLane;
+            _comboTimer = 0f;
+            _comboCount = 0;
+            _trackedPassEntityIds.Clear();
+            _trackedPassMinDistance.Clear();
+            _trackedHazardIds.Clear();
+            _trackedHazardMinDistance.Clear();
+        }
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
@@ -213,6 +236,22 @@ namespace Nightflow.Systems
 
             if (playerEntity == Entity.Null)
                 return;
+
+            // Risk events are the player's: while the autopilot drives (menus,
+            // idle, post-crash) nothing is awarded, and the trackers restart so
+            // a stale near-miss can't pay out the instant the player takes over.
+            bool autopilotDriving = false;
+            foreach (var autopilot in SystemAPI.Query<RefRO<Autopilot>>().WithAll<PlayerVehicleTag>())
+            {
+                autopilotDriving = autopilot.ValueRO.Enabled;
+                break;
+            }
+
+            if (autopilotDriving)
+            {
+                ResetTracking(playerLane);
+                return;
+            }
 
             // Get risk state
             RiskState riskState = default;

@@ -117,7 +117,7 @@ namespace Nightflow.UI
             UpdateSpeed(state);
             UpdateDamage(state);
             UpdateLaneIndicator(0);
-            UpdateStatusIndicators(false, state.SpeedTier >= 2);
+            UpdateStatusIndicators(state.AutopilotActive, state.SpeedTier >= 2);
             UpdateEmergencyWarnings(new float2(0, 1), state.EmergencyDistance);
             UpdateWarningIndicator(state);
             UpdateAnimations(deltaTime);

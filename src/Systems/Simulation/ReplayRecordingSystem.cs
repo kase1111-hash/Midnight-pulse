@@ -21,7 +21,6 @@ namespace Nightflow.Systems
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(InputSystem))]
     [UpdateBefore(typeof(AutopilotSystem))]
     public partial struct ReplayRecordingSystem : ISystem
     {

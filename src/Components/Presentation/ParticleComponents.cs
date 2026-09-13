@@ -172,9 +172,10 @@ namespace Nightflow.Components
     }
 
     /// <summary>
-    /// Collision event data for triggering spark effects.
+    /// Collision event data for triggering spark/flash/audio effects.
+    /// (Distinct from the simulation's CollisionEvent component in DamageComponents.cs.)
     /// </summary>
-    public struct CollisionEvent : IBufferElementData
+    public struct CollisionEffectEvent : IBufferElementData
     {
         public float3 Position;
         public float3 Normal;
