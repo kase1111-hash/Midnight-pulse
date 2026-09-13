@@ -26,8 +26,7 @@ namespace Nightflow.Systems
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
-    [UpdateAfter(typeof(LightingSystem))]
-    [UpdateBefore(typeof(WireframeRenderSystem))]
+    [UpdateAfter(typeof(LightingSystem))]   // Lighting already runs after WireframeRender
     public partial struct ReflectionSystem : ISystem
     {
         // Reflection parameters

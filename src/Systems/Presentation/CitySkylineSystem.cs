@@ -370,8 +370,7 @@ namespace Nightflow.Systems
     /// Creates quad strips for building silhouettes and point lights for windows.
     /// </summary>
     [BurstCompile]
-    [UpdateInGroup(typeof(PresentationSystemGroup))]
-    [UpdateAfter(typeof(CitySkylineSystem))]
+    [UpdateInGroup(typeof(PresentationSystemGroup))]   // CitySkylineSystem is OrderFirst in this group
     public partial struct CitySkylineRenderSystem : ISystem
     {
         // Rendering parameters

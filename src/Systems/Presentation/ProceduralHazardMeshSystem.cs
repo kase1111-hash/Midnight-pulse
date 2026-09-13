@@ -436,7 +436,7 @@ namespace Nightflow.Systems
             float hl = BarrierLength * 0.5f;
 
             // Generate box vertices (8 corners)
-            float3[] corners = new float3[8]
+            var corners = new FixedList128Bytes<float3>
             {
                 new float3(-hw, 0, -hl),           // 0: front-left-bottom
                 new float3(hw, 0, -hl),            // 1: front-right-bottom
@@ -507,7 +507,7 @@ namespace Nightflow.Systems
             float tiltAngle = 0.15f; // radians
             float3 tiltOffset = new float3(0.1f, 0, 0);
 
-            float3[] corners = new float3[8]
+            var corners = new FixedList128Bytes<float3>
             {
                 new float3(-hw, 0, -hl) + tiltOffset,
                 new float3(hw, 0, -hl),

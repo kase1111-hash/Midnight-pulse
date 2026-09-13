@@ -291,7 +291,6 @@ namespace Nightflow.Systems
     [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(InputSystem))]
     public partial struct SpectatorInputSystem : ISystem
     {
         // Input parameters

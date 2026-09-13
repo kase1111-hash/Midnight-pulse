@@ -502,9 +502,9 @@ namespace Nightflow.Audio
         {
             AudioClip clip = evt.Type switch
             {
-                CollisionAudioType.LightImpact => lightImpacts.Length > 0 ? lightImpacts[Random.Range(0, lightImpacts.Length)] : null,
-                CollisionAudioType.MediumImpact => mediumImpacts.Length > 0 ? mediumImpacts[Random.Range(0, mediumImpacts.Length)] : null,
-                CollisionAudioType.HeavyImpact => heavyImpacts.Length > 0 ? heavyImpacts[Random.Range(0, heavyImpacts.Length)] : null,
+                CollisionAudioType.LightImpact => lightImpacts.Length > 0 ? lightImpacts[UnityEngine.Random.Range(0, lightImpacts.Length)] : null,
+                CollisionAudioType.MediumImpact => mediumImpacts.Length > 0 ? mediumImpacts[UnityEngine.Random.Range(0, mediumImpacts.Length)] : null,
+                CollisionAudioType.HeavyImpact => heavyImpacts.Length > 0 ? heavyImpacts[UnityEngine.Random.Range(0, heavyImpacts.Length)] : null,
                 CollisionAudioType.MetalScrape => metalScrape,
                 CollisionAudioType.GlassShatter => glassShatter,
                 _ => null
@@ -527,7 +527,7 @@ namespace Nightflow.Audio
             source.volume = 0.5f + volume * 0.5f;
 
             // Pitch variation based on impact
-            source.pitch = 0.9f + Random.Range(0f, 0.2f);
+            source.pitch = 0.9f + UnityEngine.Random.Range(0f, 0.2f);
 
             source.spatialBlend = spatialBlend3D;
             source.minDistance = 2f;

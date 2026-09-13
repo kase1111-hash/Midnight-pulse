@@ -230,6 +230,9 @@ namespace Nightflow.Systems
                 Offset = float3.zero
             });
 
+            // Off-screen threat signaling (OffScreenSignalingSystem / UISystem)
+            ecb.AddComponent(hazard, new OffscreenSignal());
+
             // Add tag
             ecb.AddComponent<HazardTag>(hazard);
         }

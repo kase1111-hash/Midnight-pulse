@@ -26,7 +26,6 @@ namespace Nightflow.Systems.UI
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(Unity.Entities.BeginSimulationEntityCommandBufferSystem))]
     public partial struct ScreenFlowSystem : ISystem
     {
         public void OnCreate(ref SystemState state)

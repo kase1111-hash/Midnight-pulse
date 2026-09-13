@@ -51,6 +51,15 @@ namespace Nightflow.Systems
                 collision.ValueRW.OtherEntity = Entity.Null;
             }
 
+            // Presentation-side collision effect events live for exactly one frame:
+            // cleared here, appended below, consumed by sparks/flash/audio later
+            foreach (var effects in
+                SystemAPI.Query<DynamicBuffer<CollisionEffectEvent>>()
+                    .WithAll<PlayerVehicleTag>())
+            {
+                effects.Clear();
+            }
+
             // =============================================================
             // Get Player State
             // =============================================================
@@ -90,6 +99,7 @@ namespace Nightflow.Systems
             float3 closestNormal = float3.zero;
             float3 closestContactPoint = float3.zero;
             float closestImpactSpeed = 0f;
+            float closestSeverity = 0f;
 
             foreach (var (hazardTransform, hazard, collisionShape, entity) in
                 SystemAPI.Query<RefRO<WorldTransform>, RefRW<Hazard>, RefRO<CollisionShape>>()
@@ -160,6 +170,7 @@ namespace Nightflow.Systems
                     closestNormal = normal;
                     closestContactPoint = contactPoint;
                     closestImpactSpeed = impactSpeed;
+                    closestSeverity = hazard.ValueRO.Severity;
                 }
 
                 // Mark hazard as hit
@@ -181,6 +192,21 @@ namespace Nightflow.Systems
                     collision.ValueRW.ImpactSpeed = closestImpactSpeed;
                     collision.ValueRW.Normal = closestNormal;
                     collision.ValueRW.ContactPoint = closestContactPoint;
+                }
+
+                // Effect event for sparks, impact flash and scrape audio
+                foreach (var effects in
+                    SystemAPI.Query<DynamicBuffer<CollisionEffectEvent>>()
+                        .WithAll<PlayerVehicleTag>())
+                {
+                    effects.Add(new CollisionEffectEvent
+                    {
+                        Position = closestContactPoint,
+                        Normal = closestNormal,
+                        RelativeVelocity = playerVelocity,
+                        Impulse = closestImpactSpeed,
+                        Type = closestSeverity > 0.8f ? CollisionType.VehicleBarrier : CollisionType.VehicleHazard
+                    });
                 }
             }
         }

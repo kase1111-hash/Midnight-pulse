@@ -169,14 +169,19 @@ namespace Nightflow.Systems
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct GhostRaceSpawnSystem : ISystem
     {
-        // Ghost visual parameters
-        private static readonly float3[] GhostColors = new float3[]
+        // Ghost visual parameters (no managed arrays: this may be Burst-compiled)
+        private const int MaxGhostColors = 4;
+
+        private static float3 GhostColor(int index)
         {
-            new float3(1f, 0.3f, 0.3f),   // Red
-            new float3(0.3f, 1f, 0.3f),   // Green
-            new float3(1f, 1f, 0.3f),     // Yellow
-            new float3(1f, 0.3f, 1f),     // Magenta
-        };
+            switch (index & 3)
+            {
+                case 0: return new float3(1f, 0.3f, 0.3f);   // Red
+                case 1: return new float3(0.3f, 1f, 0.3f);   // Green
+                case 2: return new float3(1f, 1f, 0.3f);     // Yellow
+                default: return new float3(1f, 0.3f, 1f);    // Magenta
+            }
+        }
 
         public void OnCreate(ref SystemState state)
         {
@@ -233,7 +238,7 @@ namespace Nightflow.Systems
             // Spawn ghosts (implementation would create entities with ghost components)
             // This integrates with existing GhostSpawnSystem from ReplayPlaybackSystem
             int spawnedCount = 0;
-            for (int i = 0; i < runRefs.Length && spawnedCount < GhostColors.Length; i++)
+            for (int i = 0; i < runRefs.Length && spawnedCount < MaxGhostColors; i++)
             {
                 var runRef = runRefs[i];
 
@@ -244,7 +249,7 @@ namespace Nightflow.Systems
                 // Ghost entity would be created here with:
                 // - GhostRaceTag
                 // - ReplayState (from run data)
-                // - GhostRenderState (with color from GhostColors[i])
+                // - GhostRenderState (with color from GhostColor(i))
                 // - GhostRunData (metadata)
                 // - InputLogEntry buffer (loaded from run)
                 // - Vehicle components (same as player)

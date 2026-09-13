@@ -281,10 +281,10 @@ namespace Nightflow.Systems
             const float roadHalfWidth = 8.7f; // Approximate road half-width
 
             // Generate elevated barriers on both sides
-            float[] offsets = { -roadHalfWidth, roadHalfWidth };
-
-            foreach (float offset in offsets)
+            // Barrier on each side; no managed arrays (Burst-compiled)
+            for (int side = 0; side < 2; side++)
             {
+                float offset = side == 0 ? -roadHalfWidth : roadHalfWidth;
                 int startVert = vertices.Length;
 
                 for (int z = 0; z <= lengthSegments; z++)

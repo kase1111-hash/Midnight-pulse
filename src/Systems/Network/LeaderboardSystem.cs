@@ -150,7 +150,6 @@ namespace Nightflow.Systems
     [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(LeaderboardSubmissionSystem))]
     public partial struct LeaderboardRankTrackingSystem : ISystem
     {
         public void OnCreate(ref SystemState state)

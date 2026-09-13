@@ -153,8 +153,8 @@ namespace Nightflow.Systems
             // Update Camera for Tunnel Squeeze
             // =============================================================
 
-            foreach (var cameraState in SystemAPI.Query<RefRW<CameraState>>()
-                .WithAll<PlayerVehicleTag>())
+            // CameraState is a singleton on the camera entity (not the player)
+            foreach (var cameraState in SystemAPI.Query<RefRW<CameraState>>())
             {
                 float tunnelBlend = 0f;
                 foreach (var lighting in SystemAPI.Query<RefRO<TunnelLighting>>())

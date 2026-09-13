@@ -201,7 +201,7 @@ namespace Nightflow.Systems.Audio
         /// Triggers a music intensity boost from gameplay events.
         /// </summary>
         public static void TriggerIntensityEvent(
-            ref DynamicBuffer<MusicIntensityEvent> events,
+            DynamicBuffer<MusicIntensityEvent> events,
             MusicIntensityReason reason)
         {
             float intensity = reason switch
@@ -296,7 +296,7 @@ namespace Nightflow.Systems.Audio
             {
                 foreach (var intensityEvents in SystemAPI.Query<DynamicBuffer<MusicIntensityEvent>>())
                 {
-                    MusicSystem.TriggerIntensityEvent(ref intensityEvents, MusicIntensityReason.SpeedBoost);
+                    MusicSystem.TriggerIntensityEvent(intensityEvents, MusicIntensityReason.SpeedBoost);
                 }
                 speedBoostCooldown = SpeedBoostCooldownTime;
             }

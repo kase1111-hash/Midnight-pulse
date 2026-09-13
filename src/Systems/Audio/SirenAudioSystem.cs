@@ -56,7 +56,7 @@ namespace Nightflow.Systems.Audio
 
             // Update all siren audio sources
             foreach (var (sirenAudio, transform, velocity) in
-                SystemAPI.Query<RefRW<SirenAudio>, RefRO<LocalTransform>, RefRO<VehicleVelocity>>())
+                SystemAPI.Query<RefRW<SirenAudio>, RefRO<WorldTransform>, RefRO<VehicleVelocity>>())
             {
                 UpdateSirenAudio(
                     ref sirenAudio.ValueRW,
@@ -71,7 +71,7 @@ namespace Nightflow.Systems.Audio
 
             // Also handle sirens without velocity component (use position delta)
             foreach (var (sirenAudio, transform) in
-                SystemAPI.Query<RefRW<SirenAudio>, RefRO<LocalTransform>>()
+                SystemAPI.Query<RefRW<SirenAudio>, RefRO<WorldTransform>>()
                 .WithNone<VehicleVelocity>())
             {
                 // Estimate velocity from position change

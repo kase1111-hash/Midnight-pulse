@@ -62,7 +62,6 @@ namespace Nightflow.Archetypes
                 typeof(ScoreSummary),
                 // Signaling
                 typeof(EmergencyDetection),
-                typeof(CameraState),
                 // Environment (tunnel/overpass/fork state)
                 typeof(EnvironmentState),
                 // Replay Recording

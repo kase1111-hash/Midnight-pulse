@@ -71,11 +71,11 @@ namespace Nightflow.Systems.UI
             float2 closestEmergencyDir = float2.zero;
             bool hasEmergency = false;
 
-            // Find emergency vehicles (using SirenAudio component for active state)
-            foreach (var (transform, siren) in SystemAPI.Query<RefRO<LocalTransform>, RefRO<SirenAudio>>()
+            // Find emergency vehicles (EmergencyAI carries the live siren state)
+            foreach (var (transform, emergencyAI) in SystemAPI.Query<RefRO<WorldTransform>, RefRO<EmergencyAI>>()
                 .WithAll<EmergencyVehicleTag>())
             {
-                if (!siren.ValueRO.IsActive)
+                if (!emergencyAI.ValueRO.SirenActive)
                     continue;
 
                 float3 toVehicle = transform.ValueRO.Position - playerPos;

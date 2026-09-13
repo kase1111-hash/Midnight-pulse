@@ -47,15 +47,17 @@ namespace Nightflow.Systems.Presentation
                 UpdateFlashEffect(ref flashEffect.ValueRW, deltaTime);
             }
 
-            // Check for crash triggers from GameState
-            foreach (var (gameState, flashEffect) in
-                SystemAPI.Query<RefRO<GameState>, RefRW<CrashFlashEffect>>())
+            // Check for crash triggers from GameState (a separate singleton entity)
+            if (SystemAPI.TryGetSingleton<GameState>(out var gameState) &&
+                gameState.CrashPhase == CrashFlowPhase.Impact)
             {
-                // Trigger flash when entering impact phase
-                if (gameState.ValueRO.CrashPhase == CrashFlowPhase.Impact &&
-                    flashEffect.ValueRO.Phase == CrashFlashPhase.None)
+                foreach (var flashEffect in SystemAPI.Query<RefRW<CrashFlashEffect>>())
                 {
-                    TriggerFlash(ref flashEffect.ValueRW, FlashType.Crash);
+                    // Trigger flash when entering impact phase
+                    if (flashEffect.ValueRO.Phase == CrashFlashPhase.None)
+                    {
+                        TriggerFlash(ref flashEffect.ValueRW, FlashType.Crash);
+                    }
                 }
             }
         }
@@ -178,7 +180,6 @@ namespace Nightflow.Systems.Presentation
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(CollisionDetectionSystem))]
     public partial struct ImpactFlashTriggerSystem : ISystem
     {
         private const float LightImpactThreshold = 10f;
@@ -193,32 +194,35 @@ namespace Nightflow.Systems.Presentation
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            // Process collision events for player vehicle
-            foreach (var (collisionBuffer, flashEffect) in
-                SystemAPI.Query<DynamicBuffer<CollisionEffectEvent>, RefRW<CrashFlashEffect>>()
-                    .WithAll<PlayerVehicleTag>())
+            // Strongest collision effect event on the player this frame
+            // (the CrashFlashEffect lives on its own singleton entity)
+            float strongestImpulse = 0f;
+            foreach (var collisionBuffer in
+                SystemAPI.Query<DynamicBuffer<CollisionEffectEvent>>().WithAll<PlayerVehicleTag>())
             {
                 for (int i = 0; i < collisionBuffer.Length; i++)
                 {
-                    var collision = collisionBuffer[i];
+                    strongestImpulse = math.max(strongestImpulse, collisionBuffer[i].Impulse);
+                }
+            }
 
-                    // Skip if already flashing
-                    if (flashEffect.ValueRO.IsActive)
-                        continue;
+            if (strongestImpulse < LightImpactThreshold)
+                return;
 
-                    // Determine flash type based on impact
-                    if (collision.Impulse >= HeavyImpactThreshold)
-                    {
-                        CrashFlashSystem.TriggerFlash(ref flashEffect.ValueRW, FlashType.MediumImpact);
-                    }
-                    else if (collision.Impulse >= MediumImpactThreshold)
-                    {
-                        CrashFlashSystem.TriggerFlash(ref flashEffect.ValueRW, FlashType.MediumImpact);
-                    }
-                    else if (collision.Impulse >= LightImpactThreshold)
-                    {
-                        CrashFlashSystem.TriggerFlash(ref flashEffect.ValueRW, FlashType.LightImpact);
-                    }
+            foreach (var flashEffect in SystemAPI.Query<RefRW<CrashFlashEffect>>())
+            {
+                // Skip if already flashing
+                if (flashEffect.ValueRO.IsActive)
+                    continue;
+
+                // Determine flash type based on impact
+                if (strongestImpulse >= MediumImpactThreshold)
+                {
+                    CrashFlashSystem.TriggerFlash(ref flashEffect.ValueRW, FlashType.MediumImpact);
+                }
+                else
+                {
+                    CrashFlashSystem.TriggerFlash(ref flashEffect.ValueRW, FlashType.LightImpact);
                 }
             }
         }

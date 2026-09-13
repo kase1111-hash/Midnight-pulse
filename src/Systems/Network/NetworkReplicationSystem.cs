@@ -25,7 +25,6 @@ namespace Nightflow.Systems
     [DisableAutoCreation] // Deferred to v0.3.0 — no transport layer
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(InputSystem))]
     public partial struct NetworkInputCaptureSystem : ISystem
     {
         // Input capture parameters
@@ -323,7 +322,6 @@ namespace Nightflow.Systems
     [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(NetworkStateCaptureSystem))]
     public partial struct NetworkPredictionSystem : ISystem
     {
         // Rollback parameters

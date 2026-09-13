@@ -181,6 +181,10 @@ namespace Nightflow.Systems
                 Radius = 5f
             });
             ecb.AddComponent(playerEntity, new EmergencyDetection());
+            ecb.AddComponent(playerEntity, new OffscreenSignal());
+
+            // Environment (tunnel/overpass/fork) state consumed by the environment systems
+            ecb.AddComponent(playerEntity, new EnvironmentState());
 
             // Headlights
             ecb.AddComponent(playerEntity, new Headlight
@@ -200,6 +204,35 @@ namespace Nightflow.Systems
 
             // Input log buffer for replay
             ecb.AddBuffer<InputLogEntry>(playerEntity);
+
+            // Collision effect events (sparks, impact flash, scrape audio) are
+            // written by CollisionSystem; the spark emitter lives on the player
+            ecb.AddBuffer<CollisionEffectEvent>(playerEntity);
+            ecb.AddComponent(playerEntity, new ParticleEmitter
+            {
+                Type = ParticleType.Spark,
+                Position = float3.zero,
+                Direction = new float3(0f, 1f, 0f),
+                Spread = new float3(0.6f, 0.6f, 0.6f),
+                EmissionRate = 0f,
+                EmissionAccumulator = 0f,
+                IsActive = true,
+                IsBurst = true,
+                BurstCount = 0,
+                MaxParticles = 256,
+                ColorStart = new float4(1f, 0.8f, 0.3f, 1f),
+                ColorEnd = new float4(1f, 0.4f, 0.1f, 0f),
+                SizeStart = 0.06f,
+                SizeEnd = 0.02f,
+                SpeedMin = 5f,
+                SpeedMax = 15f,
+                LifetimeMin = 0.4f,
+                LifetimeMax = 0.8f,
+                GravityMultiplier = 1f,
+                Drag = 0.5f
+            });
+            ecb.AddBuffer<Particle>(playerEntity);
+            ecb.AddBuffer<ParticleSpawnRequest>(playerEntity);
 
             // =============================================================
             // Add Audio Components to Player
@@ -512,6 +545,37 @@ namespace Nightflow.Systems
                 LineColor = new float4(0.7f, 0.9f, 1f, 0.6f),  // Cyan-white
                 FadeSpeed = 3.0f
             });
+
+            // Speed-line particle emitter + storage (SpeedLinesSystem / ParticleRenderSystem)
+            ecb.AddComponent(speedLineEntity, new ParticleEmitter
+            {
+                Type = ParticleType.SpeedLine,
+                Position = float3.zero,
+                Direction = new float3(0f, 0f, -1f),
+                Spread = float3.zero,
+                EmissionRate = 0f,
+                EmissionAccumulator = 0f,
+                IsActive = true,
+                IsBurst = false,
+                BurstCount = 0,
+                MaxParticles = 200,
+                ColorStart = new float4(0.7f, 0.9f, 1f, 0.6f),
+                ColorEnd = new float4(0.7f, 0.9f, 1f, 0f),
+                SizeStart = 1f,
+                SizeEnd = 1f,
+                SpeedMin = 0f,
+                SpeedMax = 0f,
+                LifetimeMin = 0.3f,
+                LifetimeMax = 0.6f,
+                GravityMultiplier = 0f,
+                Drag = 0f
+            });
+            ecb.AddBuffer<Particle>(speedLineEntity);
+            ecb.AddBuffer<ParticleSpawnRequest>(speedLineEntity);
+
+            // Adaptive difficulty profile singleton (AdaptiveDifficultySystem, spawners)
+            Entity difficultyEntity = ecb.CreateEntity();
+            ecb.AddComponent(difficultyEntity, DifficultyProfile.CreateDefault());
 
             // Particle System Config - global particle settings
             Entity particleConfigEntity = ecb.CreateEntity();

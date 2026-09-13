@@ -78,7 +78,7 @@ namespace Nightflow.Systems.Presentation
                 if (speedLineEffect.ValueRO.IsActive)
                 {
                     EmitSpeedLines(
-                        ref particleBuffer,
+                        particleBuffer,
                         ref emitter.ValueRW,
                         playerPos,
                         playerForward,
@@ -89,13 +89,13 @@ namespace Nightflow.Systems.Presentation
                 }
 
                 // Update existing speed lines
-                UpdateSpeedLines(ref particleBuffer, playerForward, deltaTime);
+                UpdateSpeedLines(particleBuffer, playerForward, deltaTime);
             }
         }
 
         [BurstCompile]
         private void EmitSpeedLines(
-            ref DynamicBuffer<Particle> particles,
+            DynamicBuffer<Particle> particles,
             ref ParticleEmitter emitter,
             float3 playerPos,
             float3 playerForward,
@@ -184,7 +184,7 @@ namespace Nightflow.Systems.Presentation
         }
 
         [BurstCompile]
-        private void UpdateSpeedLines(ref DynamicBuffer<Particle> particles, float3 forward, float deltaTime)
+        private void UpdateSpeedLines(DynamicBuffer<Particle> particles, float3 forward, float deltaTime)
         {
             for (int i = particles.Length - 1; i >= 0; i--)
             {

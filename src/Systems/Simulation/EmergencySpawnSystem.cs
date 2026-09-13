@@ -203,6 +203,16 @@ namespace Nightflow.Systems
                 Offset = float3.zero
             });
 
+            // Siren audio source (SirenAudioSystem) and off-screen threat signal
+            ecb.AddComponent(emergency, new SirenAudio
+            {
+                IsActive = true,
+                Type = SirenType.Police,
+                Position = new float3(laneOffset, 0.5f, spawnZ),
+                Velocity = new float3(0f, 0f, 45f)
+            });
+            ecb.AddComponent(emergency, new OffscreenSignal());
+
             // Tags
             ecb.AddComponent<EmergencyVehicleTag>(emergency);
         }
