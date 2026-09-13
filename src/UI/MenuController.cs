@@ -52,6 +52,8 @@ namespace Nightflow.UI
         private EntityQuery scoreSummaryQuery;
 
         // Mode selection state
+        private const int ModeCount = 4;
+        private const int MainMenuItemCount = 5;
         private int selectedModeIndex;
 
         // Settings overlay bookkeeping (settings can open from main menu or pause)
@@ -194,8 +196,60 @@ namespace Nightflow.UI
             {
                 HandleMainMenuInput(ref gameState, entity);
             }
+            else if (gameState.CurrentMenu == MenuState.ModeSelect)
+            {
+                HandleModeSelectInput();
+            }
+            else if (gameState.CrashPhase == CrashFlowPhase.Summary && ConfirmPressed())
+            {
+                // Enter/Space on the game-over panel = Retry
+                ScreenFlowSystem.DismissSummary(ref gameState);
+                entityManager.SetComponentData(entity, gameState);
+            }
 
             gameStateQuery.Dispose();
+        }
+
+        private static bool ConfirmPressed()
+        {
+            return UnityEngine.Input.GetKeyDown(KeyCode.Return) ||
+                   UnityEngine.Input.GetKeyDown(KeyCode.KeypadEnter) ||
+                   UnityEngine.Input.GetKeyDown(KeyCode.Space);
+        }
+
+        /// <summary>
+        /// Left/Right (or A/D) cycles the mode cards; Enter starts. Driving keys
+        /// are safe to reuse here: while a menu is open they never reach the car.
+        /// </summary>
+        private void HandleModeSelectInput()
+        {
+            int delta = 0;
+            if (UnityEngine.Input.GetKeyDown(KeyCode.RightArrow) || UnityEngine.Input.GetKeyDown(KeyCode.D))
+                delta = 1;
+            else if (UnityEngine.Input.GetKeyDown(KeyCode.LeftArrow) || UnityEngine.Input.GetKeyDown(KeyCode.A))
+                delta = -1;
+
+            if (delta != 0)
+            {
+                SelectMode((selectedModeIndex + delta + ModeCount) % ModeCount);
+            }
+
+            if (ConfirmPressed())
+            {
+                OnModeStartClicked();
+            }
+        }
+
+        private void ActivateMainMenuItem(int index)
+        {
+            switch (index)
+            {
+                case 0: OnPlayClicked(); break;
+                case 1: OnLeaderboardClicked(); break;
+                case 2: OnSettingsClicked(); break;
+                case 3: OnCreditsClicked(); break;
+                case 4: OnQuitClicked(); break;
+            }
         }
 
         private void HandleEscapeKey(ref Components.GameState gameState, Entity gameStateEntity)
@@ -279,6 +333,28 @@ namespace Nightflow.UI
                     var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
                     uiState.ShowPressStart = false;
                     entityManager.SetComponentData(uiStateEntity, uiState);
+                }
+            }
+            else
+            {
+                // Keyboard/gamepad navigation: Up/Down (or W/S) moves, Enter activates.
+                // The "press start" key above is consumed first so it never activates an item.
+                int itemCount = mainMenuState.ItemCount > 0 ? mainMenuState.ItemCount : MainMenuItemCount;
+                int delta = 0;
+                if (UnityEngine.Input.GetKeyDown(KeyCode.DownArrow) || UnityEngine.Input.GetKeyDown(KeyCode.S))
+                    delta = 1;
+                else if (UnityEngine.Input.GetKeyDown(KeyCode.UpArrow) || UnityEngine.Input.GetKeyDown(KeyCode.W))
+                    delta = -1;
+
+                if (delta != 0)
+                {
+                    mainMenuState.SelectedIndex = (mainMenuState.SelectedIndex + delta + itemCount) % itemCount;
+                    entityManager.SetComponentData(mainMenuEntity, mainMenuState);
+                }
+
+                if (ConfirmPressed())
+                {
+                    ActivateMainMenuItem(mainMenuState.SelectedIndex);
                 }
             }
 
