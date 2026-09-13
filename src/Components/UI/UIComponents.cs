@@ -74,11 +74,19 @@ namespace Nightflow.Components
         // Title screen state
         public bool ShowPressStart;
         public int MainMenuSelection;
+
+        // Pilot state (true while the autopilot drives; HUD shows the indicator)
+        public bool AutopilotActive;
     }
 
     /// <summary>
     /// Game state singleton for flow management.
     /// Handles pause, crash flow, and autopilot activation.
+    ///
+    /// The simulation never stops: menus and the crash sequence are overlays
+    /// on a world that keeps moving, with the autopilot at the wheel whenever
+    /// the player is not. GameStateSystem owns every transition in here;
+    /// ScreenFlowSystem/UISystem only derive UI flags from it.
     ///
     /// From spec:
     /// - Pause with 5-second cooldown
@@ -86,7 +94,7 @@ namespace Nightflow.Components
     /// </summary>
     public struct GameState : IComponentData
     {
-        // Pause state
+        // Pause state (IsPaused == the pause menu is open; the car keeps driving)
         public bool IsPaused;
         public float PauseCooldown;         // Seconds until pause allowed again
         public float PauseCooldownMax;      // 5 seconds per spec
@@ -105,8 +113,13 @@ namespace Nightflow.Components
         public MenuState CurrentMenu;
         public bool MenuVisible;
 
-        // Time scale (for crash slow-mo)
+        // Presentation time-scale hint (crash slow-mo). Never zero: nothing
+        // pauses the simulation. Consumed by force feedback / effects only.
         public float TimeScale;
+
+        // One-shot request consumed by CrashSystem: reset the vehicle's
+        // damage, health, drift and crash state and hand it to the autopilot.
+        public bool VehicleResetPending;
     }
 
     /// <summary>
@@ -241,18 +254,6 @@ namespace Nightflow.Components
 
         public bool IsNewHighScore;
         public int LeaderboardRank;
-    }
-
-    /// <summary>
-    /// Crash reason enumeration.
-    /// </summary>
-    public enum CrashReason : byte
-    {
-        None = 0,
-        TotalDamage = 1,        // Accumulated too much damage
-        BarrierImpact = 2,      // Hit barrier at high speed
-        HeadOnCollision = 3,    // Collided with oncoming traffic
-        Rollover = 4            // Flipped/rolled vehicle
     }
 
     /// <summary>

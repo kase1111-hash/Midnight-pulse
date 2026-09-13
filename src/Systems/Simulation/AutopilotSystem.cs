@@ -24,7 +24,6 @@ namespace Nightflow.Systems
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(InputSystem))]
     public partial struct AutopilotSystem : ISystem
     {
         // Speed control

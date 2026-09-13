@@ -70,80 +70,69 @@ namespace Nightflow.Systems
                 break;
             }
 
-            // Get city generation state
-            foreach (var cityState in SystemAPI.Query<RefRW<CityGenerationState>>())
-            {
-                if (cityState.ValueRO.Paused) continue;
-
-                ref var city = ref cityState.ValueRW;
-                city.GeneratedThisFrame = 0;
-
-                // Sync seed from NetworkState if available (created by NetworkInitSystem).
-                // NOTE: NetworkInitSystem has [DisableAutoCreation] — query returns empty,
-                // falling through to the default seed. This is intentional until multiplayer is enabled.
-                if (city.Seed == 0)
-                {
-                    foreach (var netState in SystemAPI.Query<RefRO<NetworkState>>())
-                    {
-                        city.Seed = netState.ValueRO.SessionSeed;
-                        break;
-                    }
-                    if (city.Seed == 0) city.Seed = 12345;
-                }
-
-                _randomState = city.Seed;
-
-                // =============================================================
-                // Generate New Blocks Ahead
-                // =============================================================
-
-                float targetFrontier = playerZ + city.GenerationDistance;
-
-                while (city.GenerationFrontier < targetFrontier &&
-                       city.GeneratedThisFrame < city.MaxGenerationPerFrame &&
-                       city.ActiveBuildingCount < city.MaxBuildings)
-                {
-                    // Generate block on left side
-                    if (city.ActiveBuildingCount < city.MaxBuildings)
-                    {
-                        GenerateBlockBuildings(
-                            ref state,
-                            ref city,
-                            city.GenerationFrontier,
-                            CitySide.Left
-                        );
-                    }
-
-                    // Generate block on right side
-                    if (city.ActiveBuildingCount < city.MaxBuildings)
-                    {
-                        GenerateBlockBuildings(
-                            ref state,
-                            ref city,
-                            city.GenerationFrontier,
-                            CitySide.Right
-                        );
-                    }
-
-                    city.GenerationFrontier += BlockSize;
-                }
-            }
-
-            // =============================================================
-            // Cleanup Buildings Behind Player
-            // =============================================================
-
-            float cleanupZ = playerZ;
-            foreach (var cityState in SystemAPI.Query<RefRO<CityGenerationState>>())
-            {
-                cleanupZ = playerZ - cityState.ValueRO.CleanupDistance;
-                break;
-            }
+            // Get city generation state. Copied out of the singleton: the ECB
+            // playback below is a structural change, which would invalidate a
+            // live RefRW into chunk memory (and Entities forbids structural
+            // changes while a SystemAPI.Query enumerator is alive).
+            if (!SystemAPI.TryGetSingleton<CityGenerationState>(out var city))
+                return;
 
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
             try
             {
+                if (!city.Paused)
+                {
+                    city.GeneratedThisFrame = 0;
+
+                    // Sync seed from NetworkState if available (created by NetworkInitSystem).
+                    // NOTE: NetworkInitSystem has [DisableAutoCreation] — query returns empty,
+                    // falling through to the default seed. This is intentional until multiplayer is enabled.
+                    if (city.Seed == 0)
+                    {
+                        foreach (var netState in SystemAPI.Query<RefRO<NetworkState>>())
+                        {
+                            city.Seed = netState.ValueRO.SessionSeed;
+                            break;
+                        }
+                        if (city.Seed == 0) city.Seed = 12345;
+                    }
+
+                    // Per-block random stream so consecutive blocks differ
+                    _randomState = Hash(city.Seed ^ (uint)math.max(0f, city.GenerationFrontier));
+
+                    // =============================================================
+                    // Generate New Blocks Ahead
+                    // =============================================================
+
+                    float targetFrontier = playerZ + city.GenerationDistance;
+
+                    while (city.GenerationFrontier < targetFrontier &&
+                           city.GeneratedThisFrame < city.MaxGenerationPerFrame &&
+                           city.ActiveBuildingCount < city.MaxBuildings)
+                    {
+                        // Generate block on left side
+                        if (city.ActiveBuildingCount < city.MaxBuildings)
+                        {
+                            GenerateBlockBuildings(ref ecb, ref city, city.GenerationFrontier, CitySide.Left);
+                        }
+
+                        // Generate block on right side
+                        if (city.ActiveBuildingCount < city.MaxBuildings)
+                        {
+                            GenerateBlockBuildings(ref ecb, ref city, city.GenerationFrontier, CitySide.Right);
+                        }
+
+                        city.GenerationFrontier += BlockSize;
+                    }
+                }
+
+                // =============================================================
+                // Cleanup Buildings Behind Player
+                // =============================================================
+
+                float cleanupZ = playerZ - city.CleanupDistance;
+
                 foreach (var (transform, buildingDef, entity) in
                     SystemAPI.Query<RefRO<WorldTransform>, RefRO<BuildingDefinition>>()
                         .WithAll<BuildingTag>()
@@ -152,12 +141,7 @@ namespace Nightflow.Systems
                     if (transform.ValueRO.Position.z < cleanupZ)
                     {
                         ecb.DestroyEntity(entity);
-
-                        // Decrement count
-                        foreach (var cityState in SystemAPI.Query<RefRW<CityGenerationState>>())
-                        {
-                            cityState.ValueRW.ActiveBuildingCount--;
-                        }
+                        city.ActiveBuildingCount--;
                     }
                 }
 
@@ -170,14 +154,12 @@ namespace Nightflow.Systems
                     if (impostor.ValueRO.Position.z < cleanupZ)
                     {
                         ecb.DestroyEntity(entity);
-
-                        foreach (var cityState in SystemAPI.Query<RefRW<CityGenerationState>>())
-                        {
-                            cityState.ValueRW.ActiveImpostorCount--;
-                        }
+                        city.ActiveImpostorCount--;
                     }
                 }
 
+                // Write the updated state back, then apply the structural changes
+                SystemAPI.SetSingleton(city);
                 ecb.Playback(state.EntityManager);
             }
             finally
@@ -187,7 +169,7 @@ namespace Nightflow.Systems
         }
 
         private void GenerateBlockBuildings(
-            ref SystemState state,
+            ref EntityCommandBuffer ecb,
             ref CityGenerationState city,
             float blockZ,
             CitySide side)
@@ -242,9 +224,9 @@ namespace Nightflow.Systems
                 float3 windowColor = HueToRGB(windowHue) * 0.8f + new float3(0.2f, 0.15f, 0.05f);
 
                 // Create building entity
-                var entity = state.EntityManager.CreateEntity();
+                var entity = ecb.CreateEntity();
 
-                state.EntityManager.AddComponentData(entity, new BuildingDefinition
+                ecb.AddComponent(entity, new BuildingDefinition
                 {
                     BuildingId = (int)(city.Seed ^ Hash((uint)(blockZ * 1000 + i))),
                     Width = width,
@@ -259,13 +241,13 @@ namespace Nightflow.Systems
                     FloorSetback = style == BuildingStyle.Stepped ? 0.5f : 0f
                 });
 
-                state.EntityManager.AddComponentData(entity, new WorldTransform
+                ecb.AddComponent(entity, new WorldTransform
                 {
                     Position = position,
                     Rotation = quaternion.RotateY((_randomState & 0x3) * math.PI * 0.5f)
                 });
 
-                state.EntityManager.AddComponentData(entity, new BuildingLOD
+                ecb.AddComponent(entity, new BuildingLOD
                 {
                     CurrentLOD = 2,     // Start at lowest detail
                     TargetLOD = 2,
@@ -281,7 +263,7 @@ namespace Nightflow.Systems
                 int rows = (int)(height / 4f);
                 _randomState = Hash(_randomState);
 
-                state.EntityManager.AddComponentData(entity, new WindowLightState
+                ecb.AddComponent(entity, new WindowLightState
                 {
                     PatternSeed = _randomState,
                     Columns = math.min(cols, 8),
@@ -291,8 +273,8 @@ namespace Nightflow.Systems
                     FlickerPhase = (_randomState & 0xFFFF) / 65535f
                 });
 
-                state.EntityManager.AddComponent<BuildingTag>(entity);
-                state.EntityManager.AddComponent<PendingMeshTag>(entity);
+                ecb.AddComponent<BuildingTag>(entity);
+                ecb.AddComponent<PendingMeshTag>(entity);
 
                 city.ActiveBuildingCount++;
                 city.GeneratedThisFrame++;

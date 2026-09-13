@@ -6,6 +6,7 @@ using UnityEngine.UIElements;
 using Unity.Entities;
 using System.Collections.Generic;
 using Nightflow.Components;
+using Nightflow.Systems.UI;
 using Nightflow.Utilities;
 
 namespace Nightflow.UI
@@ -13,6 +14,10 @@ namespace Nightflow.UI
     /// <summary>
     /// Manages all menu overlays (main menu, pause, game over, mode select,
     /// credits, leaderboard) and their button callbacks.
+    ///
+    /// Every transition goes through the static helpers on ScreenFlowSystem /
+    /// MenuNavigationSystem so managed UI and ECS agree on the flow. Menus are
+    /// overlays: the car keeps driving on autopilot underneath all of them.
     /// </summary>
     public class MenuController
     {
@@ -47,7 +52,13 @@ namespace Nightflow.UI
         private EntityQuery scoreSummaryQuery;
 
         // Mode selection state
+        private const int ModeCount = 4;
+        private const int MainMenuItemCount = 5;
         private int selectedModeIndex;
+
+        // Settings overlay bookkeeping (settings can open from main menu or pause)
+        private SettingsUIController settingsController;
+        private MenuState menuBeforeSettings = MenuState.None;
 
         // Root element (for button queries)
         private VisualElement root;
@@ -165,6 +176,17 @@ namespace Nightflow.UI
             var entity = gameStateQuery.GetSingletonEntity();
             var gameState = entityManager.GetComponentData<Components.GameState>(entity);
 
+            // Settings closed through its own Back/Apply buttons: restore the
+            // menu it was opened from (main menu or pause)
+            if (gameState.CurrentMenu == MenuState.Settings)
+            {
+                var settings = GetSettingsController();
+                if (settings == null || !settings.IsVisible)
+                {
+                    RestoreMenuAfterSettings(ref gameState, entity);
+                }
+            }
+
             if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
             {
                 HandleEscapeKey(ref gameState, entity);
@@ -174,8 +196,60 @@ namespace Nightflow.UI
             {
                 HandleMainMenuInput(ref gameState, entity);
             }
+            else if (gameState.CurrentMenu == MenuState.ModeSelect)
+            {
+                HandleModeSelectInput();
+            }
+            else if (gameState.CrashPhase == CrashFlowPhase.Summary && ConfirmPressed())
+            {
+                // Enter/Space on the game-over panel = Retry
+                ScreenFlowSystem.DismissSummary(ref gameState);
+                entityManager.SetComponentData(entity, gameState);
+            }
 
             gameStateQuery.Dispose();
+        }
+
+        private static bool ConfirmPressed()
+        {
+            return UnityEngine.Input.GetKeyDown(KeyCode.Return) ||
+                   UnityEngine.Input.GetKeyDown(KeyCode.KeypadEnter) ||
+                   UnityEngine.Input.GetKeyDown(KeyCode.Space);
+        }
+
+        /// <summary>
+        /// Left/Right (or A/D) cycles the mode cards; Enter starts. Driving keys
+        /// are safe to reuse here: while a menu is open they never reach the car.
+        /// </summary>
+        private void HandleModeSelectInput()
+        {
+            int delta = 0;
+            if (UnityEngine.Input.GetKeyDown(KeyCode.RightArrow) || UnityEngine.Input.GetKeyDown(KeyCode.D))
+                delta = 1;
+            else if (UnityEngine.Input.GetKeyDown(KeyCode.LeftArrow) || UnityEngine.Input.GetKeyDown(KeyCode.A))
+                delta = -1;
+
+            if (delta != 0)
+            {
+                SelectMode((selectedModeIndex + delta + ModeCount) % ModeCount);
+            }
+
+            if (ConfirmPressed())
+            {
+                OnModeStartClicked();
+            }
+        }
+
+        private void ActivateMainMenuItem(int index)
+        {
+            switch (index)
+            {
+                case 0: OnPlayClicked(); break;
+                case 1: OnLeaderboardClicked(); break;
+                case 2: OnSettingsClicked(); break;
+                case 3: OnCreditsClicked(); break;
+                case 4: OnQuitClicked(); break;
+            }
         }
 
         private void HandleEscapeKey(ref Components.GameState gameState, Entity gameStateEntity)
@@ -208,35 +282,18 @@ namespace Nightflow.UI
 
             if (gameState.CrashPhase == CrashFlowPhase.Summary)
             {
-                gameState.CrashPhase = CrashFlowPhase.Reset;
-                gameState.CrashPhaseTimer = 0f;
+                ScreenFlowSystem.DismissSummary(ref gameState);
                 entityManager.SetComponentData(gameStateEntity, gameState);
                 return;
             }
 
             if (gameState.CurrentMenu == MenuState.None || gameState.CurrentMenu == MenuState.Pause)
             {
-                if (gameState.CrashPhase != CrashFlowPhase.None)
-                    return;
-
-                if (gameState.PauseCooldown > 0f && !gameState.IsPaused)
-                    return;
-
-                gameState.IsPaused = !gameState.IsPaused;
-                gameState.TimeScale = gameState.IsPaused ? 0f : 1f;
-                gameState.CurrentMenu = gameState.IsPaused ? MenuState.Pause : MenuState.None;
-                gameState.MenuVisible = gameState.IsPaused;
-
-                if (gameState.IsPaused)
+                // Pausing never stops the car: the autopilot drives under the menu
+                if (ScreenFlowSystem.TryTogglePause(ref gameState))
                 {
-                    gameState.PauseCooldown = 5f;
+                    entityManager.SetComponentData(gameStateEntity, gameState);
                 }
-
-                var uiStateEntity = uiStateQuery.GetSingletonEntity();
-                var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
-                uiState.ShowPauseMenu = gameState.IsPaused;
-                entityManager.SetComponentData(uiStateEntity, uiState);
-                entityManager.SetComponentData(gameStateEntity, gameState);
             }
         }
 
@@ -276,6 +333,28 @@ namespace Nightflow.UI
                     var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
                     uiState.ShowPressStart = false;
                     entityManager.SetComponentData(uiStateEntity, uiState);
+                }
+            }
+            else
+            {
+                // Keyboard/gamepad navigation: Up/Down (or W/S) moves, Enter activates.
+                // The "press start" key above is consumed first so it never activates an item.
+                int itemCount = mainMenuState.ItemCount > 0 ? mainMenuState.ItemCount : MainMenuItemCount;
+                int delta = 0;
+                if (UnityEngine.Input.GetKeyDown(KeyCode.DownArrow) || UnityEngine.Input.GetKeyDown(KeyCode.S))
+                    delta = 1;
+                else if (UnityEngine.Input.GetKeyDown(KeyCode.UpArrow) || UnityEngine.Input.GetKeyDown(KeyCode.W))
+                    delta = -1;
+
+                if (delta != 0)
+                {
+                    mainMenuState.SelectedIndex = (mainMenuState.SelectedIndex + delta + itemCount) % itemCount;
+                    entityManager.SetComponentData(mainMenuEntity, mainMenuState);
+                }
+
+                if (ConfirmPressed())
+                {
+                    ActivateMainMenuItem(mainMenuState.SelectedIndex);
                 }
             }
 
@@ -449,9 +528,9 @@ namespace Nightflow.UI
             return reason switch
             {
                 CrashReason.TotalDamage => "TOTALED",
-                CrashReason.BarrierImpact => "BARRIER CRASH",
-                CrashReason.HeadOnCollision => "HEAD-ON COLLISION",
-                CrashReason.Rollover => "ROLLOVER",
+                CrashReason.LethalHazard => "BARRIER CRASH",
+                CrashReason.CompoundFailure => "SPUN OUT",
+                CrashReason.ComponentFailure => "MECHANICAL FAILURE",
                 _ => "CRASHED"
             };
         }
@@ -496,11 +575,56 @@ namespace Nightflow.UI
 
         private void OnSettingsClicked()
         {
-            var settingsController = Object.FindAnyObjectByType<SettingsUIController>();
-            if (settingsController != null)
+            var settings = GetSettingsController();
+            if (settings == null)
+                return;
+
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            if (!gameStateQuery.IsEmpty)
             {
-                settingsController.Show();
+                var entity = gameStateQuery.GetSingletonEntity();
+                var gameState = entityManager.GetComponentData<Components.GameState>(entity);
+
+                if (gameState.CurrentMenu != MenuState.Settings)
+                {
+                    menuBeforeSettings = gameState.CurrentMenu;
+                    gameState.CurrentMenu = MenuState.Settings;
+                    gameState.MenuVisible = true;
+                    entityManager.SetComponentData(entity, gameState);
+                }
             }
+            gameStateQuery.Dispose();
+
+            settings.Show();
+        }
+
+        private SettingsUIController GetSettingsController()
+        {
+            if (settingsController == null)
+            {
+                settingsController = Object.FindAnyObjectByType<SettingsUIController>();
+            }
+            return settingsController;
+        }
+
+        private void RestoreMenuAfterSettings(ref Components.GameState gameState, Entity gameStateEntity)
+        {
+            var uiStateEntity = uiStateQuery.GetSingletonEntity();
+            var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
+
+            if (menuBeforeSettings == MenuState.MainMenu || menuBeforeSettings == MenuState.None)
+            {
+                MenuNavigationSystem.GoToMainMenu(ref gameState, ref uiState);
+            }
+            else
+            {
+                gameState.CurrentMenu = menuBeforeSettings;
+                gameState.MenuVisible = true;
+            }
+
+            menuBeforeSettings = MenuState.None;
+            entityManager.SetComponentData(gameStateEntity, gameState);
+            entityManager.SetComponentData(uiStateEntity, uiState);
         }
 
         private void OnResumeClicked()
@@ -547,7 +671,20 @@ namespace Nightflow.UI
 
         private void OnSettingsBackClicked()
         {
-            NavigateToMenu(MenuState.MainMenu, showMainMenu: true);
+            var settings = GetSettingsController();
+            if (settings != null && settings.IsVisible)
+            {
+                settings.Hide();
+            }
+
+            var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
+            if (!gameStateQuery.IsEmpty)
+            {
+                var entity = gameStateQuery.GetSingletonEntity();
+                var gameState = entityManager.GetComponentData<Components.GameState>(entity);
+                RestoreMenuAfterSettings(ref gameState, entity);
+            }
+            gameStateQuery.Dispose();
         }
 
         private void OnMainMenuClicked()
@@ -560,18 +697,8 @@ namespace Nightflow.UI
                 var uiStateEntity = uiStateQuery.GetSingletonEntity();
                 var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
 
-                gameState.CurrentMenu = MenuState.MainMenu;
-                gameState.MenuVisible = true;
-                gameState.IsPaused = true;
-                gameState.TimeScale = 0f;
-                gameState.CrashPhase = CrashFlowPhase.None;
-
-                uiState.ShowPauseMenu = false;
-                uiState.ShowCrashOverlay = false;
-                uiState.ShowScoreSummary = false;
-                uiState.ShowModeSelect = false;
-                uiState.ShowMainMenu = true;
-                uiState.OverlayAlpha = 0f;
+                // Resets the wreck under the menu and hands it to the autopilot
+                MenuNavigationSystem.GoToMainMenu(ref gameState, ref uiState);
 
                 entityManager.SetComponentData(entity, gameState);
                 entityManager.SetComponentData(uiStateEntity, uiState);
@@ -581,6 +708,8 @@ namespace Nightflow.UI
 
         private void OnModeStartClicked()
         {
+            ApplySelectedMode();
+
             var gameStateQuery = entityManager.CreateEntityQuery(typeof(Components.GameState));
             if (!gameStateQuery.IsEmpty)
             {
@@ -589,20 +718,40 @@ namespace Nightflow.UI
                 var uiStateEntity = uiStateQuery.GetSingletonEntity();
                 var uiState = entityManager.GetComponentData<UIState>(uiStateEntity);
 
-                gameState.CurrentMenu = MenuState.None;
-                gameState.MenuVisible = false;
-                gameState.IsPaused = false;
-                gameState.TimeScale = 1f;
-                gameState.PlayerControlActive = true;
-
-                uiState.ShowMainMenu = false;
-                uiState.ShowModeSelect = false;
-                uiState.OverlayAlpha = 0f;
+                // The autopilot keeps flowing; the first control input starts the run
+                MenuNavigationSystem.StartGame(ref gameState, ref uiState);
 
                 entityManager.SetComponentData(entity, gameState);
                 entityManager.SetComponentData(uiStateEntity, uiState);
             }
             gameStateQuery.Dispose();
+        }
+
+        /// <summary>
+        /// Writes the mode card selection into GameModeState so the mode rules
+        /// (Redline speed cap, Freeflow hazards, ghost) actually apply.
+        /// </summary>
+        private void ApplySelectedMode()
+        {
+            var modeQuery = entityManager.CreateEntityQuery(typeof(GameModeState));
+            if (!modeQuery.IsEmpty)
+            {
+                var entity = modeQuery.GetSingletonEntity();
+                var modeState = entityManager.GetComponentData<GameModeState>(entity);
+                Nightflow.Systems.GameModeSystem.SetGameMode(ref modeState, (GameMode)selectedModeIndex);
+                entityManager.SetComponentData(entity, modeState);
+            }
+            modeQuery.Dispose();
+
+            var sessionQuery = entityManager.CreateEntityQuery(typeof(GameSessionState));
+            if (!sessionQuery.IsEmpty)
+            {
+                var entity = sessionQuery.GetSingletonEntity();
+                var session = entityManager.GetComponentData<GameSessionState>(entity);
+                session.LastSelectedMode = (GameMode)selectedModeIndex;
+                entityManager.SetComponentData(entity, session);
+            }
+            sessionQuery.Dispose();
         }
 
         private void OnModeBackClicked()
@@ -690,10 +839,7 @@ namespace Nightflow.UI
             {
                 var entity = gameStateQuery.GetSingletonEntity();
                 var gameState = entityManager.GetComponentData<Components.GameState>(entity);
-                gameState.IsPaused = false;
-                gameState.TimeScale = 1f;
-                gameState.CurrentMenu = MenuState.None;
-                gameState.MenuVisible = false;
+                ScreenFlowSystem.ResumeFromPause(ref gameState);
                 entityManager.SetComponentData(entity, gameState);
             }
             gameStateQuery.Dispose();
@@ -707,19 +853,10 @@ namespace Nightflow.UI
                 var entity = gameStateQuery.GetSingletonEntity();
                 var gameState = entityManager.GetComponentData<Components.GameState>(entity);
 
-                if (gameState.CrashPhase == CrashFlowPhase.Summary)
-                {
-                    gameState.CrashPhase = CrashFlowPhase.Reset;
-                    gameState.CrashPhaseTimer = 0f;
-                }
-                else
-                {
-                    gameState.CrashPhase = CrashFlowPhase.None;
-                    gameState.IsPaused = false;
-                    gameState.TimeScale = 1f;
-                    gameState.FadeAlpha = 0f;
-                    gameState.AutopilotQueued = true;
-                }
+                // From the summary: dismiss it; mid-run: end the run, reset the car
+                // under a quick fade and let the autopilot drive until the player
+                // moves a control (which starts the new run)
+                ScreenFlowSystem.RequestRestart(ref gameState);
 
                 entityManager.SetComponentData(entity, gameState);
             }

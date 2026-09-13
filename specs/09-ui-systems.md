@@ -53,6 +53,7 @@
 - 5-second cooldown before next pause
 - Cooldown visible to player
 - Menu overlay during pause
+- The simulation never stops: while the pause menu (or any other menu) is open the autopilot drives; the first control input after resuming hands the wheel back
 
 ---
 
@@ -76,9 +77,10 @@ No loading screens.
 ## Autopilot System
 
 ### Activation
-- After crash
-- After score save
-- Player chooses to disengage controls
+- At boot (attract mode under the main menu)
+- While any menu is open
+- After crash (following the in-place vehicle reset)
+- After 10 s without any control input (run suspended, score frozen)
 
 ### Behavior
 - Lane-following with magnetism
@@ -88,8 +90,10 @@ No loading screens.
 - Menu overlay stays active
 
 ### Override
-- Any player input disables autopilot
+- Any player input disables autopilot (ignored while a menu is open)
 - Immediate control handoff
+- If no run is active (boot, post-crash) the first input starts a fresh scoring run; if a run was suspended by idling it resumes with its score intact
+- The autopilot never scores, never takes structural damage and never crashes, so the self-playing loop runs unattended
 
 ---
 

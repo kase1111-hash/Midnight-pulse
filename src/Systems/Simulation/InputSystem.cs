@@ -16,7 +16,12 @@ namespace Nightflow.Systems
     /// <summary>
     /// Reads hardware input and writes to PlayerInput component.
     /// Uses InputBindingManager for rebindable controls.
-    /// Disabled when Autopilot is active; player input re-enables control.
+    ///
+    /// While the autopilot drives, PlayerInput is zeroed here (AutopilotSystem
+    /// fills it in later in the frame) and the raw human intent is reported on
+    /// Autopilot.HumanInputDetected. GameStateSystem decides whether that intent
+    /// hands the wheel back (it never does while a menu is open or the crash
+    /// sequence is playing).
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
     public partial struct InputSystem : ISystem
@@ -49,10 +54,15 @@ namespace Nightflow.Systems
                 settingsLoaded = true;
             }
 
-            // Skip if InputBindingManager is rebinding
+            // Skip if InputBindingManager is rebinding (no driving input while
+            // a key is being captured; make sure no stale intent lingers)
             var bindingManager = InputBindingManager.Instance;
             if (bindingManager != null && bindingManager.IsRebinding)
             {
+                foreach (var autopilot in SystemAPI.Query<RefRW<Autopilot>>().WithAll<PlayerVehicleTag>())
+                {
+                    autopilot.ValueRW.HumanInputDetected = false;
+                }
                 return;
             }
 
@@ -68,37 +78,25 @@ namespace Nightflow.Systems
             float processedThrottle = ApplyDeadzone(rawThrottle, triggerDeadzone);
             float processedBrake = ApplyDeadzone(rawBrake, triggerDeadzone);
 
-            // Check if player is providing meaningful input (to override autopilot)
-            bool hasPlayerInput = math.abs(processedSteer) > 0.01f ||
-                                  processedThrottle > 0.01f ||
-                                  processedBrake > 0.01f ||
-                                  handbrake;
+            // Did the human move a control this frame? (takeover intent)
+            bool hasPlayerInput = GameFlowLogic.IsHumanInput(
+                processedSteer, processedThrottle, processedBrake, handbrake);
 
             foreach (var (input, autopilot) in
                 SystemAPI.Query<RefRW<PlayerInput>, RefRW<Autopilot>>()
                     .WithAll<PlayerVehicleTag>())
             {
+                autopilot.ValueRW.HumanInputDetected = hasPlayerInput;
+
                 if (autopilot.ValueRO.Enabled)
                 {
-                    // Check if player wants to take control
-                    if (hasPlayerInput)
-                    {
-                        // Disable autopilot and transfer control to player
-                        autopilot.ValueRW.Enabled = false;
-
-                        input.ValueRW.Steer = processedSteer;
-                        input.ValueRW.Throttle = processedThrottle;
-                        input.ValueRW.Brake = processedBrake;
-                        input.ValueRW.Handbrake = handbrake;
-                    }
-                    else
-                    {
-                        // Clear input when autopilot is active and no player input
-                        input.ValueRW.Steer = 0f;
-                        input.ValueRW.Throttle = 0f;
-                        input.ValueRW.Brake = 0f;
-                        input.ValueRW.Handbrake = false;
-                    }
+                    // Autopilot has the wheel: clear human input; AutopilotSystem
+                    // writes its own control values later this frame. The handoff
+                    // decision belongs to GameStateSystem.
+                    input.ValueRW.Steer = 0f;
+                    input.ValueRW.Throttle = 0f;
+                    input.ValueRW.Brake = 0f;
+                    input.ValueRW.Handbrake = false;
                 }
                 else
                 {

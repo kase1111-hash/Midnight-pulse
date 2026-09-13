@@ -7,7 +7,6 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Transforms;
 using Nightflow.Components;
 using Nightflow.Tags;
 
@@ -52,8 +51,9 @@ namespace Nightflow.Systems.Presentation
             float3 playerPos = float3.zero;
             float3 playerForward = new float3(0, 0, 1);
 
-            foreach (var (transform, velocity, _) in
-                SystemAPI.Query<RefRO<LocalTransform>, RefRO<VehicleVelocity>, RefRO<PlayerVehicleTag>>())
+            foreach (var (transform, velocity) in
+                SystemAPI.Query<RefRO<WorldTransform>, RefRO<VehicleVelocity>>()
+                    .WithAll<PlayerVehicleTag>())
             {
                 playerSpeed = math.length(velocity.ValueRO.Linear) * 3.6f; // Convert to km/h
                 playerPos = transform.ValueRO.Position;
@@ -77,7 +77,7 @@ namespace Nightflow.Systems.Presentation
                 if (speedLineEffect.ValueRO.IsActive)
                 {
                     EmitSpeedLines(
-                        ref particleBuffer,
+                        particleBuffer,
                         ref emitter.ValueRW,
                         playerPos,
                         playerForward,
@@ -88,13 +88,13 @@ namespace Nightflow.Systems.Presentation
                 }
 
                 // Update existing speed lines
-                UpdateSpeedLines(ref particleBuffer, playerForward, deltaTime);
+                UpdateSpeedLines(particleBuffer, playerForward, deltaTime);
             }
         }
 
         [BurstCompile]
         private void EmitSpeedLines(
-            ref DynamicBuffer<Particle> particles,
+            DynamicBuffer<Particle> particles,
             ref ParticleEmitter emitter,
             float3 playerPos,
             float3 playerForward,
@@ -183,7 +183,7 @@ namespace Nightflow.Systems.Presentation
         }
 
         [BurstCompile]
-        private void UpdateSpeedLines(ref DynamicBuffer<Particle> particles, float3 forward, float deltaTime)
+        private void UpdateSpeedLines(DynamicBuffer<Particle> particles, float3 forward, float deltaTime)
         {
             for (int i = particles.Length - 1; i >= 0; i--)
             {

@@ -6,7 +6,6 @@
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Transforms;
 using Nightflow.Components;
 using Nightflow.Tags;
 
@@ -49,7 +48,7 @@ namespace Nightflow.Systems.UI
             float3 playerPos = float3.zero;
             float3 playerForward = new float3(0, 0, 1);
 
-            foreach (var (transform, _) in SystemAPI.Query<RefRO<LocalTransform>, RefRO<PlayerVehicleTag>>())
+            foreach (var transform in SystemAPI.Query<RefRO<WorldTransform>>().WithAll<PlayerVehicleTag>())
             {
                 playerPos = transform.ValueRO.Position;
                 playerForward = math.forward(transform.ValueRO.Rotation);
@@ -71,11 +70,11 @@ namespace Nightflow.Systems.UI
             float2 closestEmergencyDir = float2.zero;
             bool hasEmergency = false;
 
-            // Find emergency vehicles (using SirenAudio component for active state)
-            foreach (var (transform, siren) in SystemAPI.Query<RefRO<LocalTransform>, RefRO<SirenAudio>>()
+            // Find emergency vehicles (EmergencyAI carries the live siren state)
+            foreach (var (transform, emergencyAI) in SystemAPI.Query<RefRO<WorldTransform>, RefRO<EmergencyAI>>()
                 .WithAll<EmergencyVehicleTag>())
             {
-                if (!siren.ValueRO.IsActive)
+                if (!emergencyAI.ValueRO.SirenActive)
                     continue;
 
                 float3 toVehicle = transform.ValueRO.Position - playerPos;

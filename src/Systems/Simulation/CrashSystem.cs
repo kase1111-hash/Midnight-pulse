@@ -5,16 +5,29 @@
 
 using Unity.Entities;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Mathematics;
 using Nightflow.Components;
 using Nightflow.Tags;
 using Nightflow.Config;
+using Nightflow.Systems.UI;
 
 namespace Nightflow.Systems
 {
     /// <summary>
-    /// Evaluates crash conditions and triggers crash -> autopilot flow.
-    /// Crash only on: lethal hazard, total damage, or compound failure.
+    /// Evaluates crash conditions, starts the crash flow, and performs the
+    /// vehicle reset that hands the car to the autopilot.
+    ///
+    /// Crash only on: lethal hazard, total damage, or compound failure
+    /// (ComponentFailureSystem raises component-failure crashes the same way).
+    /// The autopilot never crashes: while it drives, damage is not accumulated
+    /// (DamageSystem) and crash conditions are not evaluated here, so the
+    /// self-playing loop can run unattended for hours.
+    ///
+    /// Reset (requested through GameState.VehicleResetPending by the crash flow,
+    /// a restart, or the safety net) happens in place: no scene reload, the car
+    /// keeps its position and heading, damage/health/drift/crash state are
+    /// cleared, the run is closed, and the autopilot takes the wheel.
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -22,43 +35,62 @@ namespace Nightflow.Systems
     public partial struct CrashSystem : ISystem
     {
         [BurstCompile]
+        public void OnCreate(ref SystemState state)
+        {
+            state.RequireForUpdate<GameState>();
+        }
+
+        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             float deltaTime = SystemAPI.Time.DeltaTime;
+            RefRW<GameState> gameState = SystemAPI.GetSingletonRW<GameState>();
 
             // Use ECB for structural changes - wrapped in try-finally for safe disposal
-            var ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
 
             try
             {
-                foreach (var (crashState, damage, crashable, velocity, driftState,
-                             autopilot, scoreSession, summary, collision, entity) in
-                    SystemAPI.Query<RefRW<CrashState>, RefRO<DamageState>, RefRO<Crashable>,
-                                   RefRO<Velocity>, RefRO<DriftState>, RefRW<Autopilot>,
-                                   RefRW<ScoreSession>, RefRW<ScoreSummary>, RefRO<CollisionEvent>>()
+                foreach (var (crashState, crashable, autopilot, scoreSession, summary, collision, entity) in
+                    SystemAPI.Query<RefRW<CrashState>, RefRO<Crashable>, RefRW<Autopilot>,
+                                   RefRW<ScoreSession>, RefRW<ScoreSummary>, RefRW<CollisionEvent>>()
                         .WithAll<PlayerVehicleTag>()
                         .WithEntityAccess())
                 {
-                    if (crashState.ValueRO.IsCrashed)
+                    // =============================================================
+                    // Vehicle Reset (crash flow Reset phase, restart, safety net)
+                    // =============================================================
+
+                    if (gameState.ValueRO.VehicleResetPending)
                     {
-                        // Already crashed, update timer
-                        crashState.ValueRW.CrashTime += deltaTime;
+                        ResetVehicle(ref state, entity,
+                            ref crashState.ValueRW, ref autopilot.ValueRW,
+                            ref scoreSession.ValueRW, ref collision.ValueRW);
 
-                        // After fade time, enable autopilot
-                        if (crashState.ValueRO.CrashTime > GameConstants.CrashFadeToAutopilotTime && !autopilot.ValueRO.Enabled)
+                        gameState.ValueRW.VehicleResetPending = false;
+                        gameState.ValueRW.PlayerControlActive = false;
+
+                        if (SystemAPI.HasComponent<CrashedTag>(entity))
                         {
-                            autopilot.ValueRW.Enabled = true;
-                            autopilot.ValueRW.TargetSpeed = GameConstants.AutopilotRecoverySpeed;
-
-                            // Reset crash state for next run
-                            crashState.ValueRW.IsCrashed = false;
-                            crashState.ValueRW.CrashTime = 0f;
-
-                            // Add autopilot tag
-                            ecb.AddComponent<AutopilotActiveTag>(entity);
+                            ecb.RemoveComponent<CrashedTag>(entity);
                         }
                         continue;
                     }
+
+                    if (crashState.ValueRO.IsCrashed)
+                    {
+                        // Wreck coasts through the crash sequence; timer feeds camera/effects
+                        crashState.ValueRW.CrashTime += deltaTime;
+                        continue;
+                    }
+
+                    // The autopilot is immune: attract mode must never enter the crash flow
+                    if (autopilot.ValueRO.Enabled)
+                        continue;
+
+                    var damage = SystemAPI.GetComponent<DamageState>(entity);
+                    var velocity = SystemAPI.GetComponent<Velocity>(entity);
+                    var driftState = SystemAPI.GetComponent<DriftState>(entity);
 
                     CrashReason reason = CrashReason.None;
 
@@ -72,16 +104,9 @@ namespace Nightflow.Systems
                         Entity hazardEntity = collision.ValueRO.OtherEntity;
 
                         // Validate hazard entity before accessing components
-                        if (hazardEntity == Entity.Null ||
-                            !state.EntityManager.Exists(hazardEntity))
-                        {
-                            // Collision entity is null or was destroyed — skip hazard check
-                        }
-                        else if (!SystemAPI.HasComponent<Hazard>(hazardEntity))
-                        {
-                            // Entity exists but missing Hazard component
-                        }
-                        else
+                        if (hazardEntity != Entity.Null &&
+                            state.EntityManager.Exists(hazardEntity) &&
+                            SystemAPI.HasComponent<Hazard>(hazardEntity))
                         {
                             var hazard = SystemAPI.GetComponent<Hazard>(hazardEntity);
                             float vImpact = collision.ValueRO.ImpactSpeed;
@@ -103,7 +128,7 @@ namespace Nightflow.Systems
                     // =============================================================
 
                     if (reason == CrashReason.None &&
-                        damage.ValueRO.Total > crashable.ValueRO.CrashThreshold)
+                        damage.Total > crashable.ValueRO.CrashThreshold)
                     {
                         reason = CrashReason.TotalDamage;
                     }
@@ -117,13 +142,19 @@ namespace Nightflow.Systems
                     float yawThreshold = crashable.ValueRO.YawFailThreshold;
                     float damageThreshold = crashable.ValueRO.CrashThreshold * 0.6f;
 
-                    bool yawFail = math.abs(driftState.ValueRO.YawOffset) > yawThreshold;
-                    bool speedFail = velocity.ValueRO.Forward <= GameConstants.MinForwardSpeed + 1f;
-                    bool damageFail = damage.ValueRO.Total > damageThreshold;
+                    bool yawFail = math.abs(driftState.YawOffset) > yawThreshold;
+                    bool speedFail = velocity.Forward <= GameConstants.MinForwardSpeed + 1f;
+                    bool damageFail = damage.Total > damageThreshold;
 
                     if (reason == CrashReason.None && yawFail && speedFail && damageFail)
                     {
                         reason = CrashReason.CompoundFailure;
+                    }
+
+                    // Condition D: ComponentFailureSystem flagged a critical/cascade failure
+                    if (reason == CrashReason.None && crashState.ValueRO.Reason == CrashReason.ComponentFailure)
+                    {
+                        reason = CrashReason.ComponentFailure;
                     }
 
                     // =============================================================
@@ -132,16 +163,8 @@ namespace Nightflow.Systems
 
                     if (reason != CrashReason.None)
                     {
-                        crashState.ValueRW.IsCrashed = true;
-                        crashState.ValueRW.CrashTime = 0f;
-                        crashState.ValueRW.Reason = reason;
-
-                        // End scoring
-                        scoreSession.ValueRW.Active = false;
-
-                        // Finalize score summary
-                        summary.ValueRW.FinalScore = scoreSession.ValueRO.Score;
-                        summary.ValueRW.EndReason = reason;
+                        TriggerCrash(ref crashState.ValueRW, ref scoreSession.ValueRW,
+                            ref summary.ValueRW, ref gameState.ValueRW, reason);
 
                         // Add crashed tag
                         ecb.AddComponent<CrashedTag>(entity);
@@ -154,6 +177,106 @@ namespace Nightflow.Systems
             {
                 ecb.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Marks the vehicle crashed, closes the scoring run, finalizes the
+        /// summary, and kicks off the crash flow on the GameState singleton.
+        /// </summary>
+        private void TriggerCrash(ref CrashState crashState, ref ScoreSession scoreSession,
+            ref ScoreSummary summary, ref GameState gameState, CrashReason reason)
+        {
+            crashState.IsCrashed = true;
+            crashState.CrashTime = 0f;
+            crashState.Reason = reason;
+
+            // End scoring
+            scoreSession.Active = false;
+
+            // Finalize score summary
+            summary.FinalScore = scoreSession.Score;
+            summary.TotalDistance = scoreSession.Distance;
+            summary.EndReason = reason;
+
+            ScreenFlowSystem.TriggerCrash(ref gameState, reason, queueAutopilot: true);
+        }
+
+        /// <summary>
+        /// In-place vehicle reset: clears damage, component health, soft-body
+        /// deformation, drift, impulse and crash state; keeps position and
+        /// heading; closes the run and hands the wheel to the autopilot.
+        /// </summary>
+        private void ResetVehicle(ref SystemState state, Entity entity,
+            ref CrashState crashState, ref Autopilot autopilot,
+            ref ScoreSession scoreSession, ref CollisionEvent collision)
+        {
+            // Crash state
+            crashState.IsCrashed = false;
+            crashState.CrashTime = 0f;
+            crashState.Reason = CrashReason.None;
+
+            // Damage zones
+            SystemAPI.SetComponent(entity, new DamageState());
+
+            // Phase 2 damage (optional components added by ComponentHealthInitSystem)
+            if (SystemAPI.HasComponent<ComponentHealth>(entity))
+            {
+                SystemAPI.SetComponent(entity, ComponentHealth.FullHealth);
+            }
+            if (SystemAPI.HasComponent<ComponentFailureState>(entity))
+            {
+                SystemAPI.SetComponent(entity, new ComponentFailureState
+                {
+                    FailedComponents = ComponentFailures.None,
+                    TimeSinceLastFailure = 0f
+                });
+            }
+            if (SystemAPI.HasComponent<SoftBodyState>(entity))
+            {
+                var softBody = SystemAPI.GetComponent<SoftBodyState>(entity);
+                softBody.CurrentDeformation = float4.zero;
+                softBody.TargetDeformation = float4.zero;
+                softBody.DeformationVelocity = float4.zero;
+                SystemAPI.SetComponent(entity, softBody);
+            }
+
+            // Motion: straighten out, keep rolling at recovery speed
+            SystemAPI.SetComponent(entity, new DriftState());
+            var velocity = SystemAPI.GetComponent<Velocity>(entity);
+            velocity.Forward = math.max(GameConstants.AutopilotRecoverySpeed, GameConstants.MinForwardSpeed);
+            velocity.Lateral = 0f;
+            velocity.Angular = 0f;
+            SystemAPI.SetComponent(entity, velocity);
+
+            // Lane following: settle into the current lane, restore magnetism
+            var laneFollower = SystemAPI.GetComponent<LaneFollower>(entity);
+            int lane = math.clamp(laneFollower.CurrentLane, 0, GameConstants.DefaultNumLanes - 1);
+            laneFollower.CurrentLane = lane;
+            laneFollower.TargetLane = lane;
+            laneFollower.MagnetStrength = GameConstants.DefaultMagnetStrength;
+            SystemAPI.SetComponent(entity, laneFollower);
+
+            var steering = SystemAPI.GetComponent<SteeringState>(entity);
+            steering.CurrentAngle = 0f;
+            steering.TargetAngle = 0f;
+            steering.ChangingLanes = false;
+            steering.LaneChangeTimer = 0f;
+            steering.LaneChangeRequested = false;
+            steering.LaneChangeDirection = 0;
+            SystemAPI.SetComponent(entity, steering);
+
+            // Collision bookkeeping
+            collision = new CollisionEvent { OtherEntity = Entity.Null };
+            SystemAPI.SetComponent(entity, new ImpulseData());
+
+            // The run (if any) is over; a new one starts when the player takes the wheel
+            scoreSession.Active = false;
+
+            // Autopilot takes over
+            autopilot.Enabled = true;
+            autopilot.Reason = AutopilotReason.Crash;
+            autopilot.TargetSpeed = GameConstants.AutopilotRecoverySpeed;
+            autopilot.HumanInputDetected = false;
         }
     }
 }

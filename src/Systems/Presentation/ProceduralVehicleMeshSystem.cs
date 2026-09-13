@@ -382,21 +382,20 @@ namespace Nightflow.Systems
             // 3: Roof back
             // 4: Rear bumper
 
-            float[] zPositions = {
-                hl,                          // Front
-                hl - roofStart * 0.3f,       // Hood end
-                hl - roofStart,              // Windshield top
-                -hl + (length - roofEnd),    // Rear window top
-                -hl                          // Rear
-            };
+            // Fixed lists instead of managed arrays: this runs inside Burst
+            var zPositions = new FixedList32Bytes<float>();
+            zPositions.Add(hl);                          // Front
+            zPositions.Add(hl - roofStart * 0.3f);       // Hood end
+            zPositions.Add(hl - roofStart);              // Windshield top
+            zPositions.Add(-hl + (length - roofEnd));    // Rear window top
+            zPositions.Add(-hl);                         // Rear
 
-            float[] heights = {
-                hoodHeight * 0.7f,           // Front (bumper height)
-                hoodHeight,                  // Hood
-                height,                      // Roof front
-                height,                      // Roof back
-                hoodHeight * 0.9f            // Rear (trunk height)
-            };
+            var heights = new FixedList32Bytes<float>();
+            heights.Add(hoodHeight * 0.7f);              // Front (bumper height)
+            heights.Add(hoodHeight);                     // Hood
+            heights.Add(height);                         // Roof front
+            heights.Add(height);                         // Roof back
+            heights.Add(hoodHeight * 0.9f);              // Rear (trunk height)
 
             // Generate cross-sections
             int vertsPerSection = 8; // Simplified octagonal cross-section
@@ -673,42 +672,41 @@ namespace Nightflow.Systems
         {
             int baseIndex = vertices.Length;
 
-            // 8 corners
-            float3[] corners = new float3[8];
-            corners[0] = center + new float3(-halfExtents.x, -halfExtents.y, -halfExtents.z);
-            corners[1] = center + new float3(halfExtents.x, -halfExtents.y, -halfExtents.z);
-            corners[2] = center + new float3(halfExtents.x, -halfExtents.y, halfExtents.z);
-            corners[3] = center + new float3(-halfExtents.x, -halfExtents.y, halfExtents.z);
-            corners[4] = center + new float3(-halfExtents.x, halfExtents.y, -halfExtents.z);
-            corners[5] = center + new float3(halfExtents.x, halfExtents.y, -halfExtents.z);
-            corners[6] = center + new float3(halfExtents.x, halfExtents.y, halfExtents.z);
-            corners[7] = center + new float3(-halfExtents.x, halfExtents.y, halfExtents.z);
-
+            // Corners 0-3 = bottom ring (-y), 4-7 = top ring (+y); each ring winds
+            // (-x,-z) -> (+x,-z) -> (+x,+z) -> (-x,+z). No managed arrays: Burst.
             for (int i = 0; i < 8; i++)
             {
+                int ring = i & 3;
+                float sx = (ring == 1 || ring == 2) ? 1f : -1f;
+                float sz = (ring >= 2) ? 1f : -1f;
+                float sy = (i < 4) ? -1f : 1f;
+
+                float3 corner = center + new float3(
+                    sx * halfExtents.x, sy * halfExtents.y, sz * halfExtents.z);
+
                 vertices.Add(new MeshVertex
                 {
-                    Position = corners[i],
-                    Normal = math.normalize(corners[i] - center),
+                    Position = corner,
+                    Normal = math.normalize(corner - center),
                     UV = new float2(0, 0),
                     Color = color
                 });
             }
 
             // 6 faces (12 triangles)
-            int[] indices = {
-                0, 2, 1, 0, 3, 2, // Bottom
-                4, 5, 6, 4, 6, 7, // Top
-                0, 1, 5, 0, 5, 4, // Front
-                2, 3, 7, 2, 7, 6, // Back
-                0, 4, 7, 0, 7, 3, // Left
-                1, 2, 6, 1, 6, 5  // Right
-            };
+            AddBoxTriangle(triangles, baseIndex, 0, 2, 1); AddBoxTriangle(triangles, baseIndex, 0, 3, 2); // Bottom
+            AddBoxTriangle(triangles, baseIndex, 4, 5, 6); AddBoxTriangle(triangles, baseIndex, 4, 6, 7); // Top
+            AddBoxTriangle(triangles, baseIndex, 0, 1, 5); AddBoxTriangle(triangles, baseIndex, 0, 5, 4); // Front
+            AddBoxTriangle(triangles, baseIndex, 2, 3, 7); AddBoxTriangle(triangles, baseIndex, 2, 7, 6); // Back
+            AddBoxTriangle(triangles, baseIndex, 0, 4, 7); AddBoxTriangle(triangles, baseIndex, 0, 7, 3); // Left
+            AddBoxTriangle(triangles, baseIndex, 1, 2, 6); AddBoxTriangle(triangles, baseIndex, 1, 6, 5); // Right
+        }
 
-            for (int i = 0; i < indices.Length; i++)
-            {
-                triangles.Add(new MeshTriangle { Index = baseIndex + indices[i] });
-            }
+        private static void AddBoxTriangle(DynamicBuffer<MeshTriangle> triangles, int baseIndex, int a, int b, int c)
+        {
+            triangles.Add(new MeshTriangle { Index = baseIndex + a });
+            triangles.Add(new MeshTriangle { Index = baseIndex + b });
+            triangles.Add(new MeshTriangle { Index = baseIndex + c });
         }
     }
 }

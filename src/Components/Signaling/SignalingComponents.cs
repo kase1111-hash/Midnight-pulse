@@ -123,6 +123,30 @@ namespace Nightflow.Components
 
         /// <summary>Current camera mode (Follow, Drift, Crash, Replay).</summary>
         public CameraMode Mode;
+
+        /// <summary>
+        /// Extra follow distance requested by environment systems (fork pull-back).
+        /// Applied and decayed toward zero by CameraSystem every frame.
+        /// </summary>
+        public float DistanceOffset;
+
+        /// <summary>
+        /// Extra world-space positional offset (overpass elevation follow).
+        /// Written by OverpassSystem, applied by CameraSystem.
+        /// </summary>
+        public float3 TargetOffset;
+
+        /// <summary>
+        /// FOV adjustment (degrees, negative = squeeze) requested this frame
+        /// by environment systems (tunnel entry). Consumed and cleared by CameraSystem.
+        /// </summary>
+        public float FOVOffset;
+
+        /// <summary>
+        /// Camera yaw relative to the vehicle heading (radians), e.g. drift whip.
+        /// Written by CameraSystem for screen-space signaling.
+        /// </summary>
+        public float YawOffset;
     }
 
     /// <summary>

@@ -153,11 +153,11 @@ namespace Nightflow.Systems
                     int failureCount = math.countbits((int)newFailures);
                     bool hasCascadeFailure = failureCount >= 3;
 
-                    // Trigger crash on critical or cascade failure
-                    if (hasCriticalFailure || hasCascadeFailure)
+                    // Request a crash on critical or cascade failure. CrashSystem
+                    // (which runs after this system) owns IsCrashed, the crash flow
+                    // and the score finalization; flagging the reason is enough.
+                    if ((hasCriticalFailure || hasCascadeFailure) && !crashState.ValueRO.IsCrashed)
                     {
-                        crashState.ValueRW.IsCrashed = true;
-                        crashState.ValueRW.CrashTime = 0f;
                         crashState.ValueRW.Reason = CrashReason.ComponentFailure;
                     }
                 }
@@ -187,8 +187,11 @@ namespace Nightflow.Systems
 
             try
             {
+                // Tags are zero-sized and cannot be enumerated as RefRO; key off a
+                // component every player vehicle carries and filter by the tag.
                 foreach (var (_, entity) in
-                    SystemAPI.Query<RefRO<PlayerVehicleTag>>()
+                    SystemAPI.Query<RefRO<DamageState>>()
+                        .WithAll<PlayerVehicleTag>()
                         .WithNone<ComponentHealth>()
                         .WithEntityAccess())
                 {

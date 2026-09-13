@@ -85,9 +85,7 @@ namespace Nightflow.Systems
             }
 
             // Update render state with motion blur based on speed
-            foreach (var (renderState, velocity) in
-                SystemAPI.Query<RefRW<RenderState>>()
-                    .WithNone<PlayerVehicleTag>())
+            foreach (var renderState in SystemAPI.Query<RefRW<RenderState>>())
             {
                 // Get player speed
                 float playerSpeed = 0f;

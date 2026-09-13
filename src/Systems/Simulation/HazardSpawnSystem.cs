@@ -95,7 +95,9 @@ namespace Nightflow.Systems
             {
                 playerPos = transform.ValueRO.Position;
                 distanceTraveled = scoreSession.ValueRO.Distance;
-                playerActive = scoreSession.ValueRO.Active;
+                // The world stays alive in every state (menus, autopilot, idle):
+                // only a crashed vehicle (CrashedTag) pauses spawning briefly.
+                playerActive = true;
                 break;
             }
 
@@ -227,6 +229,9 @@ namespace Nightflow.Systems
                 Size = GetHazardSize(hazardType),
                 Offset = float3.zero
             });
+
+            // Off-screen threat signaling (OffScreenSignalingSystem / UISystem)
+            ecb.AddComponent(hazard, new OffscreenSignal());
 
             // Add tag
             ecb.AddComponent<HazardTag>(hazard);

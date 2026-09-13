@@ -198,6 +198,13 @@ namespace Nightflow.Rendering
 
         private void Update()
         {
+            // The camera may be created after this renderer (auto-setup order);
+            // keep retrying so the effect follows the player instead of the origin
+            if (targetCamera == null)
+            {
+                targetCamera = Camera.main;
+            }
+
             if (_stars == null || _stars.Length == 0)
             {
                 GenerateStarField();

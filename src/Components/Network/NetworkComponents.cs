@@ -449,9 +449,11 @@ namespace Nightflow.Components
     }
 
     /// <summary>
-    /// Leaderboard entry data.
+    /// Leaderboard entry data for the (deferred) online leaderboard.
+    /// The local arcade leaderboard uses the LeaderboardEntry buffer element
+    /// in UIComponents.cs; this is the network submission record.
     /// </summary>
-    public struct LeaderboardEntry : IComponentData
+    public struct NetworkLeaderboardEntry : IComponentData
     {
         /// <summary>Global rank.</summary>
         public int Rank;

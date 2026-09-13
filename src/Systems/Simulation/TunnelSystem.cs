@@ -153,8 +153,8 @@ namespace Nightflow.Systems
             // Update Camera for Tunnel Squeeze
             // =============================================================
 
-            foreach (var cameraState in SystemAPI.Query<RefRW<CameraState>>()
-                .WithAll<PlayerVehicleTag>())
+            // CameraState is a singleton on the camera entity (not the player)
+            foreach (var cameraState in SystemAPI.Query<RefRW<CameraState>>())
             {
                 float tunnelBlend = 0f;
                 foreach (var lighting in SystemAPI.Query<RefRO<TunnelLighting>>())
@@ -167,7 +167,7 @@ namespace Nightflow.Systems
                 if (isEntry && tunnelProgress < 0.3f)
                 {
                     float squeezeAmount = (0.3f - tunnelProgress) / 0.3f;
-                    cameraState.ValueRW.TargetFOV -= SqueezeFOVReduction * squeezeAmount * tunnelBlend;
+                    cameraState.ValueRW.FOVOffset -= SqueezeFOVReduction * squeezeAmount * tunnelBlend;
                 }
 
                 break;

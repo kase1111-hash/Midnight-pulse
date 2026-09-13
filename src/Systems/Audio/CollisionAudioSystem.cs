@@ -98,7 +98,7 @@ namespace Nightflow.Systems.Audio
 
             // Process collision events from physics and update scrape state
             foreach (var (collisionBuffer, scrapeAudio) in
-                SystemAPI.Query<DynamicBuffer<CollisionEvent>, RefRW<ScrapeAudio>>())
+                SystemAPI.Query<DynamicBuffer<CollisionEffectEvent>, RefRW<ScrapeAudio>>())
             {
                 bool hasActiveScrape = false;
                 float3 scrapePoint = float3.zero;

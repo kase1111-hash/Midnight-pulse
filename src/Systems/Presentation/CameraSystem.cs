@@ -51,6 +51,9 @@ namespace Nightflow.Systems
         private const float CrashMaxDistance = 20f;       // max zoom distance
         private const float CrashSlowMotion = 0.3f;       // time scale
 
+        // Environment offsets (fork pull-back etc.) decay back to neutral
+        private const float EnvironmentOffsetDecay = 2f;  // 1/s
+
         // Impact/Shake parameters
         private const float ImpactRecoilDecay = 8f;       // recoil decay rate
         private const float ImpactRecoilMax = 0.5f;       // max recoil offset
@@ -274,8 +277,9 @@ namespace Nightflow.Systems
                 {
                     camera.ValueRW.Mode = CameraMode.Follow;
 
-                    // Speed-dependent distance
-                    float targetDist = math.lerp(BaseDistance, MaxDistance, speedNorm);
+                    // Speed-dependent distance (+ environment pull-back, e.g. forks)
+                    float targetDist = math.lerp(BaseDistance, MaxDistance, speedNorm)
+                        + camera.ValueRO.DistanceOffset;
                     camera.ValueRW.FollowDistance = math.lerp(
                         camera.ValueRO.FollowDistance,
                         targetDist,
@@ -293,10 +297,14 @@ namespace Nightflow.Systems
                     camera.ValueRW.LateralOffset = math.lerp(camera.ValueRO.LateralOffset, 0f, 4f * deltaTime);
                     camera.ValueRW.Roll = math.lerp(camera.ValueRO.Roll, 0f, 4f * deltaTime);
 
-                    // Speed-dependent FOV
-                    float targetFOV = math.lerp(BaseFOV, MaxFOV, speedNorm);
+                    // Speed-dependent FOV (+ per-frame environment squeeze, e.g. tunnels)
+                    float targetFOV = math.lerp(BaseFOV, MaxFOV, speedNorm) + camera.ValueRO.FOVOffset;
                     camera.ValueRW.FOV = math.lerp(camera.ValueRO.FOV, targetFOV, 3f * deltaTime);
                 }
+
+                // Environment requests are per-frame: decay the pull-back, clear the squeeze
+                camera.ValueRW.DistanceOffset *= math.exp(-EnvironmentOffsetDecay * deltaTime);
+                camera.ValueRW.FOVOffset = 0f;
 
                 // =============================================================
                 // Calculate Camera Transform
@@ -309,7 +317,8 @@ namespace Nightflow.Systems
                 float3 targetPos = playerPos
                     - forward * camera.ValueRO.FollowDistance
                     + up * camera.ValueRO.FollowHeight
-                    + right * camera.ValueRO.LateralOffset;
+                    + right * camera.ValueRO.LateralOffset
+                    + camera.ValueRO.TargetOffset;
 
                 // Apply impact recoil offset
                 targetPos += _recoilOffset;
@@ -342,12 +351,14 @@ namespace Nightflow.Systems
                 }
 
                 // Drift whip: extra yaw follow during drift
+                float whipYaw = 0f;
                 if (isDrifting && math.abs(yawRate) > 0.1f)
                 {
-                    float whipYaw = yawRate * DriftWhipMultiplier * 0.1f;
+                    whipYaw = yawRate * DriftWhipMultiplier * 0.1f;
                     quaternion whipRot = quaternion.RotateY(whipYaw);
                     targetRot = math.mul(targetRot, whipRot);
                 }
+                camera.ValueRW.YawOffset = whipYaw;
 
                 camera.ValueRW.Rotation = math.slerp(
                     camera.ValueRO.Rotation,

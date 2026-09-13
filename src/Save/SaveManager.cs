@@ -325,7 +325,7 @@ namespace Nightflow.Save
 
             // Audio
             ApplyAudioSettingsToECS();
-            AudioListener.volume = settings.Audio.MasterVolume;
+            UnityEngine.AudioListener.volume = settings.Audio.MasterVolume;
 
             // Display
             if (settings.Display.Fullscreen != Screen.fullScreen ||

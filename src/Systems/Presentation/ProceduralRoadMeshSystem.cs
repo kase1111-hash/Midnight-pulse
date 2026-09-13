@@ -257,10 +257,10 @@ namespace Nightflow.Systems
             float rightOffset = TotalWidth / 2f + BarrierWidth / 2f;
 
             // Generate both barriers
-            float[] barrierOffsets = { leftOffset, rightOffset };
-
-            foreach (float barrierOffset in barrierOffsets)
+            // Two barriers; no managed arrays (this runs inside Burst)
+            for (int side = 0; side < 2; side++)
             {
+                float barrierOffset = side == 0 ? leftOffset : rightOffset;
                 int barrierStartVert = vertices.Length;
 
                 for (int z = 0; z <= lengthSegments; z++)
@@ -367,9 +367,14 @@ namespace Nightflow.Systems
             int startTriangleIndex = triangles.Length;
 
             // Lane boundaries (interior dashed lines)
-            float[] interiorOffsets = { -1.0f * GameConstants.LaneWidth, 0f, 1.0f * GameConstants.LaneWidth };
+            var interiorOffsets = new FixedList32Bytes<float>();
+            interiorOffsets.Add(-1.0f * GameConstants.LaneWidth);
+            interiorOffsets.Add(0f);
+            interiorOffsets.Add(1.0f * GameConstants.LaneWidth);
             // Edge lines (solid)
-            float[] edgeOffsets = { -2.0f * GameConstants.LaneWidth, 2.0f * GameConstants.LaneWidth };
+            var edgeOffsets = new FixedList32Bytes<float>();
+            edgeOffsets.Add(-2.0f * GameConstants.LaneWidth);
+            edgeOffsets.Add(2.0f * GameConstants.LaneWidth);
 
             // Dashing parameters
             const float dashLength = 3.0f;
@@ -377,8 +382,9 @@ namespace Nightflow.Systems
             const float lineHeight = 0.01f; // Slightly above road
 
             // Generate interior dashed lane lines
-            foreach (float laneOffset in interiorOffsets)
+            for (int li = 0; li < interiorOffsets.Length; li++)
             {
+                float laneOffset = interiorOffsets[li];
                 float currentZ = 0f;
                 bool isDash = true;
 
@@ -400,8 +406,9 @@ namespace Nightflow.Systems
             }
 
             // Generate solid edge lines
-            foreach (float edgeOffset in edgeOffsets)
+            for (int ei = 0; ei < edgeOffsets.Length; ei++)
             {
+                float edgeOffset = edgeOffsets[ei];
                 GenerateLineQuad(vertices, triangles, spline, 0f, 1f,
                     edgeOffset, EdgeLineWidth, lineHeight, EdgeLineColor);
             }
@@ -715,15 +722,21 @@ namespace Nightflow.Systems
             // Lane centers are at: -1.5, -0.5, +0.5, +1.5 lane widths
             // So boundaries between lanes are at: -1.0, 0, +1.0 lane widths
             float laneWidth = GameConstants.LaneWidth;
-            float[] interiorOffsets = { -1.0f * laneWidth, 0f, 1.0f * laneWidth };
-            float[] edgeOffsets = { -2.0f * laneWidth, 2.0f * laneWidth };
+            var interiorOffsets = new FixedList32Bytes<float>();
+            interiorOffsets.Add(-1.0f * laneWidth);
+            interiorOffsets.Add(0f);
+            interiorOffsets.Add(1.0f * laneWidth);
+            var edgeOffsets = new FixedList32Bytes<float>();
+            edgeOffsets.Add(-2.0f * laneWidth);
+            edgeOffsets.Add(2.0f * laneWidth);
 
             float totalLength = segment.Length;
             const float lineHeight = 0.02f; // Slightly above road surface
 
             // Generate interior dashed lane lines (neon blue)
-            foreach (float laneOffset in interiorOffsets)
+            for (int li = 0; li < interiorOffsets.Length; li++)
             {
+                float laneOffset = interiorOffsets[li];
                 float currentPos = 0f;
                 bool isDash = true;
 
@@ -748,8 +761,9 @@ namespace Nightflow.Systems
             }
 
             // Generate solid edge lines (neon orange)
-            foreach (float edgeOffset in edgeOffsets)
+            for (int ei = 0; ei < edgeOffsets.Length; ei++)
             {
+                float edgeOffset = edgeOffsets[ei];
                 GenerateLineQuad(vertices, triangles, spline, 0f, 1f,
                     edgeOffset, EdgeLineWidth, lineHeight, EdgeLineColor);
             }

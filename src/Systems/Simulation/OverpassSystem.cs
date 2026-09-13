@@ -113,8 +113,8 @@ namespace Nightflow.Systems
             // Update Camera Height for Overpass View
             // =============================================================
 
-            foreach (var cameraState in SystemAPI.Query<RefRW<CameraState>>()
-                .WithAll<PlayerVehicleTag>())
+            // CameraState is a singleton on the camera entity (not the player)
+            foreach (var cameraState in SystemAPI.Query<RefRW<CameraState>>())
             {
                 float elevation = 0f;
                 foreach (var envState in SystemAPI.Query<RefRO<EnvironmentState>>()

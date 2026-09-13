@@ -46,7 +46,7 @@ namespace Nightflow.Systems.Presentation
 
             // Process collision events and spawn sparks
             foreach (var (collisionBuffer, emitter, particleBuffer) in
-                SystemAPI.Query<DynamicBuffer<CollisionEvent>, RefRW<ParticleEmitter>, DynamicBuffer<Particle>>())
+                SystemAPI.Query<DynamicBuffer<CollisionEffectEvent>, RefRW<ParticleEmitter>, DynamicBuffer<Particle>>())
             {
                 if (emitter.ValueRO.Type != ParticleType.Spark)
                     continue;
@@ -54,7 +54,7 @@ namespace Nightflow.Systems.Presentation
                 for (int i = 0; i < collisionBuffer.Length; i++)
                 {
                     var collision = collisionBuffer[i];
-                    SpawnSparks(ref particleBuffer, collision, ref random);
+                    SpawnSparks(particleBuffer, collision, ref random);
                 }
             }
 
@@ -70,7 +70,7 @@ namespace Nightflow.Systems.Presentation
                     var request = spawnBuffer[i];
                     if (request.Type == ParticleType.Spark)
                     {
-                        SpawnSparksFromRequest(ref particleBuffer, request, ref random);
+                        SpawnSparksFromRequest(particleBuffer, request, ref random);
                     }
                 }
             }
@@ -82,14 +82,12 @@ namespace Nightflow.Systems.Presentation
                 if (emitter.ValueRO.Type != ParticleType.Spark)
                     continue;
 
-                UpdateSparkParticles(ref particleBuffer, deltaTime);
+                UpdateSparkParticles(particleBuffer, deltaTime);
             }
 
-            // Clear processed collision events
-            foreach (var collisionBuffer in SystemAPI.Query<DynamicBuffer<CollisionEvent>>())
-            {
-                collisionBuffer.Clear();
-            }
+            // Collision effect events are owned by CollisionSystem, which clears the
+            // buffer at the start of each simulation frame before appending new ones,
+            // so every consumer (sparks, impact flash, scrape audio) sees them once.
 
             // Clear processed spawn requests
             foreach (var spawnBuffer in SystemAPI.Query<DynamicBuffer<ParticleSpawnRequest>>())
@@ -106,7 +104,7 @@ namespace Nightflow.Systems.Presentation
         }
 
         [BurstCompile]
-        private void SpawnSparks(ref DynamicBuffer<Particle> particles, CollisionEvent collision, ref Random rng)
+        private void SpawnSparks(DynamicBuffer<Particle> particles, CollisionEffectEvent collision, ref Random rng)
         {
             // Determine spark count based on collision type
             int sparkCount = collision.Type switch
@@ -131,7 +129,7 @@ namespace Nightflow.Systems.Presentation
         }
 
         [BurstCompile]
-        private void SpawnSparksFromRequest(ref DynamicBuffer<Particle> particles, ParticleSpawnRequest request, ref Random rng)
+        private void SpawnSparksFromRequest(DynamicBuffer<Particle> particles, ParticleSpawnRequest request, ref Random rng)
         {
             int sparkCount = math.max(1, request.Count);
 
@@ -181,7 +179,7 @@ namespace Nightflow.Systems.Presentation
         }
 
         [BurstCompile]
-        private void UpdateSparkParticles(ref DynamicBuffer<Particle> particles, float deltaTime)
+        private void UpdateSparkParticles(DynamicBuffer<Particle> particles, float deltaTime)
         {
             for (int i = particles.Length - 1; i >= 0; i--)
             {

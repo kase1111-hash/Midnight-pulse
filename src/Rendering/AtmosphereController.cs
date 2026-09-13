@@ -69,7 +69,12 @@ namespace Nightflow.Rendering
                 return;
 
             _time += Time.deltaTime;
+
+            // The haze is unconditional: menus, crashes and autopilot all run
+            // under the same fog. Re-assert the skybox binding too, so a camera
+            // created after this controller (auto-setup) still clears to it.
             Apply();
+            ApplySkybox();
         }
 
         private void Apply()
@@ -95,17 +100,27 @@ namespace Nightflow.Rendering
             if (!applyNightSkybox)
                 return;
 
-            var shader = Shader.Find("Nightflow/NightSkybox");
-            if (shader == null)
-                return;
-
-            if (_skyboxMaterial == null || _skyboxMaterial.shader != shader)
+            if (_skyboxMaterial == null)
             {
+                var shader = Shader.Find("Nightflow/NightSkybox");
+                if (shader == null)
+                    return;
+
                 _skyboxMaterial = new Material(shader);
                 _skyboxMaterial.name = "NightSkybox_Generated";
             }
 
-            RenderSettings.skybox = _skyboxMaterial;
+            if (RenderSettings.skybox != _skyboxMaterial)
+            {
+                RenderSettings.skybox = _skyboxMaterial;
+            }
+
+            // Horizon haze in the sky matches the global fog so the ground fog,
+            // distance fog and skybox dissolve into one indigo murk
+            if (_skyboxMaterial.HasProperty(FogColorId))
+            {
+                _skyboxMaterial.SetColor(FogColorId, fogColor);
+            }
 
             // Skybox only shows if the camera clears to it
             var cam = Camera.main;
@@ -114,6 +129,8 @@ namespace Nightflow.Rendering
                 cam.clearFlags = CameraClearFlags.Skybox;
             }
         }
+
+        private static readonly int FogColorId = Shader.PropertyToID("_FogColor");
 
         private void OnDestroy()
         {

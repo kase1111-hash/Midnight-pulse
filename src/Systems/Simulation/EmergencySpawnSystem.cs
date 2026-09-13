@@ -64,7 +64,9 @@ namespace Nightflow.Systems
             {
                 playerPos = transform.ValueRO.Position;
                 distanceTraveled = scoreSession.ValueRO.Distance;
-                playerActive = scoreSession.ValueRO.Active;
+                // The world stays alive in every state (menus, autopilot, idle):
+                // only a crashed vehicle (CrashedTag) pauses spawning briefly.
+                playerActive = true;
                 break;
             }
 
@@ -200,6 +202,16 @@ namespace Nightflow.Systems
                 Size = new float3(1.0f, 0.8f, 2.5f),
                 Offset = float3.zero
             });
+
+            // Siren audio source (SirenAudioSystem) and off-screen threat signal
+            ecb.AddComponent(emergency, new SirenAudio
+            {
+                IsActive = true,
+                Type = SirenType.Police,
+                Position = new float3(laneOffset, 0.5f, spawnZ),
+                Velocity = new float3(0f, 0f, 45f)
+            });
+            ecb.AddComponent(emergency, new OffscreenSignal());
 
             // Tags
             ecb.AddComponent<EmergencyVehicleTag>(emergency);

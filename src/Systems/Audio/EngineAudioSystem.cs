@@ -203,8 +203,7 @@ namespace Nightflow.Systems.Audio
     /// Applies engine audio to actual audio sources.
     /// This is a managed system that interfaces with Unity's audio.
     /// </summary>
-    [UpdateInGroup(typeof(PresentationSystemGroup))]
-    [UpdateAfter(typeof(EngineAudioSystem))]
+    [UpdateInGroup(typeof(PresentationSystemGroup))]   // Presentation already follows Simulation
     public partial class EngineAudioOutputSystem : SystemBase
     {
         // Audio source references would be managed here

@@ -26,7 +26,6 @@ namespace Nightflow.Systems
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateBefore(typeof(SteeringSystem))]
-    [UpdateAfter(typeof(InputSystem))]
     public partial struct LaneBlockingSystem : ISystem
     {
         // Blocking parameters

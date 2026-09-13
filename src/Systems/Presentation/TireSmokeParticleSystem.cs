@@ -7,7 +7,6 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Transforms;
 using Nightflow.Components;
 using Nightflow.Tags;
 
@@ -33,14 +32,14 @@ namespace Nightflow.Systems.Presentation
         private const float SmokeRiseSpeed = 1.5f;
         private const float EmissionRateBase = 30f; // Particles per second at full drift
 
-        // Wheel positions relative to vehicle center
-        private static readonly float3[] WheelOffsets = new float3[]
+        // Wheel positions relative to vehicle center: 0=FL, 1=FR, 2=RL, 3=RR.
+        // Computed arithmetically: managed arrays cannot be read in Burst code.
+        private static float3 WheelOffset(int wheelIndex)
         {
-            new float3(-0.8f, 0f, 1.5f),   // Front-left
-            new float3(0.8f, 0f, 1.5f),    // Front-right
-            new float3(-0.8f, 0f, -1.5f),  // Rear-left
-            new float3(0.8f, 0f, -1.5f)    // Rear-right
-        };
+            float x = (wheelIndex & 1) == 0 ? -0.8f : 0.8f;
+            float z = wheelIndex < 2 ? 1.5f : -1.5f;
+            return new float3(x, 0f, z);
+        }
 
         public void OnCreate(ref SystemState state)
         {
@@ -54,7 +53,7 @@ namespace Nightflow.Systems.Presentation
 
             // Update smoke emitters based on drift state
             foreach (var (transform, driftState, emitter, particleBuffer) in
-                SystemAPI.Query<RefRO<LocalTransform>, RefRO<DriftVisualState>, RefRW<ParticleEmitter>, DynamicBuffer<Particle>>())
+                SystemAPI.Query<RefRO<WorldTransform>, RefRO<DriftVisualState>, RefRW<ParticleEmitter>, DynamicBuffer<Particle>>())
             {
                 if (emitter.ValueRO.Type != ParticleType.TireSmoke)
                     continue;
@@ -63,7 +62,7 @@ namespace Nightflow.Systems.Presentation
                 if (driftState.ValueRO.IsDrifting && driftState.ValueRO.DriftIntensity > 0.1f)
                 {
                     EmitTireSmoke(
-                        ref particleBuffer,
+                        particleBuffer,
                         ref emitter.ValueRW,
                         transform.ValueRO,
                         driftState.ValueRO,
@@ -80,7 +79,7 @@ namespace Nightflow.Systems.Presentation
                 if (emitter.ValueRO.Type != ParticleType.TireSmoke)
                     continue;
 
-                UpdateSmokeParticles(ref particleBuffer, deltaTime);
+                UpdateSmokeParticles(particleBuffer, deltaTime);
             }
 
             // Process spawn requests for tire smoke
@@ -95,7 +94,7 @@ namespace Nightflow.Systems.Presentation
                     var request = spawnBuffer[i];
                     if (request.Type == ParticleType.TireSmoke)
                     {
-                        SpawnSmokeFromRequest(ref particleBuffer, request, ref random);
+                        SpawnSmokeFromRequest(particleBuffer, request, ref random);
                         spawnBuffer.RemoveAt(i);
                     }
                 }
@@ -104,9 +103,9 @@ namespace Nightflow.Systems.Presentation
 
         [BurstCompile]
         private void EmitTireSmoke(
-            ref DynamicBuffer<Particle> particles,
+            DynamicBuffer<Particle> particles,
             ref ParticleEmitter emitter,
-            LocalTransform transform,
+            WorldTransform transform,
             DriftVisualState driftState,
             float deltaTime,
             ref Random rng)
@@ -138,7 +137,7 @@ namespace Nightflow.Systems.Presentation
                 }
 
                 // Calculate world position of wheel
-                float3 localPos = WheelOffsets[wheelIndex];
+                float3 localPos = WheelOffset(wheelIndex);
                 float3 worldPos = transform.Position + math.rotate(transform.Rotation, localPos);
 
                 var smoke = CreateSmokeParticle(worldPos, transform.Rotation, driftState.DriftIntensity, ref rng);
@@ -147,7 +146,7 @@ namespace Nightflow.Systems.Presentation
         }
 
         [BurstCompile]
-        private void SpawnSmokeFromRequest(ref DynamicBuffer<Particle> particles, ParticleSpawnRequest request, ref Random rng)
+        private void SpawnSmokeFromRequest(DynamicBuffer<Particle> particles, ParticleSpawnRequest request, ref Random rng)
         {
             int count = math.max(1, request.Count);
 
@@ -201,7 +200,7 @@ namespace Nightflow.Systems.Presentation
         }
 
         [BurstCompile]
-        private void UpdateSmokeParticles(ref DynamicBuffer<Particle> particles, float deltaTime)
+        private void UpdateSmokeParticles(DynamicBuffer<Particle> particles, float deltaTime)
         {
             for (int i = particles.Length - 1; i >= 0; i--)
             {
@@ -260,7 +259,7 @@ namespace Nightflow.Systems.Presentation
 
             // Update drift state for vehicles with drift detection
             foreach (var (transform, velocity, driftState) in
-                SystemAPI.Query<RefRO<LocalTransform>, RefRO<VehicleVelocity>, RefRW<DriftVisualState>>())
+                SystemAPI.Query<RefRO<WorldTransform>, RefRO<VehicleVelocity>, RefRW<DriftVisualState>>())
             {
                 float3 forward = math.forward(transform.ValueRO.Rotation);
                 float3 velocityDir = math.normalizesafe(velocity.ValueRO.Linear);

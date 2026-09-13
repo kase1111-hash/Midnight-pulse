@@ -33,6 +33,9 @@ namespace Nightflow.Systems
         public void OnCreate(ref SystemState state)
         {
             _initialized = false;
+
+            // Archetypes are used by spawn systems (ghost vehicle); build them once
+            Nightflow.Archetypes.EntityArchetypes.Initialize(state.EntityManager);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -104,9 +107,18 @@ namespace Nightflow.Systems
                 Rotation = quaternion.identity
             });
 
-            // Vehicle control
+            // Vehicle control - the autopilot drives from the first frame
+            // (attract mode under the main menu); the player's first control
+            // input hands over the wheel and starts the scoring run.
             ecb.AddComponent(playerEntity, new PlayerInput());
-            ecb.AddComponent(playerEntity, new Autopilot { Enabled = false });
+            ecb.AddComponent(playerEntity, new Autopilot
+            {
+                Enabled = true,
+                TargetSpeed = GameConstants.AutopilotRecoverySpeed,
+                LanePreference = -1,
+                Reason = AutopilotReason.Boot,
+                HumanInputDetected = false
+            });
             ecb.AddComponent(playerEntity, new SteeringState
             {
                 CurrentAngle = 0f,
@@ -123,8 +135,9 @@ namespace Nightflow.Systems
                 CurrentLane = PlayerStartLane,
                 TargetLane = PlayerStartLane,
                 LateralOffset = 0f,
-                MagnetStrength = 1f,
-                SplineParameter = PlayerStartZ / GameConstants.SegmentLength
+                MagnetStrength = GameConstants.DefaultMagnetStrength,
+                SplineParameter = PlayerStartZ / GameConstants.SegmentLength,
+                TotalLanes = GameConstants.DefaultNumLanes
             });
 
             // Damage & crash
@@ -143,23 +156,11 @@ namespace Nightflow.Systems
             ecb.AddComponent(playerEntity, new ImpulseData());
             ecb.AddComponent(playerEntity, new CrashState());
 
-            // Scoring
-            ecb.AddComponent(playerEntity, new ScoreSession
-            {
-                Active = true,
-                Distance = 0f,
-                Score = 0f,
-                Multiplier = 1f,
-                RiskMultiplier = 0f,
-                HighestMultiplier = 1f
-            });
-            ecb.AddComponent(playerEntity, new RiskState
-            {
-                Value = 0f,
-                Cap = 1f,
-                RebuildRate = 1f,
-                BrakePenaltyActive = false
-            });
+            // Scoring - no run until the player takes the wheel
+            var session = GameFlowLogic.NewScoreSession();
+            session.Active = false;
+            ecb.AddComponent(playerEntity, session);
+            ecb.AddComponent(playerEntity, GameFlowLogic.NewRiskState());
             ecb.AddComponent(playerEntity, new ScoreSummary
             {
                 FinalScore = 0f,
@@ -180,6 +181,10 @@ namespace Nightflow.Systems
                 Radius = 5f
             });
             ecb.AddComponent(playerEntity, new EmergencyDetection());
+            ecb.AddComponent(playerEntity, new OffscreenSignal());
+
+            // Environment (tunnel/overpass/fork) state consumed by the environment systems
+            ecb.AddComponent(playerEntity, new EnvironmentState());
 
             // Headlights
             ecb.AddComponent(playerEntity, new Headlight
@@ -195,9 +200,39 @@ namespace Nightflow.Systems
 
             // Tags
             ecb.AddComponent<PlayerVehicleTag>(playerEntity);
+            ecb.AddComponent<AutopilotActiveTag>(playerEntity);
 
             // Input log buffer for replay
             ecb.AddBuffer<InputLogEntry>(playerEntity);
+
+            // Collision effect events (sparks, impact flash, scrape audio) are
+            // written by CollisionSystem; the spark emitter lives on the player
+            ecb.AddBuffer<CollisionEffectEvent>(playerEntity);
+            ecb.AddComponent(playerEntity, new ParticleEmitter
+            {
+                Type = ParticleType.Spark,
+                Position = float3.zero,
+                Direction = new float3(0f, 1f, 0f),
+                Spread = new float3(0.6f, 0.6f, 0.6f),
+                EmissionRate = 0f,
+                EmissionAccumulator = 0f,
+                IsActive = true,
+                IsBurst = true,
+                BurstCount = 0,
+                MaxParticles = 256,
+                ColorStart = new float4(1f, 0.8f, 0.3f, 1f),
+                ColorEnd = new float4(1f, 0.4f, 0.1f, 0f),
+                SizeStart = 0.06f,
+                SizeEnd = 0.02f,
+                SpeedMin = 5f,
+                SpeedMax = 15f,
+                LifetimeMin = 0.4f,
+                LifetimeMax = 0.8f,
+                GravityMultiplier = 1f,
+                Drag = 0.5f
+            });
+            ecb.AddBuffer<Particle>(playerEntity);
+            ecb.AddBuffer<ParticleSpawnRequest>(playerEntity);
 
             // =============================================================
             // Add Audio Components to Player
@@ -389,23 +424,25 @@ namespace Nightflow.Systems
                 ShowCredits = false,
                 OverlayAlpha = 0f,
                 ShowPressStart = true,    // Show "Press Start" initially
-                MainMenuSelection = 0
+                MainMenuSelection = 0,
+                AutopilotActive = true
             });
 
             ecb.AddComponent(uiEntity, new GameState
             {
-                IsPaused = true,          // Game paused at main menu
+                IsPaused = false,         // The main menu is an overlay, not a pause
                 PauseCooldown = 0f,
-                PauseCooldownMax = 5f,
+                PauseCooldownMax = GameConstants.PauseCooldownDuration,
                 CrashPhase = CrashFlowPhase.None,
                 CrashPhaseTimer = 0f,
                 FadeAlpha = 0f,
                 AutopilotQueued = false,
-                PlayerControlActive = false,  // No player control at menu
+                PlayerControlActive = false,  // Autopilot drives under the menu
                 IdleTimer = 0f,
                 CurrentMenu = MenuState.MainMenu,  // Start at main menu
                 MenuVisible = true,
-                TimeScale = 0f            // Time stopped at menu
+                TimeScale = 1f,           // The world never stops
+                VehicleResetPending = false
             });
 
             ecb.AddComponent<UIControllerTag>(uiEntity);
@@ -508,6 +545,37 @@ namespace Nightflow.Systems
                 LineColor = new float4(0.7f, 0.9f, 1f, 0.6f),  // Cyan-white
                 FadeSpeed = 3.0f
             });
+
+            // Speed-line particle emitter + storage (SpeedLinesSystem / ParticleRenderSystem)
+            ecb.AddComponent(speedLineEntity, new ParticleEmitter
+            {
+                Type = ParticleType.SpeedLine,
+                Position = float3.zero,
+                Direction = new float3(0f, 0f, -1f),
+                Spread = float3.zero,
+                EmissionRate = 0f,
+                EmissionAccumulator = 0f,
+                IsActive = true,
+                IsBurst = false,
+                BurstCount = 0,
+                MaxParticles = 200,
+                ColorStart = new float4(0.7f, 0.9f, 1f, 0.6f),
+                ColorEnd = new float4(0.7f, 0.9f, 1f, 0f),
+                SizeStart = 1f,
+                SizeEnd = 1f,
+                SpeedMin = 0f,
+                SpeedMax = 0f,
+                LifetimeMin = 0.3f,
+                LifetimeMax = 0.6f,
+                GravityMultiplier = 0f,
+                Drag = 0f
+            });
+            ecb.AddBuffer<Particle>(speedLineEntity);
+            ecb.AddBuffer<ParticleSpawnRequest>(speedLineEntity);
+
+            // Adaptive difficulty profile singleton (AdaptiveDifficultySystem, spawners)
+            Entity difficultyEntity = ecb.CreateEntity();
+            ecb.AddComponent(difficultyEntity, DifficultyProfile.CreateDefault());
 
             // Particle System Config - global particle settings
             Entity particleConfigEntity = ecb.CreateEntity();
@@ -637,7 +705,7 @@ namespace Nightflow.Systems
                     Position = position,
                     Forward = forward,
                     Right = right,
-                    Up = up,
+                    ArcLength = t * length,
                     Parameter = t
                 });
             }

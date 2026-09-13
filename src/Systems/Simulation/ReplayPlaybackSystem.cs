@@ -166,6 +166,15 @@ namespace Nightflow.Systems
 
         public void OnUpdate(ref SystemState state)
         {
+            // Ghosts are a Ghost-mode feature; recording restarts on every run
+            // in every mode, so without this gate a phantom car would spawn next
+            // to the player a fraction of a second into each Nightflow run.
+            if (!SystemAPI.TryGetSingleton<GameModeState>(out var modeState) ||
+                modeState.CurrentMode != GameMode.Ghost)
+            {
+                return;
+            }
+
             EntityManager entityManager = state.EntityManager;
             EntityCommandBuffer ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);
 

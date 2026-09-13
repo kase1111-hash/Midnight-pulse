@@ -122,7 +122,7 @@ namespace Nightflow.UI
             {
                 var settings = saveManager.GetSettings();
                 settings.Display.ShowFPS = stats.DisplayEnabled;
-                saveManager.SaveSettings();
+                saveManager.UpdateSettings(settings);
             }
         }
 

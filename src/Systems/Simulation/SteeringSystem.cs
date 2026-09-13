@@ -87,12 +87,13 @@ namespace Nightflow.Systems
             // Process Player Steering
             // =============================================================
 
-            foreach (var (input, steeringState, laneFollower, velocity, transform, damage, componentHealth, failureState) in
+            foreach (var (input, steeringState, laneFollower, velocity, transform, damage, entity) in
                 SystemAPI.Query<RefRO<PlayerInput>, RefRW<SteeringState>,
                                RefRW<LaneFollower>, RefRO<Velocity>, RefRO<WorldTransform>,
-                               RefRO<DamageState>, RefRO<ComponentHealth>, RefRO<ComponentFailureState>>()
+                               RefRO<DamageState>>()
                     .WithAll<PlayerVehicleTag>()
-                    .WithNone<CrashedTag, AutopilotActiveTag>())
+                    .WithNone<CrashedTag>()
+                    .WithEntityAccess())
             {
                 float steerInput = input.ValueRO.Steer;
                 float myZ = transform.ValueRO.Position.z;
@@ -101,9 +102,14 @@ namespace Nightflow.Systems
                 // =============================================================
                 // Phase 2 Damage: Steering Component Effects
                 // =============================================================
+                // Optional components; default to full health when absent
 
-                var health = componentHealth.ValueRO;
-                var failures = failureState.ValueRO;
+                var health = SystemAPI.HasComponent<ComponentHealth>(entity)
+                    ? SystemAPI.GetComponent<ComponentHealth>(entity)
+                    : ComponentHealth.FullHealth;
+                var failures = SystemAPI.HasComponent<ComponentFailureState>(entity)
+                    ? SystemAPI.GetComponent<ComponentFailureState>(entity)
+                    : default;
 
                 // Steering health affects responsiveness
                 // At full health: normal steering response
@@ -145,6 +151,9 @@ namespace Nightflow.Systems
 
                 if (steeringState.ValueRO.ChangingLanes)
                 {
+                    // A change is already in flight; drop any queued request
+                    steeringState.ValueRW.LaneChangeRequested = false;
+
                     steeringState.ValueRW.LaneChangeTimer += deltaTime;
 
                     float duration = steeringState.ValueRO.LaneChangeDuration;
@@ -179,10 +188,28 @@ namespace Nightflow.Systems
                     // =============================================================
                     // Check for Lane Change Trigger
                     // =============================================================
+                    // Either the driver steers past the threshold, or the autopilot
+                    // queued an explicit request (hazard avoidance). Both go
+                    // through the same blocked-lane safety check.
 
-                    if (math.abs(steerInput) > SteerTriggerThreshold)
+                    bool wantsChange = false;
+                    int direction = 0;
+
+                    if (steeringState.ValueRO.LaneChangeRequested)
                     {
-                        int direction = steerInput > 0 ? 1 : -1;
+                        direction = math.clamp(steeringState.ValueRO.LaneChangeDirection, -1, 1);
+                        wantsChange = direction != 0;
+                        steeringState.ValueRW.LaneChangeRequested = false;
+                        steeringState.ValueRW.LaneChangeDirection = 0;
+                    }
+                    else if (math.abs(steerInput) > SteerTriggerThreshold)
+                    {
+                        direction = steerInput > 0 ? 1 : -1;
+                        wantsChange = true;
+                    }
+
+                    if (wantsChange)
+                    {
                         int currentLane = laneFollower.ValueRO.CurrentLane;
                         int targetLane = currentLane + direction;
 

@@ -74,9 +74,6 @@ namespace Nightflow.Systems
                 // Calculate world-space light radius based on intensity
                 float radius = lightEmitter.ValueRO.Intensity * 5f;
                 lightEmitter.ValueRW.Radius = radius;
-
-                // Calculate falloff for shader
-                lightEmitter.ValueRW.Falloff = LightFalloff;
             }
 
             // =============================================================

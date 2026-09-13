@@ -156,14 +156,22 @@ namespace Nightflow.Systems
             // Update Camera for Fork Decision
             // =============================================================
 
-            foreach (var (cameraState, envState) in
-                SystemAPI.Query<RefRW<CameraState>, RefRO<EnvironmentState>>()
-                    .WithAll<PlayerVehicleTag>())
+            bool atFork = false;
+            float forkProgress = 0f;
+            foreach (var envState in SystemAPI.Query<RefRO<EnvironmentState>>().WithAll<PlayerVehicleTag>())
             {
-                if (envState.ValueRO.AtFork)
+                atFork = envState.ValueRO.AtFork;
+                forkProgress = envState.ValueRO.ForkProgress;
+                break;
+            }
+
+            if (atFork)
+            {
+                // Slight camera pull-back at fork to show options
+                // (CameraState is a singleton on the camera entity, not the player)
+                foreach (var cameraState in SystemAPI.Query<RefRW<CameraState>>())
                 {
-                    // Slight camera pull-back at fork to show options
-                    float forkPullback = envState.ValueRO.ForkProgress * 2f;
+                    float forkPullback = forkProgress * 2f;
                     cameraState.ValueRW.DistanceOffset += forkPullback * 0.1f;
                 }
             }

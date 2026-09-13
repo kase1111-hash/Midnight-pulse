@@ -125,7 +125,7 @@ namespace Nightflow.Systems
 
                 // Create leaderboard entry for submission
                 // Actual submission handled by external service
-                var entry = new LeaderboardEntry
+                var entry = new NetworkLeaderboardEntry
                 {
                     Rank = 0, // Server assigns rank
                     PlayerId = 0, // From network state
@@ -150,7 +150,6 @@ namespace Nightflow.Systems
     [DisableAutoCreation] // Deferred to v0.3.0
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(LeaderboardSubmissionSystem))]
     public partial struct LeaderboardRankTrackingSystem : ISystem
     {
         public void OnCreate(ref SystemState state)

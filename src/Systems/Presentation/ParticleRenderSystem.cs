@@ -151,7 +151,7 @@ namespace Nightflow.Systems.Presentation
             // Collect particles from all emitters
             Entities
                 .WithoutBurst()
-                .ForEach((in ParticleEmitter emitter, in DynamicBuffer<Particle> particles) =>
+                .ForEach((in ParticleEmitter emitter, DynamicBuffer<Particle> particles) =>
                 {
                     switch (emitter.Type)
                     {

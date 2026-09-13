@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### Continuous Play & Autopilot Handoff
+- **GameFlowLogic** - Pure, unit-tested rules for the continuous loop: pilot arbitration (menu → autopilot, idle → autopilot, control input → player), crash-phase timing, coasting speed, and fresh-run defaults; covered by `GameFlowLogicTests`
+- **Attract mode** - The car drives itself from the first frame under the main menu; the player's first control input hands over the wheel and starts the scoring run. Releasing every control for 10 s hands the wheel back to the autopilot with the score frozen (not lost); the next input resumes it
+- **In-place vehicle reset** - CrashSystem performs the post-crash reset (damage, component health, soft-body deformation, drift, collision state) without a scene reload and engages the autopilot; the same path serves Retry, Restart-from-pause and Menu-from-summary
+- **RunResultSaveSystem** - Finished runs are submitted to the local leaderboard when the crash summary appears; the summary panel now shows "New High Score" and rank
+- `Autopilot.Reason` / `Autopilot.HumanInputDetected`, `SteeringState.LaneChangeRequested/LaneChangeDirection` (autopilot lane changes now go through SteeringSystem's blocked-lane check), `GameState.VehicleResetPending`, `UIState.AutopilotActive` (HUD autopilot indicator is finally wired)
+- `CameraState.DistanceOffset/TargetOffset/FOVOffset/YawOffset` consumed by CameraSystem (fork pull-back, overpass elevation follow, tunnel FOV squeeze, screen-space signaling)
+
 #### Atmosphere Overhaul
 - **AtmosphereController** - Runtime owner of global distance fog (dense indigo exp2 fog with slow density "breathing") and the night skybox; builds no longer depend on editor-baked lighting settings
 - **GroundFog shader** (`Nightflow/GroundFog`) - Animated fbm smoke noise, per-vertex density, neon tint, blends into global fog; now used by GroundFogRenderer
@@ -21,6 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+#### The World Never Stops
+- Menus (main, mode select, settings, credits, leaderboard, pause) are overlays: they no longer zero the time scale or flag `IsPaused`; the autopilot drives underneath and menu navigation can never grab the wheel. `IsPaused` now means exactly "the pause menu is open"
+- Crash flow has a single owner (GameStateSystem); ScreenFlowSystem only mirrors flags to the UI and UISystem shows the game-over panel only once the fade to black completes. A crashed vehicle coasts along the track (never below 8 m/s) instead of freezing
+- The autopilot drives through the normal input → steering → lane magnetism → movement pipeline (the separate `AutopilotActiveTag` movement branch is gone; the tag is informational). While it drives, no score or risk events accrue and it takes no structural damage, so the self-playing loop can run unattended without entering the crash flow
+- Hazard and emergency spawners keep the world alive in every state instead of stopping when no run is active
+- Damage-based lane-magnetism penalty now follows the spec formula (`ω × (1 − 0.5·D_side)`) instead of clamping above the default
+- Ghost vehicles only spawn in Ghost mode
+- AtmosphereController re-asserts the fog and skybox binding every frame and syncs the skybox horizon haze to the fog color; GroundFog, skyline, star and moon renderers re-acquire the camera when it is created after them
+
 #### Neon Wireframe Pipeline
 - ProceduralMeshRenderer now binds the custom `Nightflow/NeonWireframe` and `Nightflow/NeonEmitter` shaders (previously fell back to stock unlit shaders, losing vertex colors, glow, and wireframe edges entirely); per-surface fill alpha: near-solid road/tunnel, translucent glowing vehicle shells
 - ParticleMaterialProvider now binds `Nightflow/NeonParticle`, `Nightflow/SmokeParticle`, and `Nightflow/SpeedLines` so per-particle instanced colors work
@@ -29,6 +46,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Night skybox horizon haze strengthened to match the global fog palette
 
 ### Fixed
+- Compile errors: duplicate `CrashReason`, `CollisionEvent` (particle buffer renamed `CollisionEffectEvent`) and `LeaderboardEntry` (network record renamed `NetworkLeaderboardEntry`) types in `Nightflow.Components`; `SteeringState` lacked the lane-change request fields AutopilotSystem wrote; `SplineSample` has no `Up`; `LightEmitter.Color` assigned a `float4`; `SystemAPI.Query` calls with eight type arguments; `RefRO` of zero-sized tags in queries; `SystemAPI` used in a helper without a `SystemState`; `ref` passed from `RefRW.ValueRO`; missing `using` for ScreenFlowSystem helpers
+- After the first crash the car stopped forever: `CrashedTag`/`AutopilotActiveTag` were never removed, damage/score/health were never reset, and player input froze the vehicle
+- Two crash-flow state machines advanced the same timer twice with different durations; the pause overlay hijacked the main menu (`IsPaused` was set by every menu)
+- ComponentFailureSystem set `IsCrashed` directly, bypassing score finalization and the crash flow; it now requests the crash and CrashSystem owns it
+- `EntityArchetypes.Initialize` was never called (ghost spawn used an invalid archetype)
+- Mode selection was never applied to `GameModeState`; the Settings screen always returned to the main menu even when opened from pause
+- Duplicate HUD writer (HUDUpdateSystem) fought UISystem with different speed-tier thresholds and an ever-growing survival timer
+- Ordering attributes that crossed the OrderFirst bucket (ignored with warnings) removed
+- Second review pass, compile errors: duplicate `GetPotentialRank`, ambiguous `AudioListener` (SaveManager) and `Random` (AudioManager), non-existent `SaveManager.SaveSettings()`, `LightEmitter.Falloff`, a single-type query deconstructed into a tuple (HeadlightSystem), foreach iteration variables passed by `ref` (spark/smoke/speed-line/music systems), a `WireframeRender → Lighting → Reflection → WireframeRender` ordering cycle, and managed arrays inside Burst-compiled mesh generators (road, vehicle, hazard, overpass) and the tire-smoke wheel table
+- Second review pass, runtime: cars, hazards and the bootstrap's first kilometre of road were never given mesh data or vertex buffers (invisible) — `ProceduralMeshInitSystem` now adds them; `EnvironmentState`, `OffscreenSignal`, `DifficultyProfile`, `SirenAudio`, `CollisionEffectEvent` buffers and spark/speed-line `ParticleEmitter`s were never created, leaving the fork/overpass/tunnel effects, off-screen threat signals, adaptive difficulty, sirens, impact flash, sparks and speed lines dead; the crash flash and impact flash queried `GameState`/`CollisionEffectEvent` on the wrong entity; environment systems queried `CameraState` on the player instead of the camera; `CityGenerationSystem` performed structural changes while iterating a query (now uses a command buffer); several systems queried `Unity.Transforms.LocalTransform`, which no Nightflow entity carries
 - Particle materials never enabled GPU instancing, so `Graphics.DrawMeshInstanced` failed and tire smoke/sparks/speed lines did not render
 - Play-mode auto-setup never enabled `renderPostProcessing` on cameras it created, silently disabling bloom and all post effects; it also never created a ParticleMaterialProvider
 - `CreateEmissiveMaterial` preferred the built-in `Particles/Standard Unlit` shader, which renders broken under URP; URP-compatible shaders are now tried first
