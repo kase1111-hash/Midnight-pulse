@@ -286,13 +286,18 @@ Complete reference of all tuning values and defaults. Source files are noted for
 
 ## Difficulty Scaling
 
-> **Source:** `src/Systems/Simulation/AdaptiveDifficultySystem.cs`
+> **Source:** `src/Systems/Core/DifficultyCurve.cs` (in-run ramp), `src/Systems/Simulation/AdaptiveDifficultySystem.cs` (cross-run skill modifier)
 
-| Parameter | Value |
-|-----------|-------|
-| Full difficulty distance | 10 km |
-| Full difficulty time | 5 minutes |
-| Max traffic multiplier | 2x |
-| Max hazard multiplier | 2.5x |
-| Max traffic speed bonus | 30 km/h |
-| Max emergency multiplier | 3x |
+Run progress = `0.5 × distance / 10 km + 0.5 × time / 5 min`. Intensity eases in from 0, reaches 1 ("full difficulty") at progress 1 while still climbing, then continues on a smooth exponential tail toward 1.5. Each value below is `start + (full − start) × intensity`: no steps, no plateau.
+
+| Parameter | Start | Full (intensity 1) | Cap (intensity 1.5) |
+|-----------|-------|--------------------|---------------------|
+| Full difficulty distance / time | | 10 km / 5 minutes | |
+| Traffic multiplier | 1x | 2x | 2.5x |
+| Traffic speed bonus | 0 | 30 km/h | 45 km/h |
+| Hazard multiplier | 1x | 2.5x | 3.25x |
+| Lethal hazard share | 0.6x | 1x | 1.2x |
+| Emergency multiplier | 1x (every 45 s) | 3x (15 s) | 4x (~11 s) |
+| Base cruise speed | 90 km/h | 180 km/h | 225 km/h |
+
+Base cruise speed: when the player is off both pedals (Nightflow mode), the car eases up toward it at 2.5 m/s². Throttle still reaches 80 m/s, braking still goes lower. Traffic never spawns faster than 65% of the player's top speed, and emergency vehicles always drive at least 12 m/s faster than the player.

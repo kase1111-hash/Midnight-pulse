@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### In-Run Difficulty Curve
+- **DifficultyCurve** - One smooth, unit-tested ramp per run drives traffic density and speed, hazard rate and lethality, emergency frequency, and a rising base cruise speed (spec 08 "Base Speed increases over time"). It eases in, hits the spec's full difficulty at 10 km / 5 min, and keeps building on an asymptotic overdrive tail with no steps, kinks or plateaus. Covered by `DifficultyCurveTests`
+- **Cruise assist** - Off the pedals, the car eases up to the run's base cruise speed (90 → 180 → 225 km/h) in Nightflow mode; throttle and brake still override
+
+### Fixed
+
+#### Late-Run Difficulty
+- Traffic speed grew +2 m/s per km without a cap and overtook the player after ~28 km, emptying the road at the top end; it now follows the curve and is clamped below the player's top speed
+- Emergency vehicles were locked to 45 m/s, so they never caught a fast player and the two that spawned sat behind forever, blocking new spawns; they now overtake at player speed + 12 m/s and despawn if they fall 400 m behind
+- Track heading was an unbounded random walk (median 1.4 km lateral drift by 10 km, road turning past 90° in a third of 40 km runs); segments now steer gently back toward +Z
+- Hazards were placed on world-axis lanes at y = 0 and ended up off the road as soon as it curved away; they now sit on the road spline
+- Traffic spacing was checked against world-axis positions instead of the on-road spawn point
+
 #### Continuous Play & Autopilot Handoff
 - **GameFlowLogic** - Pure, unit-tested rules for the continuous loop: pilot arbitration (menu → autopilot, idle → autopilot, control input → player), crash-phase timing, coasting speed, and fresh-run defaults; covered by `GameFlowLogicTests`
 - **Attract mode** - The car drives itself from the first frame under the main menu; the player's first control input hands over the wheel and starts the scoring run. Releasing every control for 10 s hands the wheel back to the autopilot with the score frozen (not lost); the next input resumes it

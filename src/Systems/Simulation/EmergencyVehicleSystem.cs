@@ -28,6 +28,7 @@ namespace Nightflow.Systems
     {
         // Emergency vehicle parameters
         private const float EmergencySpeed = 45f;         // m/s - faster than traffic
+        private const float OvertakeMargin = 12f;         // m/s - always faster than the player
         private const float DetectionDistance = 120f;     // meters behind player (d_max)
         private const float DetectionWidth = 7f;          // meters lateral
         // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
@@ -79,6 +80,10 @@ namespace Nightflow.Systems
             if (playerEntity == Entity.Null)
                 return;
 
+            // Emergencies must still reach a player who is flat out at the top
+            // end, or they sit behind forever and the late run loses them
+            float emergencySpeed = math.max(EmergencySpeed, playerSpeed + OvertakeMargin);
+
             // =============================================================
             // Update Emergency Vehicles
             // =============================================================
@@ -90,7 +95,7 @@ namespace Nightflow.Systems
                     .WithAll<EmergencyVehicleTag>())
             {
                 // Maintain emergency speed
-                velocity.ValueRW.Forward = EmergencySpeed;
+                velocity.ValueRW.Forward = emergencySpeed;
 
                 // =============================================================
                 // Calculate Approach Geometry
@@ -277,7 +282,7 @@ namespace Nightflow.Systems
                             detection.ValueRW.NearestDistance = dF;
                             detection.ValueRW.ApproachingFromBehind = true;
                             detection.ValueRW.EmergencyLane = emergencyLane.ValueRO.CurrentLane;
-                            detection.ValueRW.TimeToArrival = dF / EmergencySpeed;
+                            detection.ValueRW.TimeToArrival = dF / math.max(1f, emergencySpeed - playerSpeed);
 
                             // Calculate urgency
                             float urgency = math.saturate(1f - dF / DetectionDistance);

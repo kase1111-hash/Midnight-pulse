@@ -147,6 +147,20 @@ namespace Nightflow.Systems
                     }
                 }
 
+                // Rising base speed (Nightflow only, player driving): off the
+                // pedals the car eases up to the run's base cruise speed
+                if (currentMode == GameMode.Nightflow &&
+                    SystemAPI.HasComponent<Autopilot>(entity) &&
+                    !SystemAPI.GetComponent<Autopilot>(entity).Enabled &&
+                    SystemAPI.HasComponent<ScoreSession>(entity) &&
+                    SystemAPI.HasComponent<ScoreSummary>(entity))
+                {
+                    float runDistance = SystemAPI.GetComponent<ScoreSession>(entity).Distance;
+                    float runTime = SystemAPI.GetComponent<ScoreSummary>(entity).TimeSurvived;
+                    float baseCruise = DifficultyCurve.Evaluate(runDistance, runTime).BaseCruiseSpeed;
+                    vel.Forward = DifficultyCurve.ApplyCruiseAssist(vel.Forward, baseCruise, throttle, brake, deltaTime);
+                }
+
                 // Brake
                 if (brake > 0.01f)
                 {
