@@ -10,12 +10,13 @@ using Unity.Collections;
 using Nightflow.Components;
 using Nightflow.Tags;
 using Nightflow.Config;
+using Nightflow.Utilities;
 
 namespace Nightflow.Systems
 {
     /// <summary>
     /// Spawns and manages road hazards (debris, cones, barriers, crashed cars).
-    /// Hazard density increases with distance/score for progressive difficulty.
+    /// Hazard density and lethality follow the run's DifficultyCurve.
     ///
     /// Hazard Classification (from spec):
     /// - Loose tire: Severity 0.2, Mass 0.1, Cosmetic
@@ -31,7 +32,6 @@ namespace Nightflow.Systems
     {
         // Spawn parameters
         private const float BaseSpawnRate = 0.015f;       // hazards per meter
-        private const float DifficultyScale = 0.002f;     // rate increase per 1000m
         private const float MinSpawnDistance = 150f;      // meters ahead of player
         private const float MaxSpawnDistance = 400f;      // meters ahead
         private const float DespawnDistance = 50f;        // meters behind player
@@ -58,6 +58,7 @@ namespace Nightflow.Systems
         private Random _random;
         private float _furthestSpawnedZ;
         private float _currentAdaptiveDifficulty;
+        private float _currentLethalScale;
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
@@ -65,6 +66,7 @@ namespace Nightflow.Systems
             _random = new Random(42069);
             _furthestSpawnedZ = 0f;
             _currentAdaptiveDifficulty = 1f;
+            _currentLethalScale = 1f;
         }
 
         [BurstCompile]
@@ -85,16 +87,20 @@ namespace Nightflow.Systems
 
             // Get player position and distance traveled
             float3 playerPos = float3.zero;
+            float playerSpeed = 0f;
             float distanceTraveled = 0f;
+            float timeSurvived = 0f;
             bool playerActive = false;
 
-            foreach (var (transform, scoreSession) in
-                SystemAPI.Query<RefRO<WorldTransform>, RefRO<ScoreSession>>()
+            foreach (var (transform, scoreSession, summary, velocity) in
+                SystemAPI.Query<RefRO<WorldTransform>, RefRO<ScoreSession>, RefRO<ScoreSummary>, RefRO<Velocity>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithNone<CrashedTag>())
             {
                 playerPos = transform.ValueRO.Position;
+                playerSpeed = velocity.ValueRO.Forward;
                 distanceTraveled = scoreSession.ValueRO.Distance;
+                timeSurvived = summary.ValueRO.TimeSurvived;
                 // The world stays alive in every state (menus, autopilot, idle):
                 // only a crashed vehicle (CrashedTag) pauses spawning briefly.
                 playerActive = true;
@@ -115,16 +121,32 @@ namespace Nightflow.Systems
                 break;
             }
 
-            // Calculate current spawn rate based on distance + adaptive difficulty
-            // Distance scaling provides base progression
-            // Adaptive difficulty adjusts based on player skill
-            float distanceMultiplier = 1f + DifficultyScale * (distanceTraveled / 100f);
-            float currentSpawnRate = BaseSpawnRate * distanceMultiplier * _currentAdaptiveDifficulty;
+            // Calculate current spawn rate from the run's difficulty curve + adaptive difficulty
+            // The curve provides base progression, adaptive adjusts based on player skill
+            DifficultyLevels levels = DifficultyCurve.Evaluate(distanceTraveled, timeSurvived);
+            _currentLethalScale = levels.LethalScale;
+            float currentSpawnRate = BaseSpawnRate * levels.HazardRateScale * _currentAdaptiveDifficulty;
 
             var ecb = new EntityCommandBuffer(Allocator.Temp);
+            var segments = new NativeList<TrackSpan>(Allocator.Temp);
+            var placed = new NativeList<float2>(Allocator.Temp);   // (z, lane) of every hazard on the road
 
             try
             {
+                // Track spans, so hazards sit on the curving road rather than
+                // on world-axis lanes the road has long since curved away from
+                foreach (var (segment, spline) in
+                    SystemAPI.Query<RefRO<TrackSegment>, RefRO<HermiteSpline>>()
+                        .WithAll<TrackSegmentTag>())
+                {
+                    segments.Add(new TrackSpan
+                    {
+                        StartZ = segment.ValueRO.StartZ,
+                        EndZ = segment.ValueRO.EndZ,
+                        Spline = spline.ValueRO
+                    });
+                }
+
                 // =============================================================
                 // Despawn Hazards Behind Player
                 // =============================================================
@@ -139,6 +161,10 @@ namespace Nightflow.Systems
                     if (transform.ValueRO.Position.z < despawnZ)
                     {
                         ecb.DestroyEntity(entity);
+                    }
+                    else
+                    {
+                        placed.Add(new float2(transform.ValueRO.Position.z, hazard.ValueRO.Lane));
                     }
                 }
 
@@ -157,12 +183,17 @@ namespace Nightflow.Systems
                 float targetZ = playerPos.z + MaxSpawnDistance;
                 int hazardsSpawnedThisFrame = 0;
 
+                // Fairness: a stretch as long as a lane change must always stay
+                // drivable. Sized for top speed (or faster, in Redline): hazards
+                // spawn 150-400 m out, and the player may floor it before then
+                float window = HazardPlacement.SafetyWindow(math.max(playerSpeed, GameConstants.MaxForwardSpeed));
+
                 while (_furthestSpawnedZ < targetZ && hazardsSpawnedThisFrame < MaxHazardsPerFrame)
                 {
                     // Roll for spawn at this location (only if hazards are enabled)
-                    if (spawnHazards && _random.NextFloat() < currentSpawnRate * SpawnCheckInterval)
+                    if (spawnHazards && _random.NextFloat() < currentSpawnRate * SpawnCheckInterval &&
+                        SpawnHazard(ref ecb, segments, ref placed, window, _furthestSpawnedZ))
                     {
-                        SpawnHazard(ref ecb, _furthestSpawnedZ);
                         hazardsSpawnedThisFrame++;
                     }
 
@@ -185,23 +216,72 @@ namespace Nightflow.Systems
             }
             finally
             {
-                // Ensure ECB is always disposed, even on exception
+                // Ensure native collections are always disposed, even on exception
+                placed.Dispose();
+                segments.Dispose();
                 ecb.Dispose();
             }
         }
 
-        private void SpawnHazard(ref EntityCommandBuffer ecb, float z)
+        private struct TrackSpan
         {
-            // Select random lane
-            int lane = _random.NextInt(0, GameConstants.DefaultNumLanes);
-            float laneOffset = (lane - 1.5f) * GameConstants.LaneWidth;
+            public float StartZ;
+            public float EndZ;
+            public HermiteSpline Spline;
+        }
 
-            // Add some lateral variance within lane
-            float lateralVariance = _random.NextFloat(-GameConstants.LaneWidth * 0.3f, GameConstants.LaneWidth * 0.3f);
-            float x = laneOffset + lateralVariance;
+        /// <summary>
+        /// Spawns one hazard on the road at world depth z.
+        /// Returns false (nothing spawned) when no generated segment covers z,
+        /// or when every lane would turn that stretch into an unavoidable wall.
+        /// </summary>
+        private bool SpawnHazard(ref EntityCommandBuffer ecb, NativeList<TrackSpan> segments,
+            ref NativeList<float2> placed, float window, float z)
+        {
+            // Lanes already blocked within one lane-change of z
+            int blockedMask = 0;
+            for (int i = 0; i < placed.Length; i++)
+            {
+                if (math.abs(placed[i].x - z) < window)
+                    blockedMask |= 1 << (int)placed[i].y;
+            }
+
+            int allowedLanes = HazardPlacement.AllowedLanes(blockedMask, GameConstants.DefaultNumLanes);
+            int lane = HazardPlacement.PickLane(allowedLanes, GameConstants.DefaultNumLanes, _random.NextFloat());
+            if (lane < 0)
+                return false;
+
+            int spanIndex = -1;
+            for (int i = 0; i < segments.Length; i++)
+            {
+                if (z >= segments[i].StartZ && z <= segments[i].EndZ && segments[i].EndZ > segments[i].StartZ)
+                {
+                    spanIndex = i;
+                    break;
+                }
+            }
+
+            if (spanIndex < 0)
+                return false;
+
+            TrackSpan span = segments[spanIndex];
+            float t = (z - span.StartZ) / (span.EndZ - span.StartZ);
+            SplineUtilities.BuildFrameAtT(span.Spline.P0, span.Spline.T0, span.Spline.P1, span.Spline.T1, t,
+                out float3 roadPos, out float3 forward, out float3 right, out float3 up);
+
+            float laneOffset = (lane - 1.5f) * GameConstants.LaneWidth;
 
             // Select hazard type
             HazardType hazardType = SelectHazardType();
+            float3 hazardSize = GetHazardSize(hazardType);
+
+            // Lateral variance, but never poking into a neighbouring lane
+            // (wide hazards like crashed cars get less wiggle room)
+            float maxVariance = math.clamp(GameConstants.LaneWidth * 0.5f - hazardSize.x - 0.1f,
+                0f, GameConstants.LaneWidth * 0.3f);
+            float lateralVariance = _random.NextFloat(-maxVariance, maxVariance);
+            float3 position = roadPos + right * (laneOffset + lateralVariance);
+
             float severity = GetSeverity(hazardType);
             float massFactor = GetMassFactor(hazardType);
 
@@ -211,8 +291,9 @@ namespace Nightflow.Systems
             // Add components
             ecb.AddComponent(hazard, new WorldTransform
             {
-                Position = new float3(x, 0f, z),
-                Rotation = quaternion.RotateY(_random.NextFloat(0f, math.PI * 2f))
+                Position = position,
+                Rotation = math.mul(quaternion.LookRotationSafe(forward, up),
+                                    quaternion.RotateY(_random.NextFloat(0f, math.PI * 2f)))
             });
 
             ecb.AddComponent(hazard, new Hazard
@@ -220,13 +301,14 @@ namespace Nightflow.Systems
                 Type = hazardType,
                 Severity = severity,
                 MassFactor = massFactor,
-                Hit = false
+                Hit = false,
+                Lane = lane
             });
 
             ecb.AddComponent(hazard, new CollisionShape
             {
                 ShapeType = CollisionShapeType.Box,
-                Size = GetHazardSize(hazardType),
+                Size = hazardSize,
                 Offset = float3.zero
             });
 
@@ -235,6 +317,8 @@ namespace Nightflow.Systems
 
             // Add tag
             ecb.AddComponent<HazardTag>(hazard);
+            placed.Add(new float2(z, lane));
+            return true;
         }
 
         private HazardType SelectHazardType()
@@ -247,6 +331,9 @@ namespace Nightflow.Systems
             // At difficulty 2.0 (hard): lethal chance increased to MaxLethalChance
             float difficultyFactor = math.saturate((_currentAdaptiveDifficulty - 0.5f) / 1.5f);
             float lethalChance = math.lerp(MinLethalChance, MaxLethalChance, difficultyFactor);
+
+            // Fewer lethal hazards early in a run, more as it builds
+            lethalChance = math.clamp(lethalChance * _currentLethalScale, MinLethalChance, MaxLethalChance);
 
             // Non-lethal hazards take up the remaining probability
             float nonLethalTotal = 1f - lethalChance;

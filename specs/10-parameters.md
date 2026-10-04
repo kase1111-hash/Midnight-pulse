@@ -286,13 +286,32 @@ Complete reference of all tuning values and defaults. Source files are noted for
 
 ## Difficulty Scaling
 
-> **Source:** `src/Systems/Simulation/AdaptiveDifficultySystem.cs`
+> **Source:** `src/Systems/Core/DifficultyCurve.cs` (in-run ramp), `src/Systems/Core/AdaptiveDifficultyLogic.cs` (cross-run skill modifier), `src/Systems/Core/HazardPlacement.cs` (fairness)
+
+Run progress = `0.5 × distance / 10 km + 0.5 × time / 5 min`. Intensity eases in from 0, reaches 1 ("full difficulty") at progress 1 while still climbing, then continues on a smooth exponential tail toward 1.5. Each value below is `start + (full − start) × intensity`: no steps, no plateau.
+
+| Parameter | Start | Full (intensity 1) | Cap (intensity 1.5) |
+|-----------|-------|--------------------|---------------------|
+| Full difficulty distance / time | | 10 km / 5 minutes | |
+| Traffic multiplier | 1x | 2x | 2.5x |
+| Traffic speed bonus | 0 | 30 km/h | 45 km/h |
+| Hazard multiplier | 1x | 2.5x | 3.25x |
+| Lethal hazard share | 0.6x | 1x | 1.2x |
+| Emergency multiplier | 1x (every 45 s) | 3x (15 s) | 4x (~11 s) |
+| Base cruise speed | 90 km/h | 180 km/h | 225 km/h |
+
+Base cruise speed: when the player is off both pedals (Nightflow mode), the car eases up toward it at 2.5 m/s². Throttle still reaches 80 m/s, braking still goes lower. Traffic never spawns faster than 65% of the player's top speed, and emergency vehicles always drive at least 12 m/s faster than the player.
+
+### Adaptive Difficulty (across runs)
+
+Every player-driven run that lasts at least 3 s is folded into a skill profile when it crashes (rolling averages of score-per-meter multiplier, survival time and hazard avoidance, plus good/bad streaks). After a warm-up of 60 s and 2 runs, a modifier eases (10%/s, held 5 s after each crash) toward a target derived from skill, and multiplies traffic density, traffic speed, hazard rate and hazard lethality.
 
 | Parameter | Value |
 |-----------|-------|
-| Full difficulty distance | 10 km |
-| Full difficulty time | 5 minutes |
-| Max traffic multiplier | 2x |
-| Max hazard multiplier | 2.5x |
-| Max traffic speed bonus | 30 km/h |
-| Max emergency multiplier | 3x |
+| Modifier range | 0.6x – 1.5x |
+| Struggling streak (3 runs: avg multiplier < 1.5x or < 30 s) | target × 0.8 |
+| Dominating streak (3 runs: avg multiplier ≥ 3x and ≥ 120 s) | target × 1.2 |
+
+### Hazard Fairness
+
+Any stretch of road as long as a lane change at top speed (lane-change time × speed + 10 m, ~90 m at 80 m/s) keeps at least two lanes free, and every blocked lane keeps a free neighbour. Hazards that would break this are placed in another lane instead. Brute-force path search finds no unavoidable walls at any hazard rate.

@@ -15,7 +15,7 @@ namespace Nightflow.Systems
 {
     /// <summary>
     /// Spawns emergency vehicles behind the player at intervals.
-    /// Emergency frequency increases with distance/score for progressive tension.
+    /// Emergency frequency follows the run's DifficultyCurve for progressive tension.
     ///
     /// Emergency vehicles approach from behind, creating pressure to yield.
     /// They despawn after passing the player.
@@ -26,11 +26,10 @@ namespace Nightflow.Systems
     public partial struct EmergencySpawnSystem : ISystem
     {
         // Spawn parameters
-        private const float BaseSpawnInterval = 45f;      // seconds between spawns
-        private const float MinSpawnInterval = 20f;       // minimum at high difficulty
-        private const float DifficultyScale = 0.001f;     // interval reduction per meter
+        private const float BaseSpawnInterval = 45f;      // seconds between spawns (divided by curve frequency)
         private const float SpawnDistanceBehind = 200f;   // meters behind player
         private const float DespawnDistanceAhead = 100f;  // meters ahead after passing
+        private const float DespawnDistanceBehind = 400f; // meters behind: dropped back, never catching up
         // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
 
         // Spawn limits
@@ -55,15 +54,17 @@ namespace Nightflow.Systems
             // Get player state
             float3 playerPos = float3.zero;
             float distanceTraveled = 0f;
+            float timeSurvived = 0f;
             bool playerActive = false;
 
-            foreach (var (transform, scoreSession) in
-                SystemAPI.Query<RefRO<WorldTransform>, RefRO<ScoreSession>>()
+            foreach (var (transform, scoreSession, summary) in
+                SystemAPI.Query<RefRO<WorldTransform>, RefRO<ScoreSession>, RefRO<ScoreSummary>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithNone<CrashedTag>())
             {
                 playerPos = transform.ValueRO.Position;
                 distanceTraveled = scoreSession.ValueRO.Distance;
+                timeSurvived = summary.ValueRO.TimeSurvived;
                 // The world stays alive in every state (menus, autopilot, idle):
                 // only a crashed vehicle (CrashedTag) pauses spawning briefly.
                 playerActive = true;
@@ -83,15 +84,17 @@ namespace Nightflow.Systems
 
                 int activeCount = 0;
                 float despawnZ = playerPos.z + DespawnDistanceAhead;
+                float despawnBehindZ = playerPos.z - DespawnDistanceBehind;
 
                 foreach (var (emergencyAI, transform, entity) in
                     SystemAPI.Query<RefRO<EmergencyAI>, RefRO<WorldTransform>>()
                         .WithAll<EmergencyVehicleTag>()
                         .WithEntityAccess())
                 {
-                    if (transform.ValueRO.Position.z > despawnZ)
+                    if (transform.ValueRO.Position.z > despawnZ ||
+                        transform.ValueRO.Position.z < despawnBehindZ)
                     {
-                        // Emergency has passed player, despawn
+                        // Emergency has passed player (or fell hopelessly behind), despawn
                         ecb.DestroyEntity(entity);
                     }
                     else
@@ -104,9 +107,9 @@ namespace Nightflow.Systems
                 // Spawn Timer
                 // =============================================================
 
-                // Calculate spawn interval based on difficulty
-                float intervalReduction = DifficultyScale * distanceTraveled;
-                float currentInterval = math.max(MinSpawnInterval, BaseSpawnInterval - intervalReduction);
+                // Calculate spawn interval from the run's difficulty curve
+                DifficultyLevels levels = DifficultyCurve.Evaluate(distanceTraveled, timeSurvived);
+                float currentInterval = BaseSpawnInterval / levels.EmergencyFrequencyScale;
 
                 _spawnTimer -= deltaTime;
 

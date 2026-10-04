@@ -176,6 +176,12 @@ namespace Nightflow.Components
 
         /// <summary>Whether this hazard has been hit.</summary>
         public bool Hit;
+
+        /// <summary>
+        /// Lane the hazard sits in (0 = leftmost). Stored at spawn because the
+        /// road curves away from world x, so it can't be recovered from position.
+        /// </summary>
+        public int Lane;
     }
 
     /// <summary>

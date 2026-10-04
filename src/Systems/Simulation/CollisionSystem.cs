@@ -100,6 +100,7 @@ namespace Nightflow.Systems
             float3 closestContactPoint = float3.zero;
             float closestImpactSpeed = 0f;
             float closestSeverity = 0f;
+            int newHazardHits = 0;
 
             foreach (var (hazardTransform, hazard, collisionShape, entity) in
                 SystemAPI.Query<RefRO<WorldTransform>, RefRW<Hazard>, RefRO<CollisionShape>>()
@@ -175,6 +176,17 @@ namespace Nightflow.Systems
 
                 // Mark hazard as hit
                 hazard.ValueRW.Hit = true;
+                newHazardHits++;
+            }
+
+            // Only the player's own driving counts toward the run's hit tally
+            bool playerDriving = !SystemAPI.HasComponent<Autopilot>(playerEntity) ||
+                                 !SystemAPI.GetComponent<Autopilot>(playerEntity).Enabled;
+
+            if (newHazardHits > 0 && playerDriving && SystemAPI.HasComponent<ScoreSummary>(playerEntity))
+            {
+                var summary = SystemAPI.GetComponentRW<ScoreSummary>(playerEntity);
+                summary.ValueRW.HazardsHit += newHazardHits;
             }
 
             // =============================================================

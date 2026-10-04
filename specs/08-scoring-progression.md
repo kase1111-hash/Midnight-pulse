@@ -74,3 +74,4 @@ Natural scaling via endurance (no discrete levels):
 | Risk Reward | Higher multipliers available |
 
 The game gets harder the longer you survive, but rewards scale accordingly.
+The ramp is one continuous curve (see `DifficultyCurve` and the Difficulty Scaling table in 10-parameters): a gentle first minute, full difficulty after ~3 minutes flat out (~5 minutes cruising), then a slow overdrive that keeps tightening for another 10+ minutes.

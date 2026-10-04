@@ -131,10 +131,9 @@ namespace Nightflow.Systems
                 // Skip already-hit hazards
                 if (hazard.ValueRO.Hit) continue;
 
-                // Estimate lane from X position
+                // Lane is stored at spawn (the road curves, so world x can't tell us)
                 float3 hazardPos = transform.ValueRO.Position;
-                int hazardLane = (int)math.round((hazardPos.x / GameConstants.LaneWidth) + 1.5f);
-                hazardLane = math.clamp(hazardLane, 0, 3);
+                int hazardLane = math.clamp(hazard.ValueRO.Lane, 0, 3);
 
                 // Determine if lethal (barrier or crashed car)
                 bool isLethal = hazard.ValueRO.Type == HazardType.Barrier ||

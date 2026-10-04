@@ -11,6 +11,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### In-Run Difficulty Curve
+- **DifficultyCurve** - One smooth, unit-tested ramp per run drives traffic density and speed, hazard rate and lethality, emergency frequency, and a rising base cruise speed (spec 08 "Base Speed increases over time"). It eases in, hits the spec's full difficulty at 10 km / 5 min, and keeps building on an asymptotic overdrive tail with no steps, kinks or plateaus. Covered by `DifficultyCurveTests`
+- **Cruise assist** - Off the pedals, the car eases up to the run's base cruise speed (90 → 180 → 225 km/h) in Nightflow mode; throttle and brake still override
+- **HazardPlacement** - Fairness rule for hazard lanes: within a lane change's worth of road (~90 m at top speed) two lanes always stay free and no blocked lane is cut off from a free neighbour. Covered by `HazardPlacementTests`
+- **AdaptiveDifficultyLogic** - Pure cross-run skill rules (run counting, profile update, target, smoothing). Covered by `AdaptiveDifficultyLogicTests`
+- `Hazard.Lane` (lane stored at spawn) and `ScoreSummary.HazardsHit`
+
+### Fixed
+
+#### Late-Run Difficulty
+- Traffic speed grew +2 m/s per km without a cap and overtook the player after ~28 km, emptying the road at the top end; it now follows the curve and is clamped below the player's top speed
+- Emergency vehicles were locked to 45 m/s, so they never caught a fast player and the two that spawned sat behind forever, blocking new spawns; they now overtake at player speed + 12 m/s and despawn if they fall 400 m behind
+- Track heading was an unbounded random walk (median 1.4 km lateral drift by 10 km, road turning past 90° in a third of 40 km runs); segments now steer gently back toward +Z
+- Hazards were placed on world-axis lanes at y = 0 and ended up off the road as soon as it curved away; they now sit on the road spline
+- Traffic spacing was checked against world-axis positions instead of the on-road spawn point
+- Hazard layouts could form unavoidable walls: random lanes blocked three or four lanes within one lane change of road in 19 of 30 simulated 3 km runs at the original hazard rate, and in all of them at late-run rates; with the fairness rule, none
+- Crashed cars could poke into the neighbouring lane through lateral jitter; jitter now stays inside the lane
+- Adaptive difficulty never adapted: nothing called `OnRunCompleted`, so `RunsCompleted` stayed 0 and the modifier was stuck at 1.0 forever. CrashSystem now reports every player-driven run, with its score-per-meter multiplier and hazards dodged/hit (hits were never counted). Autopilot time no longer feeds the multiplier average, and the range is narrowed to 0.6–1.5x because it now stacks on the in-run curve
+- Traffic AI, lane blocking and steering read hazard lanes from world x, which stopped matching once hazards were placed on the curving road; they now use the stored lane
+- Autopilot judged "hazard in my lane" by world x within one lane width and dodged by the sign of x, so on curves it reacted to hazards in other lanes, missed ones in its own, and swerved the wrong way. It now reads lanes (`Hazard.Lane`, its own lane or its committed lane-change target), skips hazards already hit, and escapes to the clearer neighbouring lane (ties toward the road centre), braking instead when no neighbour is safer. Rules live in `AutopilotLogic`, covered by `AutopilotLogicTests`
+
 #### Continuous Play & Autopilot Handoff
 - **GameFlowLogic** - Pure, unit-tested rules for the continuous loop: pilot arbitration (menu → autopilot, idle → autopilot, control input → player), crash-phase timing, coasting speed, and fresh-run defaults; covered by `GameFlowLogicTests`
 - **Attract mode** - The car drives itself from the first frame under the main menu; the player's first control input hands over the wheel and starts the scoring run. Releasing every control for 10 s hands the wheel back to the autopilot with the score frozen (not lost); the next input resumes it

@@ -17,7 +17,7 @@ namespace Nightflow.Systems
 {
     /// <summary>
     /// Spawns traffic vehicles ahead of the player and despawns them behind.
-    /// Maintains a target traffic density based on distance traveled.
+    /// Target density and speed follow the run's DifficultyCurve.
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -27,7 +27,6 @@ namespace Nightflow.Systems
         // Spawn parameters
         private const int BaseTrafficCount = 12;          // Target vehicles at start
         private const int MaxTrafficCount = 30;           // Maximum vehicles
-        private const float TrafficPerKm = 2f;            // Additional traffic per km
         private const float SpawnAheadMin = 80f;          // Min spawn distance ahead
         private const float SpawnAheadMax = 250f;         // Max spawn distance ahead
         private const float DespawnBehind = 60f;          // Distance behind to despawn
@@ -35,7 +34,6 @@ namespace Nightflow.Systems
         // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
 
         // Speed parameters
-        // TODO: Traffic speed should correlate with player speed tier for better pacing
         private const float BaseFlowSpeed = 22f;          // m/s base traffic speed
         private const float SpeedVariance = 0.2f;         // ±20% speed variance
 
@@ -56,18 +54,22 @@ namespace Nightflow.Systems
             float3 playerPos = float3.zero;
             float playerZ = 0f;
             float distanceTraveled = 0f;
+            float timeSurvived = 0f;
             int playerLane = 1;
 
-            foreach (var (transform, laneFollower, scoreSession) in
-                SystemAPI.Query<RefRO<WorldTransform>, RefRO<LaneFollower>, RefRO<ScoreSession>>()
+            foreach (var (transform, laneFollower, scoreSession, summary) in
+                SystemAPI.Query<RefRO<WorldTransform>, RefRO<LaneFollower>, RefRO<ScoreSession>, RefRO<ScoreSummary>>()
                     .WithAll<PlayerVehicleTag>())
             {
                 playerPos = transform.ValueRO.Position;
                 playerZ = playerPos.z;
                 distanceTraveled = scoreSession.ValueRO.Distance;
+                timeSurvived = summary.ValueRO.TimeSurvived;
                 playerLane = laneFollower.ValueRO.CurrentLane;
                 break;
             }
+
+            DifficultyLevels levels = DifficultyCurve.Evaluate(distanceTraveled, timeSurvived);
 
             // =============================================================
             // Get Adaptive Difficulty Modifier
@@ -81,9 +83,8 @@ namespace Nightflow.Systems
             }
 
             // Calculate target traffic count with adaptive scaling
-            // Distance provides base progression, adaptive adjusts density
-            float distanceKm = distanceTraveled / 1000f;
-            float baseTarget = BaseTrafficCount + TrafficPerKm * distanceKm;
+            // The run's difficulty curve provides base progression, adaptive adjusts density
+            float baseTarget = BaseTrafficCount * levels.TrafficDensityScale;
 
             // Apply adaptive modifier: struggling players get less traffic
             // Skilled players get more traffic
@@ -141,30 +142,12 @@ namespace Nightflow.Systems
                     float spawnZ = playerZ + _random.NextFloat(SpawnAheadMin, SpawnAheadMax);
                     int spawnLane = _random.NextInt(0, 4); // Lanes 0-3
 
-                    // Check spacing
-                    float3 candidatePos = new float3((spawnLane - 1.5f) * GameConstants.LaneWidth, 0.5f, spawnZ);
-                    bool tooClose = false;
-
-                    for (int i = 0; i < trafficPositions.Length; i++)
-                    {
-                        if (math.distance(candidatePos, trafficPositions[i]) < MinSpacing)
-                        {
-                            tooClose = true;
-                            break;
-                        }
-                    }
-
                     // Don't spawn in player's lane too close
                     if (spawnLane == playerLane && spawnZ - playerZ < SpawnAheadMin * 1.5f)
-                    {
-                        tooClose = true;
-                    }
-
-                    if (tooClose)
                         continue;
 
                     // Find track segment for proper positioning
-                    HermiteSpline spline = default;
+                    float3 candidatePos = float3.zero;
                     bool foundSegment = false;
 
                     foreach (var (segment, segSpline) in
@@ -173,7 +156,7 @@ namespace Nightflow.Systems
                     {
                         if (spawnZ >= segment.ValueRO.StartZ && spawnZ <= segment.ValueRO.EndZ)
                         {
-                            spline = segSpline.ValueRO;
+                            HermiteSpline spline = segSpline.ValueRO;
                             float t = (spawnZ - segment.ValueRO.StartZ) /
                                       (segment.ValueRO.EndZ - segment.ValueRO.StartZ);
 
@@ -189,8 +172,24 @@ namespace Nightflow.Systems
                     if (!foundSegment)
                         continue;
 
+                    // Check spacing against the real on-road position (the road
+                    // curves away from x = 0, so world-axis lane offsets are wrong)
+                    bool tooClose = false;
+
+                    for (int i = 0; i < trafficPositions.Length; i++)
+                    {
+                        if (math.distance(candidatePos, trafficPositions[i]) < MinSpacing)
+                        {
+                            tooClose = true;
+                            break;
+                        }
+                    }
+
+                    if (tooClose)
+                        continue;
+
                     // Spawn traffic vehicle with adaptive difficulty
-                    SpawnTrafficVehicle(ref ecb, candidatePos, spawnLane, distanceKm, adaptiveDifficulty);
+                    SpawnTrafficVehicle(ref ecb, candidatePos, spawnLane, levels.TrafficSpeedBonus, adaptiveDifficulty);
                     trafficPositions.Add(candidatePos);
                     currentCount++;
                 }
@@ -205,7 +204,7 @@ namespace Nightflow.Systems
             }
         }
 
-        private void SpawnTrafficVehicle(ref EntityCommandBuffer ecb, float3 position, int lane, float distanceKm, float adaptiveDifficulty)
+        private void SpawnTrafficVehicle(ref EntityCommandBuffer ecb, float3 position, int lane, float speedBonus, float adaptiveDifficulty)
         {
             Entity entity = ecb.CreateEntity();
             _spawnCounter++;
@@ -214,14 +213,17 @@ namespace Nightflow.Systems
             float speedVariation = _random.NextFloat(-SpeedVariance, SpeedVariance);
             float targetSpeed = BaseFlowSpeed * (1f + speedVariation);
 
-            // Faster traffic at higher distance and difficulty
-            targetSpeed += distanceKm * 2f;
+            // Faster traffic as the run builds (bounded, see DifficultyCurve)
+            targetSpeed += speedBonus;
 
             // Adaptive difficulty affects traffic aggressiveness
             // Higher difficulty = faster traffic, more challenging
             // Lower difficulty = slower traffic, more predictable
             float speedModifier = math.lerp(0.85f, 1.15f, (adaptiveDifficulty - 0.5f) / 1.5f);
             targetSpeed *= speedModifier;
+
+            // Never let traffic outrun the player: an empty road isn't a hard road
+            targetSpeed = DifficultyCurve.ClampTrafficSpeed(targetSpeed, GameConstants.MaxForwardSpeed);
 
             // Transform
             ecb.AddComponent(entity, new WorldTransform

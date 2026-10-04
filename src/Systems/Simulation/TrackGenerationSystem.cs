@@ -30,6 +30,8 @@ namespace Nightflow.Systems
         private const float MinCurveRadius = 300f;        // minimum turn radius
         private const float MaxYawChange = 0.15f;         // max yaw per segment (radians)
         private const float MaxPitchChange = 0.02f;       // max pitch change
+        private const float HeadingRecenterGain = 0.25f;  // fraction of heading undone per segment
+        private const float LateralRecenterGain = 0.5f;   // radians per km of lateral drift
 
         // Spline parameters
         private const float TangentAlpha = 0.5f;          // Hermite tangent scale
@@ -201,6 +203,18 @@ namespace Nightflow.Systems
             }
         }
 
+        /// <summary>
+        /// Adds a gentle restoring turn toward heading +Z and lateral x = 0.
+        /// Curves stay (|heading| stays within ~25 degrees), the road just
+        /// never drifts away for good.
+        /// </summary>
+        public static float CenteredYawChange(float randomYaw, float3 startPos, float3 startTangent)
+        {
+            float heading = math.atan2(startTangent.x, startTangent.z);
+            float restore = -HeadingRecenterGain * heading - LateralRecenterGain * (startPos.x / 1000f);
+            return math.clamp(randomYaw + restore, -MaxYawChange, MaxYawChange);
+        }
+
         private HermiteSpline GenerateSegment(
             ref EntityCommandBuffer ecb,
             int segmentIndex,
@@ -228,6 +242,11 @@ namespace Nightflow.Systems
                 -MaxYawChange * difficulty,
                 MaxYawChange * difficulty
             );
+
+            // Steer back toward +Z: a pure random walk lets the heading wander
+            // until the road runs sideways or backwards on long runs, and
+            // everything that spawns/despawns by world Z breaks at the top end
+            yawChange = CenteredYawChange(yawChange, startPos, startTangent);
 
             // Pitch change (vertical curve) - less common
             float pitchChange = 0f;

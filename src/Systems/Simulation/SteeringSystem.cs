@@ -74,11 +74,10 @@ namespace Nightflow.Systems
                 SystemAPI.Query<RefRO<WorldTransform>, RefRO<Hazard>>()
                     .WithAll<HazardTag>())
             {
-                int lane = (int)math.round((transform.ValueRO.Position.x / GameConstants.LaneWidth) + 1.5f);
                 blockers.Add(new BlockerInfo
                 {
                     Z = transform.ValueRO.Position.z,
-                    Lane = math.clamp(lane, 0, 3),
+                    Lane = math.clamp(hazard.ValueRO.Lane, 0, 3),
                     Speed = 0f
                 });
             }
