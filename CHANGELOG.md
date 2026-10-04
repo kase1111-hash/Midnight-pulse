@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Crashed cars could poke into the neighbouring lane through lateral jitter; jitter now stays inside the lane
 - Adaptive difficulty never adapted: nothing called `OnRunCompleted`, so `RunsCompleted` stayed 0 and the modifier was stuck at 1.0 forever. CrashSystem now reports every player-driven run, with its score-per-meter multiplier and hazards dodged/hit (hits were never counted). Autopilot time no longer feeds the multiplier average, and the range is narrowed to 0.6–1.5x because it now stacks on the in-run curve
 - Traffic AI, lane blocking and steering read hazard lanes from world x, which stopped matching once hazards were placed on the curving road; they now use the stored lane
+- Autopilot judged "hazard in my lane" by world x within one lane width and dodged by the sign of x, so on curves it reacted to hazards in other lanes, missed ones in its own, and swerved the wrong way. It now reads lanes (`Hazard.Lane`, its own lane or its committed lane-change target), skips hazards already hit, and escapes to the clearer neighbouring lane (ties toward the road centre), braking instead when no neighbour is safer. Rules live in `AutopilotLogic`, covered by `AutopilotLogicTests`
 
 #### Continuous Play & Autopilot Handoff
 - **GameFlowLogic** - Pure, unit-tested rules for the continuous loop: pilot arbitration (menu → autopilot, idle → autopilot, control input → player), crash-phase timing, coasting speed, and fresh-run defaults; covered by `GameFlowLogicTests`

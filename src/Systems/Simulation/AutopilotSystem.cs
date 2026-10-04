@@ -86,36 +86,45 @@ namespace Nightflow.Systems
                 // Hazard Detection
                 // =============================================================
 
-                float hazardThreat = 0f;
-                float hazardLateralDir = 0f;
+                // Lanes, not world x: the road curves away from x = 0, so a
+                // hazard's x says nothing about which lane it is in
+                int laneCount = laneFollower.ValueRO.TotalLanes > 0
+                    ? laneFollower.ValueRO.TotalLanes
+                    : GameConstants.DefaultNumLanes;
+                int myLane = AutopilotLogic.DrivingLane(
+                    laneFollower.ValueRO.CurrentLane,
+                    laneFollower.ValueRO.TargetLane,
+                    steeringState.ValueRO.ChangingLanes);
+
+                float4 laneThreat = float4.zero;
                 float nearestHazardDist = HazardDetectionRange;
 
                 foreach (var (hazardTransform, hazard) in
                     SystemAPI.Query<RefRO<WorldTransform>, RefRO<Hazard>>()
                         .WithAll<HazardTag>())
                 {
-                    float3 toHazard = hazardTransform.ValueRO.Position - playerPos;
-                    float forwardDist = toHazard.z;
-                    float lateralDist = toHazard.x;
+                    if (hazard.ValueRO.Hit)
+                        continue;
 
-                    // Only consider hazards ahead
-                    if (forwardDist > 0 && forwardDist < HazardDetectionRange)
-                    {
-                        // Check if in our lane (roughly)
-                        if (math.abs(lateralDist) < GameConstants.LaneWidth)
-                        {
-                            float threat = hazard.ValueRO.Severity *
-                                (1f - forwardDist / HazardDetectionRange);
+                    // Road heading stays within ~25 deg of +Z, so z is a good
+                    // stand-in for distance along the road
+                    float forwardDist = hazardTransform.ValueRO.Position.z - playerPos.z;
+                    float threat = AutopilotLogic.HazardThreat(
+                        hazard.ValueRO.Severity, forwardDist, HazardDetectionRange);
 
-                            if (threat > hazardThreat)
-                            {
-                                hazardThreat = threat;
-                                hazardLateralDir = math.sign(lateralDist);
-                                nearestHazardDist = forwardDist;
-                            }
-                        }
-                    }
+                    if (threat <= 0f)
+                        continue;
+
+                    laneThreat = AutopilotLogic.AccumulateThreat(laneThreat, hazard.ValueRO.Lane, threat);
+
+                    if (hazard.ValueRO.Lane == myLane && forwardDist < nearestHazardDist)
+                        nearestHazardDist = forwardDist;
                 }
+
+                float hazardThreat = myLane >= 0 && myLane < AutopilotLogic.MaxLanes ? laneThreat[myLane] : 0f;
+
+                // Way out if the lane ahead is dangerous: the clearer neighbour
+                int escapeDirection = AutopilotLogic.ChooseEscapeDirection(laneThreat, myLane, laneCount);
 
                 // =============================================================
                 // Emergency Vehicle Response
@@ -142,44 +151,11 @@ namespace Nightflow.Systems
                 bool shouldChangeLane = false;
                 int laneChangeDirection = 0;
 
-                if (hazardThreat > LaneChangeThreshold && _laneChangeTimer <= 0)
+                if (hazardThreat > LaneChangeThreshold && _laneChangeTimer <= 0 && escapeDirection != 0)
                 {
-                    // Decide which way to go
-                    int currentLane = laneFollower.ValueRO.CurrentLane;
-                    int laneCount = laneFollower.ValueRO.TotalLanes;
-
-                    // Prefer going opposite of hazard lateral position
-                    if (hazardLateralDir > 0 && currentLane > 0)
-                    {
-                        // Hazard is to our right, go left
-                        laneChangeDirection = -1;
-                        shouldChangeLane = true;
-                    }
-                    else if (hazardLateralDir < 0 && currentLane < laneCount - 1)
-                    {
-                        // Hazard is to our left, go right
-                        laneChangeDirection = 1;
-                        shouldChangeLane = true;
-                    }
-                    else if (hazardLateralDir == 0)
-                    {
-                        // Hazard dead ahead - pick safest lane
-                        if (currentLane > 0)
-                        {
-                            laneChangeDirection = -1;
-                            shouldChangeLane = true;
-                        }
-                        else if (currentLane < laneCount - 1)
-                        {
-                            laneChangeDirection = 1;
-                            shouldChangeLane = true;
-                        }
-                    }
-
-                    if (shouldChangeLane)
-                    {
-                        _laneChangeTimer = 3f; // Cooldown between lane changes
-                    }
+                    laneChangeDirection = escapeDirection;
+                    shouldChangeLane = true;
+                    _laneChangeTimer = 3f; // Cooldown between lane changes
                 }
 
                 // =============================================================
@@ -236,10 +212,12 @@ namespace Nightflow.Systems
                 // Add emergency yield
                 steerToCenter += emergencySteerMod;
 
-                // Add hazard avoidance (away from hazard)
-                if (hazardThreat > 0.2f && !shouldChangeLane)
+                // Lean toward the way out while a hazard closes in (no lane
+                // change yet, e.g. on cooldown); with no way out, the speed
+                // control above slows the car instead
+                if (hazardThreat > 0.2f && !shouldChangeLane && escapeDirection != 0)
                 {
-                    float avoidSteer = -hazardLateralDir * hazardThreat * HazardAvoidanceStrength;
+                    float avoidSteer = escapeDirection * hazardThreat * HazardAvoidanceStrength;
                     steerToCenter += avoidSteer;
                 }
 
