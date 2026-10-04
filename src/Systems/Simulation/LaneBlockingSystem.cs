@@ -63,9 +63,8 @@ namespace Nightflow.Systems
                 SystemAPI.Query<RefRO<WorldTransform>, RefRO<Hazard>>()
                     .WithAll<HazardTag>())
             {
-                // Estimate lane from position
-                int hazardLane = (int)math.round((transform.ValueRO.Position.x / GameConstants.LaneWidth) + 1.5f);
-                hazardLane = math.clamp(hazardLane, 0, 3);
+                // Lane is stored at spawn (the road curves, so world x can't tell us)
+                int hazardLane = math.clamp(hazard.ValueRO.Lane, 0, 3);
 
                 blockers.Add(new BlockerData
                 {

@@ -107,6 +107,9 @@ namespace Nightflow.Components
         /// <summary>Number of hazards dodged.</summary>
         public int HazardsDodged;
 
+        /// <summary>Number of hazards hit (feeds adaptive difficulty's avoidance rate).</summary>
+        public int HazardsHit;
+
         /// <summary>Number of drift recoveries.</summary>
         public int DriftRecoveries;
 

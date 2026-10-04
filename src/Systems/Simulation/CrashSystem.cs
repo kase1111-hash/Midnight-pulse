@@ -49,6 +49,14 @@ namespace Nightflow.Systems
             // Use ECB for structural changes - wrapped in try-finally for safe disposal
             var ecb = new EntityCommandBuffer(Allocator.Temp);
 
+            // A player-driven run that ended this frame, for adaptive difficulty
+            bool runCompleted = false;
+            float runAverageMultiplier = 1f;
+            float runTime = 0f;
+            float runDistance = 0f;
+            int runHazardsDodged = 0;
+            int runHazardsHit = 0;
+
             try
             {
                 foreach (var (crashState, crashable, autopilot, scoreSession, summary, collision, entity) in
@@ -163,11 +171,35 @@ namespace Nightflow.Systems
 
                     if (reason != CrashReason.None)
                     {
+                        bool runWasActive = scoreSession.ValueRO.Active;
+
                         TriggerCrash(ref crashState.ValueRW, ref scoreSession.ValueRW,
                             ref summary.ValueRW, ref gameState.ValueRW, reason);
 
+                        if (AdaptiveDifficultyLogic.ShouldCountRun(runWasActive, summary.ValueRO.TimeSurvived))
+                        {
+                            runCompleted = true;
+                            runAverageMultiplier = AdaptiveDifficultyLogic.RunAverageMultiplier(
+                                scoreSession.ValueRO.Score, scoreSession.ValueRO.Distance);
+                            runTime = summary.ValueRO.TimeSurvived;
+                            runDistance = scoreSession.ValueRO.Distance;
+                            runHazardsDodged = summary.ValueRO.HazardsDodged;
+                            runHazardsHit = summary.ValueRO.HazardsHit;
+                        }
+
                         // Add crashed tag
                         ecb.AddComponent<CrashedTag>(entity);
+                    }
+                }
+
+                // Feed the finished run to adaptive difficulty
+                if (runCompleted)
+                {
+                    foreach (var profile in SystemAPI.Query<RefRW<DifficultyProfile>>())
+                    {
+                        AdaptiveDifficultyLogic.CompleteRun(ref profile.ValueRW, runAverageMultiplier,
+                            runTime, runDistance, runHazardsDodged, runHazardsHit);
+                        break;
                     }
                 }
 

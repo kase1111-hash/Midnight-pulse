@@ -269,6 +269,7 @@ namespace Nightflow.Systems
                 HighestSpeed = 0f,
                 ClosePasses = 0,
                 HazardsDodged = 0,
+                HazardsHit = 0,
                 DriftRecoveries = 0,
                 PerfectSegments = 0,
                 LaneWeaves = 0,
