@@ -3,6 +3,7 @@
 
 using NUnit.Framework;
 using Unity.Mathematics;
+using Nightflow.Systems;
 
 namespace Nightflow.Tests
 {
@@ -16,9 +17,8 @@ namespace Nightflow.Tests
         // Magnetism parameters (mirrors LaneMagnetismSystem)
         private const float BaseOmega = 8.0f;
         private const float ReferenceSpeed = 40f;
-        private const float MaxLateralSpeed = 6f;
-        private const float EdgeStiffness = 20f;
-        private const float SoftZoneRatio = 0.85f;
+        private const float MaxLateralSpeed = VehicleDynamics.MaxGripLateralSpeed;
+        private const float SoftZoneRatio = VehicleDynamics.EdgeSoftZoneRatio;
         private const float LaneWidth = 3.6f;
         private const int DefaultNumLanes = 4;
 
@@ -108,39 +108,35 @@ namespace Nightflow.Tests
 
         #region Modulation Factors
 
-        private static float CalculateInputModulation(float steerInput)
-        {
-            return 1f - math.abs(steerInput);
-        }
-
         private static float CalculateSpeedModulation(float speed)
         {
             float v = math.max(speed, 1f);
             return math.clamp(math.sqrt(v / ReferenceSpeed), 0.75f, 1.25f);
         }
 
+        // Steering no longer weakens the lane spring (m_input = 1 - |s| turned
+        // the spring off at full steer, so a held key never moved the car).
+        // Analog steering below the lane-change threshold leans the car inside
+        // its lane instead, and a stronger steer starts a lane change.
+
         [Test]
-        public void InputMod_NoSteering_FullMagnetism()
+        public void InLaneLean_NoSteering_StaysCentred()
         {
-            Assert.AreEqual(1f, CalculateInputModulation(0f), 0.001f);
+            Assert.AreEqual(0f, VehicleDynamics.InLaneOffset(0f), 0.001f);
         }
 
         [Test]
-        public void InputMod_FullSteerLeft_ZeroMagnetism()
+        public void InLaneLean_FollowsSteerDirection()
         {
-            Assert.AreEqual(0f, CalculateInputModulation(-1f), 0.001f);
+            Assert.Greater(VehicleDynamics.InLaneOffset(0.2f), 0f);
+            Assert.Less(VehicleDynamics.InLaneOffset(-0.2f), 0f);
         }
 
         [Test]
-        public void InputMod_FullSteerRight_ZeroMagnetism()
+        public void InLaneLean_StaysInsideTheLane()
         {
-            Assert.AreEqual(0f, CalculateInputModulation(1f), 0.001f);
-        }
-
-        [Test]
-        public void InputMod_HalfSteer_HalfMagnetism()
-        {
-            Assert.AreEqual(0.5f, CalculateInputModulation(0.5f), 0.001f);
+            Assert.Less(VehicleDynamics.InLaneOffset(1f), LaneWidth * 0.5f);
+            Assert.Less(VehicleDynamics.InLaneOffset(1.5f), LaneWidth * 0.5f);
         }
 
         [Test]
@@ -194,7 +190,7 @@ namespace Nightflow.Tests
 
         #region Combined Modulation
 
-        private static float CombineModulation(float baseMagnet, float mInput, bool autopilot,
+        private static float CombineModulation(float baseMagnet, bool autopilot,
             float speed, bool handbrake, bool drifting)
         {
             float mAuto = autopilot ? AutopilotMultiplier : 1f;
@@ -202,37 +198,37 @@ namespace Nightflow.Tests
             float mHandbrake = handbrake ? HandbrakeMultiplier : 1f;
             float mDrift = drifting ? DriftMultiplier : 1f;
 
-            return baseMagnet * mInput * mAuto * mSpeed * mHandbrake * mDrift;
+            return baseMagnet * mAuto * mSpeed * mHandbrake * mDrift;
         }
 
         [Test]
         public void CombinedMod_AllDefault_EqualsBaseMagnet()
         {
-            float result = CombineModulation(1f, 1f, false, ReferenceSpeed, false, false);
+            float result = CombineModulation(1f, false, ReferenceSpeed, false, false);
             Assert.AreEqual(1f, result, 0.01f);
         }
 
         [Test]
         public void CombinedMod_Autopilot_IncreasesModulation()
         {
-            float normal = CombineModulation(1f, 1f, false, ReferenceSpeed, false, false);
-            float autop = CombineModulation(1f, 1f, true, ReferenceSpeed, false, false);
+            float normal = CombineModulation(1f, false, ReferenceSpeed, false, false);
+            float autop = CombineModulation(1f, true, ReferenceSpeed, false, false);
             Assert.Greater(autop, normal);
         }
 
         [Test]
         public void CombinedMod_Handbrake_ReducesModulation()
         {
-            float normal = CombineModulation(1f, 1f, false, ReferenceSpeed, false, false);
-            float hbrake = CombineModulation(1f, 1f, false, ReferenceSpeed, true, false);
+            float normal = CombineModulation(1f, false, ReferenceSpeed, false, false);
+            float hbrake = CombineModulation(1f, false, ReferenceSpeed, true, false);
             Assert.Less(hbrake, normal);
         }
 
         [Test]
         public void CombinedMod_Drifting_ReducesModulation()
         {
-            float normal = CombineModulation(1f, 1f, false, ReferenceSpeed, false, false);
-            float drift = CombineModulation(1f, 1f, false, ReferenceSpeed, false, true);
+            float normal = CombineModulation(1f, false, ReferenceSpeed, false, false);
+            float drift = CombineModulation(1f, false, ReferenceSpeed, false, true);
             Assert.Less(drift, normal);
         }
 
@@ -243,14 +239,7 @@ namespace Nightflow.Tests
         private static float CalculateEdgeForce(float lateralPosition, int numLanes)
         {
             float halfRoadWidth = (numLanes * LaneWidth) * 0.5f;
-            float softEdge = halfRoadWidth * SoftZoneRatio;
-
-            float absLateral = math.abs(lateralPosition);
-            if (absLateral <= softEdge)
-                return 0f;
-
-            float xEdge = absLateral - softEdge;
-            return -math.sign(lateralPosition) * EdgeStiffness * xEdge * xEdge;
+            return VehicleDynamics.EdgeAcceleration(lateralPosition, halfRoadWidth);
         }
 
         [Test]
@@ -335,14 +324,6 @@ namespace Nightflow.Tests
         }
 
         [Test]
-        public void InputMod_OverSteer_ProducesNegative()
-        {
-            // Steer input > 1.0 produces negative modulation
-            float mod = CalculateInputModulation(1.5f);
-            Assert.Less(mod, 0f);
-        }
-
-        [Test]
         public void SpeedMod_NegativeSpeed_ClampedToMin()
         {
             // Negative speed is nonsensical — should be clamped
@@ -370,7 +351,7 @@ namespace Nightflow.Tests
         [Test]
         public void CombinedMod_AllModifiersActive_StillPositive()
         {
-            float result = CombineModulation(1f, 0.5f, true, ReferenceSpeed, true, true);
+            float result = CombineModulation(1f, true, ReferenceSpeed, true, true);
             Assert.Greater(result, 0f);
         }
 

@@ -97,6 +97,26 @@ namespace Nightflow.Utilities
         }
 
         /// <summary>
+        /// Signed horizontal curvature at parameter t (1/m): positive when the
+        /// road bends right (toward the frame's +right), negative when it bends
+        /// left. v² × this is the lateral acceleration needed to follow it.
+        /// κ_h(t) = (S'(t) × S''(t)).y / ‖S'(t)‖³
+        /// </summary>
+        [BurstCompile]
+        public static float EvaluateSignedCurvature(float3 p0, float3 t0, float3 p1, float3 t1, float t)
+        {
+            t = math.saturate(t);
+
+            float3 d1 = EvaluateTangent(p0, t0, p1, t1, t);
+            float3 d2 = EvaluateSecondDerivative(p0, t0, p1, t1, t);
+
+            float d1Mag = math.length(d1);
+            if (d1Mag < 0.0001f) return 0f;
+
+            return math.cross(d1, d2).y / (d1Mag * d1Mag * d1Mag);
+        }
+
+        /// <summary>
         /// Builds orthonormal Frenet frame at spline point.
         /// Forward: F(t) = normalize(S'(t))
         /// Right: R(t) = normalize(F(t) × Up)

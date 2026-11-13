@@ -27,6 +27,10 @@ namespace Nightflow.Systems
         // Transition parameters
         private const float ElevationBlendSpeed = 4f;
 
+        // Share of the arch height the chase camera rises by, and how fast (1/s)
+        private const float CameraElevationShare = 0.25f;
+        private const float CameraElevationResponse = 3f;
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
@@ -76,63 +80,42 @@ namespace Nightflow.Systems
             // Update Player Environment State
             // =============================================================
 
+            float elevation = 0f;
             foreach (var envState in SystemAPI.Query<RefRW<EnvironmentState>>()
                 .WithAll<PlayerVehicleTag>())
             {
                 envState.ValueRW.OnOverpass = onOverpass;
 
-                // Smoothly transition elevation
+                // Smoothly transition elevation (frame-rate independent)
                 envState.ValueRW.ElevationOffset = math.lerp(
                     envState.ValueRO.ElevationOffset,
                     targetElevation,
-                    ElevationBlendSpeed * deltaTime
+                    VehicleDynamics.Damp(ElevationBlendSpeed, deltaTime)
                 );
+                elevation = envState.ValueRO.ElevationOffset;
             }
 
-            // =============================================================
-            // Apply Elevation to Player Transform
-            // =============================================================
-
-            foreach (var (transform, envState) in
-                SystemAPI.Query<RefRW<WorldTransform>, RefRO<EnvironmentState>>()
-                    .WithAll<PlayerVehicleTag>())
-            {
-                // Adjust Y position based on elevation offset
-                // Note: This modifies the visual position, physics stays on track
-                float3 pos = transform.ValueRO.Position;
-
-                // Only apply if there's actual elevation change
-                if (math.abs(envState.ValueRO.ElevationOffset) > 0.01f)
-                {
-                    pos.y += envState.ValueRO.ElevationOffset;
-                    transform.ValueRW.Position = pos;
-                }
-            }
+            // The road surface under an overpass arch stays flat (only the
+            // barriers and pillars rise), so the car is never lifted here:
+            // LaneMagnetismSystem keeps it on the road. Adding the offset to
+            // the car's height every frame used to launch it skyward.
 
             // =============================================================
             // Update Camera Height for Overpass View
             // =============================================================
 
-            // CameraState is a singleton on the camera entity (not the player)
+            // CameraState is a singleton on the camera entity (not the player).
+            // The camera rises a little as the arch passes overhead and settles
+            // back afterwards (it eases toward a target instead of adding the
+            // elevation to itself every frame, which drifted upward forever).
             foreach (var cameraState in SystemAPI.Query<RefRW<CameraState>>())
             {
-                float elevation = 0f;
-                foreach (var envState in SystemAPI.Query<RefRO<EnvironmentState>>()
-                    .WithAll<PlayerVehicleTag>())
-                {
-                    elevation = envState.ValueRO.ElevationOffset;
-                    break;
-                }
-
-                // Adjust camera target height
-                // Camera follows player elevation smoothly
-                float3 baseOffset = cameraState.ValueRO.TargetOffset;
-                float3 targetOffset = new float3(baseOffset.x, baseOffset.y + elevation, baseOffset.z);
+                float3 targetOffset = new float3(0f, elevation * CameraElevationShare, 0f);
 
                 cameraState.ValueRW.TargetOffset = math.lerp(
-                    baseOffset,
+                    cameraState.ValueRO.TargetOffset,
                     targetOffset,
-                    3f * deltaTime
+                    VehicleDynamics.Damp(CameraElevationResponse, deltaTime)
                 );
             }
 

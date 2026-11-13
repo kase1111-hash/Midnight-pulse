@@ -1,7 +1,7 @@
 // ============================================================================
 // Nightflow - Difficulty Curve
-// Pure, Burst-friendly in-run difficulty ramp shared by the spawn systems,
-// vehicle movement and the EditMode tests. No ECS access in here.
+// Pure, Burst-friendly in-run difficulty ramp shared by the spawn systems
+// and the EditMode tests. No ECS access in here.
 //
 // One run = one continuous ramp (no discrete levels, see spec 08):
 //
@@ -13,9 +13,14 @@
 // difficulty" at intensity 1 and keeps tightening past it toward a cap. The
 // curve is C1 with a positive slope everywhere after the start: no steps, no
 // kink and no plateau where the ramp hands over to the overdrive.
+//
+// Speed is not a knob here: the run's pace (VehicleDynamics.PaceSpeed) keeps
+// climbing with no ceiling, and that unbounded momentum is what ends runs.
+// The traffic/hazard knobs level off so the speed itself stays the story.
 // ============================================================================
 
 using Unity.Mathematics;
+using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -44,9 +49,6 @@ namespace Nightflow.Systems
 
         /// <summary>Multiplier on emergency vehicle frequency (interval = base / scale).</summary>
         public float EmergencyFrequencyScale;
-
-        /// <summary>Speed the car eases up to when the player is off the pedals (m/s).</summary>
-        public float BaseCruiseSpeed;
     }
 
     public static class DifficultyCurve
@@ -79,17 +81,10 @@ namespace Nightflow.Systems
         public const float EmergencyStart = 1f;
         public const float EmergencyFull = 3f;                // spec: max emergency 3x (cap 4x)
 
-        // spec 08: "Base Speed increases over time"
-        public const float BaseCruiseStart = 25f;             // m/s (~90 km/h, autopilot cruise)
-        public const float BaseCruiseFull = 50f;              // m/s (Boosted tier threshold, cap 62.5)
+        // spec 08 "Base Speed increases over time" lives in VehicleDynamics
+        // (PaceSpeed): it has no cap, unlike these knobs.
 
-        /// <summary>How hard the car is pulled up to the base cruise speed (m/s²).</summary>
-        public const float CruiseAssistAcceleration = 2.5f;
-
-        /// <summary>Pedal input below this counts as "off the pedals".</summary>
-        public const float PedalDeadzone = 0.05f;
-
-        /// <summary>Traffic never exceeds this fraction of the player's top speed.</summary>
+        /// <summary>Traffic never exceeds this fraction of the player's reference speed.</summary>
         public const float MaxTrafficSpeedRatio = 0.65f;
 
         /// <summary>
@@ -143,32 +138,26 @@ namespace Nightflow.Systems
                 TrafficSpeedBonus = Knob(0f, TrafficSpeedBonusFull, i),
                 HazardRateScale = Knob(HazardRateStart, HazardRateFull, i),
                 LethalScale = Knob(LethalStart, LethalFull, i),
-                EmergencyFrequencyScale = Knob(EmergencyStart, EmergencyFull, i),
-                BaseCruiseSpeed = Knob(BaseCruiseStart, BaseCruiseFull, i)
+                EmergencyFrequencyScale = Knob(EmergencyStart, EmergencyFull, i)
             };
         }
 
         /// <summary>
-        /// Gently pulls the car up to the base cruise speed while the player is
-        /// off both pedals, like Tetris gravity: the run keeps getting faster on
-        /// its own, but throttle still goes higher and braking still goes lower.
+        /// Keeps traffic slower than the player drives so the top end never
+        /// turns into an empty road (traffic outrunning you is not "harder").
         /// </summary>
-        public static float ApplyCruiseAssist(float speed, float baseCruiseSpeed,
-            float throttle, float brake, float deltaTime)
+        public static float ClampTrafficSpeed(float trafficSpeed, float playerReferenceSpeed)
         {
-            if (throttle > PedalDeadzone || brake > PedalDeadzone || speed >= baseCruiseSpeed)
-                return speed;
-
-            return math.min(baseCruiseSpeed, speed + CruiseAssistAcceleration * deltaTime);
+            return math.min(trafficSpeed, playerReferenceSpeed * MaxTrafficSpeedRatio);
         }
 
         /// <summary>
-        /// Keeps traffic slower than the player can drive so the top end never
-        /// turns into an empty road (traffic outrunning you is not "harder").
+        /// Player speed traffic is tuned against: the reference fast speed early
+        /// in a run, the run's pace once momentum carries the car past it.
         /// </summary>
-        public static float ClampTrafficSpeed(float trafficSpeed, float playerMaxSpeed)
+        public static float TrafficSpeedReference(float pace)
         {
-            return math.min(trafficSpeed, playerMaxSpeed * MaxTrafficSpeedRatio);
+            return math.max(pace, GameConstants.MaxForwardSpeed);
         }
     }
 }

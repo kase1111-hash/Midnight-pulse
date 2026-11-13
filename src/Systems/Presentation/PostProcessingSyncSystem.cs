@@ -21,10 +21,19 @@ namespace Nightflow.Systems.Presentation
     [UpdateBefore(typeof(CrashFlashSystem))]
     public partial struct PostProcessingSyncSystem : ISystem
     {
-        // Speed thresholds (m/s)
-        private const float MotionBlurStartSpeed = 22.2f;   // ~80 km/h
-        private const float MotionBlurMaxSpeed = 69.4f;     // ~250 km/h
-        private const float ChromaticBoostSpeed = 55.5f;    // ~200 km/h
+        // Speed effects follow VehicleDynamics.SpeedFeel, which keeps building
+        // with no top speed: blur starts ~80 km/h and is still deepening past
+        // 500 km/h; chromatic fringing creeps in from ~200 km/h
+        private const float MotionBlurStartFeel = 0.185f;  // SpeedFeel at ~80 km/h
+        private const float ChromaticStartFeel = 0.58f;    // SpeedFeel at ~200 km/h
+        private const float FullEffectFeel = 0.95f;        // SpeedFeel at ~150 m/s
+        private const float BaseChromatic = 0.01f;
+        private const float SpeedChromatic = 0.02f;
+
+        // Tyres near their grip limit: the image starts to fringe
+        private const float TractionChromatic = 0.015f;
+        private const float TractionEffectStart = 0.85f;   // usage
+        private const float TractionEffectFull = 1.3f;     // usage
 
         // Damage thresholds
         private const float DamageVignetteStart = 30f;      // 30% damage
@@ -42,6 +51,7 @@ namespace Nightflow.Systems.Presentation
             // Get player state
             float playerSpeed = 0f;
             float playerDamage = 0f;
+            float tractionUsage = 0f;
 
             foreach (var (velocity, damage) in
                 SystemAPI.Query<RefRO<Velocity>, RefRO<DamageState>>()
@@ -52,34 +62,35 @@ namespace Nightflow.Systems.Presentation
                 break;
             }
 
+            foreach (var traction in SystemAPI.Query<RefRO<TractionState>>().WithAll<PlayerVehicleTag>())
+            {
+                tractionUsage = traction.ValueRO.Usage;
+                break;
+            }
+
             // Update render state
             float elapsedTime = (float)SystemAPI.Time.ElapsedTime;
             foreach (var renderState in SystemAPI.Query<RefRW<RenderState>>())
             {
-                UpdateSpeedEffects(ref renderState.ValueRW, playerSpeed);
+                UpdateSpeedEffects(ref renderState.ValueRW, playerSpeed, tractionUsage);
                 UpdateDamageEffects(ref renderState.ValueRW, playerDamage, elapsedTime);
             }
         }
 
         [BurstCompile]
-        private void UpdateSpeedEffects(ref RenderState state, float speed)
+        private void UpdateSpeedEffects(ref RenderState state, float speed, float tractionUsage)
         {
-            // Motion blur scales with speed²
-            float speedRatio = math.saturate((speed - MotionBlurStartSpeed) /
-                (MotionBlurMaxSpeed - MotionBlurStartSpeed));
-            state.MotionBlurIntensity = speedRatio * speedRatio;
+            float feel = VehicleDynamics.SpeedFeel(speed);
 
-            // Chromatic aberration at high speed
-            if (speed > ChromaticBoostSpeed)
-            {
-                float chromaFactor = math.saturate((speed - ChromaticBoostSpeed) /
-                    (MotionBlurMaxSpeed - ChromaticBoostSpeed));
-                state.ChromaticAberration = 0.01f + chromaFactor * 0.02f;
-            }
-            else
-            {
-                state.ChromaticAberration = 0.01f; // Base value
-            }
+            // Motion blur builds with speed² (on the shared speed curve)
+            float blur = math.saturate((feel - MotionBlurStartFeel) / (FullEffectFeel - MotionBlurStartFeel));
+            state.MotionBlurIntensity = blur * blur;
+
+            // Chromatic aberration at high speed, plus a fringe when the tyres
+            // are near their limit (the car is about to let go)
+            float chroma = math.saturate((feel - ChromaticStartFeel) / (FullEffectFeel - ChromaticStartFeel));
+            float edge = math.saturate((tractionUsage - TractionEffectStart) / (TractionEffectFull - TractionEffectStart));
+            state.ChromaticAberration = BaseChromatic + chroma * SpeedChromatic + edge * TractionChromatic;
         }
 
         [BurstCompile]
@@ -254,7 +265,7 @@ namespace Nightflow.Systems.Presentation
             // Update PostProcessState singleton
             foreach (var ppState in SystemAPI.Query<RefRW<PostProcessState>>())
             {
-                ppState.ValueRW.SpeedLevel = speed / 69.4f; // Normalized to max speed
+                ppState.ValueRW.SpeedLevel = VehicleDynamics.SpeedFeel(speed); // 0..1, keeps building (no top speed)
                 ppState.ValueRW.DamageLevel = damage / 100f;
                 ppState.ValueRW.MotionBlurIntensity = motionBlur;
                 ppState.ValueRW.VignetteIntensity = vignette;

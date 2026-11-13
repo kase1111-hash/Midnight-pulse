@@ -130,6 +130,13 @@ namespace Nightflow.Systems
             bool menuOpen = gameState.ValueRO.CurrentMenu != MenuState.None;
             bool crashFlowActive = gameState.ValueRO.CrashPhase != CrashFlowPhase.None;
 
+            // A key still held from a menu or the summary must be released
+            // before input can take the wheel from the autopilot
+            bool takeoverArmed = gameState.ValueRO.TakeoverArmed;
+            bool takeoverInput = GameFlowLogic.TakeoverIntent(
+                humanInput, menuOpen || crashFlowActive, ref takeoverArmed);
+            gameState.ValueRW.TakeoverArmed = takeoverArmed;
+
             var ecb = new EntityCommandBuffer(Allocator.Temp);
             try
             {
@@ -141,9 +148,15 @@ namespace Nightflow.Systems
                 {
                     float idleTimer = gameState.ValueRO.IdleTimer;
 
+                    // While the autopilot drives, only a deliberate (armed) input
+                    // takes over; while the player drives, any input counts as activity
+                    bool pilotInput = autopilot.ValueRO.Enabled
+                        ? takeoverInput
+                        : autopilot.ValueRO.HumanInputDetected;
+
                     PilotDecision decision = GameFlowLogic.EvaluatePilot(
                         autopilot.ValueRO.Enabled,
-                        autopilot.ValueRO.HumanInputDetected,
+                        pilotInput,
                         menuOpen,
                         crashFlowActive,
                         ref idleTimer,

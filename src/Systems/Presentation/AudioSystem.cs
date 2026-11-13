@@ -102,9 +102,10 @@ namespace Nightflow.Systems
                     SystemAPI.Query<RefRO<Velocity>, RefRO<PlayerInput>, RefRO<DriftState>>()
                         .WithAll<PlayerVehicleTag>())
                 {
-                    // Calculate RPM from speed (simplified)
+                    // RPM/pitch from the shared speed curve: keeps rising with
+                    // the momentum instead of pinning at ~250 km/h
                     float speed = velocity.ValueRO.Forward;
-                    float rpmNorm = math.saturate(speed / 70f);
+                    float rpmNorm = VehicleDynamics.SpeedFeel(speed);
                     float rpm = math.lerp(EngineMinRPM, EngineMaxRPM, rpmNorm);
 
                     // Pitch from RPM
@@ -214,19 +215,24 @@ namespace Nightflow.Systems
                 float tireSquealVolume = 0f;
                 float tireSquealPitch = 1f;
 
-                foreach (var (driftState, velocity) in
-                    SystemAPI.Query<RefRO<DriftState>, RefRO<Velocity>>()
+                foreach (var (driftState, velocity, traction) in
+                    SystemAPI.Query<RefRO<DriftState>, RefRO<Velocity>, RefRO<TractionState>>()
                         .WithAll<PlayerVehicleTag>())
                 {
+                    float speed = velocity.ValueRO.Forward;
+
                     if (driftState.ValueRO.IsDrifting)
                     {
                         // Squeal intensity from slip angle and speed
                         float slipAmount = math.abs(driftState.ValueRO.SlipAngle);
-                        float speed = velocity.ValueRO.Forward;
-
                         tireSquealVolume = math.saturate(slipAmount * speed * 0.01f);
-                        tireSquealPitch = 0.8f + tireSquealVolume * 0.4f;
                     }
+
+                    // Tyres working near their grip limit squeal too: the
+                    // warning that the momentum is about to outrun them
+                    float gripSqueal = math.saturate((traction.ValueRO.Usage - 0.75f) / 0.4f);
+                    tireSquealVolume = math.max(tireSquealVolume, gripSqueal);
+                    tireSquealPitch = 0.8f + tireSquealVolume * 0.4f;
                     break;
                 }
 
@@ -282,8 +288,8 @@ namespace Nightflow.Systems
                     SystemAPI.Query<RefRO<ScoreSession>, RefRO<RiskState>, RefRO<Velocity>>()
                         .WithAll<PlayerVehicleTag>())
                 {
-                    // Higher intensity at high speed
-                    float speedFactor = math.saturate(velocity.ValueRO.Forward / 60f);
+                    // Higher intensity at high speed (keeps building with the momentum)
+                    float speedFactor = VehicleDynamics.SpeedFeel(velocity.ValueRO.Forward);
 
                     // Higher intensity with risk multiplier
                     float riskFactor = riskState.ValueRO.Value;

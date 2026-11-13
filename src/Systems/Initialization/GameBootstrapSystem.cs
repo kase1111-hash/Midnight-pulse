@@ -127,6 +127,7 @@ namespace Nightflow.Systems
             });
             ecb.AddComponent(playerEntity, new LaneTransition());
             ecb.AddComponent(playerEntity, new DriftState());
+            ecb.AddComponent(playerEntity, new TractionState());
             ecb.AddComponent(playerEntity, new SpeedTier { Tier = 0, Multiplier = 1f });
 
             // Lane following
@@ -442,7 +443,8 @@ namespace Nightflow.Systems
                 CurrentMenu = MenuState.MainMenu,  // Start at main menu
                 MenuVisible = true,
                 TimeScale = 1f,           // The world never stops
-                VehicleResetPending = false
+                VehicleResetPending = false,
+                TakeoverArmed = false     // Armed once every control is released after the menu
             });
 
             ecb.AddComponent<UIControllerTag>(uiEntity);

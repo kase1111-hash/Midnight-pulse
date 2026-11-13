@@ -120,6 +120,45 @@ namespace Nightflow.Tests
         }
 
         [Test]
+        public void TakeoverIntent_KeyHeldFromMenu_MustBeReleasedFirst()
+        {
+            bool armed = false;
+
+            // Menu open: input never arms or takes over
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(true, true, ref armed));
+            Assert.IsFalse(armed);
+
+            // Menu closed with Space still held (the key that pressed Start)
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(true, false, ref armed));
+            Assert.IsFalse(armed);
+
+            // Released: arms without taking over
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(false, false, ref armed));
+            Assert.IsTrue(armed);
+
+            // A fresh press takes the wheel
+            Assert.IsTrue(GameFlowLogic.TakeoverIntent(true, false, ref armed));
+        }
+
+        [Test]
+        public void TakeoverIntent_MenuOrCrashDisarms()
+        {
+            bool armed = true;
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(false, true, ref armed));
+            Assert.IsFalse(armed);
+        }
+
+        [Test]
+        public void TakeoverIntent_IdleHandoff_NextInputTakesOverImmediately()
+        {
+            // The autopilot took over after the idle timeout (nothing held), so
+            // takeover is already armed and the first touch takes the wheel
+            bool armed = false;
+            GameFlowLogic.TakeoverIntent(false, false, ref armed);
+            Assert.IsTrue(GameFlowLogic.TakeoverIntent(true, false, ref armed));
+        }
+
+        [Test]
         public void AutopilotTargetSpeed_HoldsComfortBand()
         {
             Assert.AreEqual(GameConstants.AutopilotRecoverySpeed,

@@ -166,6 +166,33 @@ namespace Nightflow.Components
     }
 
     /// <summary>
+    /// How hard the player car's tyres are working. Written by
+    /// LaneMagnetismSystem every frame; read by VehicleMovementSystem (the rear
+    /// steps out past the limit), the camera (shake), audio (squeal) and the
+    /// HUD (traction warning). See VehicleDynamics for the model.
+    /// </summary>
+    public struct TractionState : IComponentData
+    {
+        /// <summary>Smoothed tyre load / grip: 0 cruising, 1 at the limit, above 1 sliding.</summary>
+        public float Usage;
+
+        /// <summary>Grip available this frame (m/s^2); falls as the car goes faster.</summary>
+        public float Grip;
+
+        /// <summary>Acceleration needed to follow the road's curve (v^2 * curvature, + = right).</summary>
+        public float CurveAccel;
+
+        /// <summary>Direction of the lateral load (-1 left, 0, +1 right): the way the rear steps out.</summary>
+        public float LoadDirection;
+
+        /// <summary>Seconds the tyres have been continuously past the limit.</summary>
+        public float SlideTime;
+
+        /// <summary>True while Usage is above 1.</summary>
+        public bool Sliding;
+    }
+
+    /// <summary>
     /// Speed tier for scoring and visual effects.
     /// </summary>
     public struct SpeedTier : IComponentData

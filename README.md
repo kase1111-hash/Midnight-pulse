@@ -30,7 +30,9 @@ Experience the ultimate **endless highway game** - a **chill driving experience*
 2. Steer smoothly between lanes, speed up/down, handbrake drift
 3. Avoid/pass traffic, hazards, emergency vehicles
 4. Small hits damage vehicle -> handling degradation -> component failures
-5. Large hit or total failure -> crash -> fade -> score summary -> autopilot reset -> resume
+5. Large hit, total failure or a slide you can't catch -> crash -> slow motion -> fade -> score summary -> autopilot reset -> resume
+
+**There is no top speed.** Every run carries you at a pace that keeps climbing (about 195 km/h after two minutes, 340 km/h after four) with nothing to slow you down: throttle adds speed you keep, the brake only trims it so far. The car goes light as it gets faster while corners and lane changes ask more of the tyres, until the momentum outruns the grip, the rear steps out and you either catch it or lose control.
 
 Whether you're looking for a **night driving simulator** to unwind or a **vaporwave driving simulator** to test your reflexes, Nightflow delivers both.
 
@@ -38,7 +40,7 @@ Whether you're looking for a **night driving simulator** to unwind or a **vaporw
 
 **Critical Rule:** No scene reloads. Ever.
 
-**The car never stops.** Menus and the crash sequence are overlays on a world that keeps moving: the autopilot drives under the title screen, through the pause menu and after every crash, and the moment you touch the controls the wheel is yours and the score starts counting. Walk away for ten seconds and the autopilot takes over again with your run frozen until you come back.
+**The car never stops.** Menus and the crash sequence are overlays on a world that keeps moving: the autopilot drives under the title screen, through the pause menu and after every crash, and the moment you touch the controls the wheel is yours and the score starts counting. Walk away for fifteen seconds and the autopilot takes over again with your run frozen until you come back.
 
 ---
 
@@ -62,9 +64,9 @@ Whether you're looking for a **night driving simulator** to unwind or a **vaporw
 | Input | Function |
 |-------|----------|
 | Analog Steer | Smoothed, lane-based steering with magnetism |
-| Throttle | Speed up (accelerate) |
-| Brake | Slow down (ends active scoring) |
-| Handbrake | Drift/spin (maintains forward velocity >= 8 m/s) |
+| Throttle | Boost above the run's pace (no top speed; speed you gain is speed you keep) |
+| Brake | Trim speed, never below 70% of the pace (halves the risk multiplier) |
+| Handbrake | Drift/spin (maintains forward velocity >= 8 m/s); riskier the faster you go |
 
 **Wheel Support:** Full Logitech SDK integration with force feedback effects.
 
@@ -148,7 +150,7 @@ build/                  Build system and scripts
 |-----------|-------|---------|
 | `LaneWidth` | 3.6 m | Standard freeway lane width |
 | `MinForwardSpeed` | 8 m/s | Minimum speed (spins never stall) |
-| `MaxForwardSpeed` | 80 m/s | Speed cap |
+| `MaxForwardSpeed` | 80 m/s | Reference speed (no cap: momentum builds until you lose control) |
 | `MaxDamage` | 100 | Crash threshold |
 | `SegmentLength` | 200 m | Track segment length |
 | `SegmentsAhead` | 5 | Lookahead buffer |

@@ -21,6 +21,57 @@ namespace Nightflow.Systems
         /// <summary>An escape lane must be at least this much safer than staying.</summary>
         public const float EscapeMargin = 0.1f;
 
+        /// <summary>How fast the autopilot eases its speed down after a fast handoff (m/s^2).</summary>
+        public const float ComfortDecel = 4f;
+
+        /// <summary>How fast the autopilot eases its speed up (m/s^2).</summary>
+        public const float ComfortAccel = 2.5f;
+
+        /// <summary>Hazards are watched at least this many seconds of road ahead.</summary>
+        public const float DetectionSeconds = 2.5f;
+
+        /// <summary>Speed error inside which the autopilot leaves the pedals alone (m/s).</summary>
+        public const float SpeedDeadband = 0.5f;
+
+        /// <summary>Throttle per m/s of speed deficit.</summary>
+        public const float ThrottleGain = 0.5f;
+
+        /// <summary>Brake per m/s of speed excess.</summary>
+        public const float BrakeGain = 0.08f;
+
+        /// <summary>
+        /// Moves the autopilot's working speed toward its goal at comfortable
+        /// rates, so taking the wheel from a player at 300 km/h eases down
+        /// instead of standing on the brakes.
+        /// </summary>
+        public static float EaseTargetSpeed(float current, float goal, float deltaTime)
+        {
+            if (!math.isfinite(current))
+                return goal;
+
+            float dt = math.max(deltaTime, 0f);
+            return goal < current
+                ? math.max(goal, current - ComfortDecel * dt)
+                : math.min(goal, current + ComfortAccel * dt);
+        }
+
+        /// <summary>Hazard look-ahead (m): a fixed range or a few seconds of road, whichever is longer.</summary>
+        public static float DetectionRange(float speed, float minRange)
+        {
+            return math.max(minRange, math.max(speed, 0f) * DetectionSeconds);
+        }
+
+        /// <summary>
+        /// Pedals that track a target speed. Nothing slows the car on its own
+        /// (no drag), so inside the deadband the autopilot simply coasts.
+        /// </summary>
+        public static void SpeedControl(float speed, float target, out float throttle, out float brake)
+        {
+            float error = target - speed;
+            throttle = error > SpeedDeadband ? math.saturate(error * ThrottleGain) : 0f;
+            brake = error < -SpeedDeadband ? math.saturate(-error * BrakeGain) : 0f;
+        }
+
         /// <summary>
         /// Threat of one hazard: severity scaled by how close it is, 0 outside
         /// (0, range).

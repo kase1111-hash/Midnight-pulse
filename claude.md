@@ -147,9 +147,11 @@ public partial struct MySystem : ISystem
 - `src/Config/GameConstants.cs` - Central constants reference
 
 **Gameplay:**
+- `src/Systems/Core/VehicleDynamics.cs` - Pure momentum / grip / yaw / loss-of-control rules (unit-tested)
 - `src/Systems/Simulation/InputSystem.cs` - Input handling
-- `src/Systems/Simulation/VehicleMovementSystem.cs` - Physics & drift
-- `src/Systems/Simulation/SteeringSystem.cs` - Lane following
+- `src/Systems/Simulation/VehicleMovementSystem.cs` - Momentum, yaw & drift
+- `src/Systems/Simulation/LaneMagnetismSystem.cs` - Lateral motion, grip, traction state
+- `src/Systems/Simulation/SteeringSystem.cs` - Lane changes
 - `src/Systems/Simulation/TrackGenerationSystem.cs` - Procedural generation
 
 **Rendering:**
@@ -295,16 +297,20 @@ public struct WeatherAffectedTag : IComponentData { }
 3. **No Scene Reloads:** Continuous gameplay loop, reset via entity state only
 4. **ECB Disposal:** Always dispose `EntityCommandBuffer` after playback
 5. **Burst Safety:** No managed types in Burst-compiled code
-6. **The World Never Stops:** Menus and the crash sequence are overlays. Nothing zeroes the time scale or gates simulation on `IsPaused`; the autopilot drives whenever the player does not
+6. **The World Never Stops:** Menus and the crash sequence are overlays. Nothing zeroes the time scale or gates simulation on `IsPaused`; the autopilot drives whenever the player does not. The only time-scale change is the crash slow-motion (`GameState.TimeScale`, applied by `TimeScaleDriver`, never below 0.25)
 7. **Query Arity:** `SystemAPI.Query` takes at most 7 type arguments; fetch extra components with `SystemAPI.GetComponent(entity)` and never put zero-sized tags in `RefRO`/`RefRW`
+8. **No Terminal Velocity:** Nothing caps or drags the player's speed (`GameConstants.MaxForwardSpeed` is a reference value, not a limit). Runs end when the momentum outruns the grip; tune difficulty through `VehicleDynamics`, never with a speed clamp
+9. **Frame-Rate Independence:** Integrate vehicle motion with `VehicleDynamics.SubSteps` and smooth with `VehicleDynamics.Damp` (exponential), never `lerp(a, b, k * dt)` or a position step that multiplies `dt` twice
 
 ## Game Flow (who drives, who scores)
 
 - `GameStateSystem` (Simulation, right after `InputSystem`) is the **only** writer of flow transitions on the `GameState` singleton: crash phases, pilot handoff, run start. `ScreenFlowSystem`/`UISystem` only derive UI flags from it.
 - `GameFlowLogic` holds the pure rules (`EvaluatePilot`, `AdvanceCrashPhase`, `CoastingSpeed`, fresh-run defaults) so they are unit-testable without a World (`src/Tests/GameFlowLogicTests.cs`).
 - `InputSystem` reports human intent on `Autopilot.HumanInputDetected`; it never decides the handoff. Any menu open ⇒ autopilot drives and input cannot grab the wheel. Idle for `IdleTimeoutForAutopilot` ⇒ autopilot, score frozen. Input while autopilot drives ⇒ player takes over; if no run is active a fresh `ScoreSession` starts.
-- `AutopilotSystem` writes `PlayerInput`; movement, steering and lane magnetism do not special-case the autopilot (`AutopilotActiveTag` is informational). While the autopilot drives: no score, no risk events, no structural damage, no crash evaluation.
-- Crash: `CrashSystem` sets `IsCrashed`, closes the run, starts the flow (`ScreenFlowSystem.TriggerCrash`). `GameStateSystem` times Impact → Shake → FadeOut → Summary → Reset → FadeIn and raises `GameState.VehicleResetPending` on Reset; `CrashSystem` consumes it (`ResetVehicle`) and hands the car to the autopilot. Menus that leave the summary call `ScreenFlowSystem.RequestVehicleReset`, never clear `CrashPhase` directly.
+- Takeover needs a deliberate input: `GameFlowLogic.TakeoverIntent` disarms while a menu is open or the crash flow plays and re-arms once every control is released (`GameState.TakeoverArmed`), so a key held from a menu never grabs the wheel.
+- `AutopilotSystem` writes `PlayerInput`; movement, steering and lane magnetism do not special-case the autopilot (`AutopilotActiveTag` is informational) beyond its 2x grip and stronger magnetism. It eases from the speed it was handed (`AutopilotLogic.EaseTargetSpeed`) and never steers past the lane-change threshold (lane changes are requests). While the autopilot drives: no score, no risk events, no structural damage, no crash evaluation, and no run pace (it manages its own speed).
+- Momentum: while the player drives a run, `VehicleMovementSystem` carries the car at `VehicleDynamics.PaceSpeed(TimeSurvived, Distance)` (no ceiling) with the brake floored at 70% of it. `LaneMagnetismSystem` writes `TractionState` (tyre usage vs grip); `CrashSystem` ends the run with `CrashReason.LostControl` when `DriftState.SlipAngle` passes `VehicleDynamics.LostControlSlip(speed)`.
+- Crash: `CrashSystem` sets `IsCrashed`, closes the run, starts the flow (`ScreenFlowSystem.TriggerCrash`). `GameStateSystem` times Impact → Shake → FadeOut → Summary → Reset → FadeIn and raises `GameState.VehicleResetPending` on Reset; `CrashSystem` consumes it (`ResetVehicle`) and hands the car to the autopilot. Menus that leave the summary call `ScreenFlowSystem.RequestVehicleReset`, never clear `CrashPhase` directly. `CameraSystem` cuts to its chase position when the crashed car is reset (under the black), so the fade-in shows a settled view.
 - Managed UI (`MenuController`) must go through the static helpers on `ScreenFlowSystem` / `MenuNavigationSystem` rather than poking `GameState` fields.
 
 ## Version

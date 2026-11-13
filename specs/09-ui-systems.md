@@ -8,7 +8,7 @@
 
 | Element | Description |
 |---------|-------------|
-| Speed | Current velocity (km/h or mph) |
+| Speed | Current velocity (km/h or mph); speed dots light at 100/160/220/280/340 km/h as the momentum builds |
 | Multiplier | Active score modifier with tier indicator |
 | Score | Running total with smooth interpolation |
 | Damage | Zone indicators (bars for front/rear/left/right) |
@@ -59,18 +59,23 @@
 
 ## Crash Flow
 
-1. Impact detected
-2. Screen shake (proportional to impact)
+1. Impact detected (or the car slides past the survivable slip angle: `LOST CONTROL`)
+2. Slow motion: the world drops to 0.3x for the impact (0.3 s of game time) and eases back to 1x during the screen shake (`TimeScaleDriver` applies `GameState.TimeScale`; never below 0.25x, never zero); the chase camera pulls out and rises to watch the wreck
 3. Crash flash effect:
    - Flash-in: 0.05s
    - Hold: 0.08s
    - Fade-out: 0.4s
 4. Quick fade to black
 5. Score summary (breakdown + save option)
-6. Vehicle reset (no reload)
-7. Autopilot resumes instantly
+6. Vehicle reset (no reload); the camera cuts to its chase position under the black so the fade-in reveals a settled view
+7. Autopilot resumes instantly, cruising at recovery speed
 
 No loading screens.
+
+### Taking the wheel
+- The first control input while the autopilot drives (no menu open) starts the run
+- A key still held when a menu closes or the summary is dismissed (Space/Enter to start, S/W to navigate) must be released first, so starting a run never fires a handbrake or brake the player didn't mean
+- The run's pace starts at the autopilot's cruise (90 km/h), so the takeover itself never jolts the car
 
 ---
 
@@ -80,7 +85,7 @@ No loading screens.
 - At boot (attract mode under the main menu)
 - While any menu is open
 - After crash (following the in-place vehicle reset)
-- After 10 s without any control input (run suspended, score frozen)
+- After 15 s without any control input (run suspended, score frozen)
 
 ### Behavior
 - Lane-following with magnetism
@@ -260,6 +265,7 @@ Deterministic via seeded PRNG and pure math
 - Component failure alerts
 - Emergency vehicle proximity
 - Hazard ahead markers
+- Traction: `TRACTION LIMIT` from tyre usage 0.85, `LOSING GRIP` past 1 (clears below 0.75); with tyre squeal, camera shake and a chromatic fringe, so the loss of control the momentum builds toward is readable before it happens
 
 ### Presentation
 - Edge-of-screen placement

@@ -84,6 +84,10 @@ namespace Nightflow.Systems
         private const float DriftRecoveryYaw = 0.5f;      // radians - significant drift
         private const float DriftRecoveryRiskBonus = 0.25f;
 
+        // Slide save: the tyres went past the limit and the driver caught it
+        private const float SlideSaveMinTime = 0.25f;     // seconds past the limit
+        private const float SlideSaveRiskBonus = 0.3f;    // scaled up by how far past the limit
+
         // Full spin detection
         private const float FullSpinThreshold = 2f * math.PI; // 360 degrees
         private const float FullSpinRiskBonus = 0.5f;
@@ -103,7 +107,12 @@ namespace Nightflow.Systems
         // Drift/spin tracking
         private float _accumulatedYaw;
         private bool _wasInDrift;
-        private float _lastDriftYaw;
+        private float _lastDriftYaw;      // peak |yaw| of the current drift
+
+        // Slide (past the grip limit) tracking
+        private bool _wasSliding;
+        private float _slidePeakUsage;
+        private float _slideDuration;
 
         // Emergency tracking
         private bool _emergencyWasClose;
@@ -171,6 +180,9 @@ namespace Nightflow.Systems
             _accumulatedYaw = 0f;
             _wasInDrift = false;
             _lastDriftYaw = 0f;
+            _wasSliding = false;
+            _slidePeakUsage = 0f;
+            _slideDuration = 0f;
             _emergencyWasClose = false;
             _lastSegmentIndex = -1;
             _segmentDamageAccum = 0f;
@@ -502,11 +514,53 @@ namespace Nightflow.Systems
                 }
             }
 
-            _wasInDrift = playerDrifting;
+            // Track the drift's peak angle: by the time the drift ends the yaw
+            // has settled below the exit threshold, so the last value never
+            // qualified and the recovery bonus could not fire
             if (playerDrifting)
             {
-                _lastDriftYaw = playerYawOffset;
+                float yaw = math.abs(playerYawOffset);
+                _lastDriftYaw = _wasInDrift ? math.max(_lastDriftYaw, yaw) : yaw;
             }
+            _wasInDrift = playerDrifting;
+
+            // =============================================================
+            // Slide Save Detection
+            // =============================================================
+            // The momentum pushed the tyres past their limit and the driver
+            // caught it (brake, counter-steer, ease off) without crashing
+
+            bool sliding = false;
+            float usage = 0f;
+            float slideTime = 0f;
+            foreach (var traction in SystemAPI.Query<RefRO<TractionState>>().WithAll<PlayerVehicleTag>())
+            {
+                sliding = traction.ValueRO.Sliding;
+                usage = traction.ValueRO.Usage;
+                slideTime = traction.ValueRO.SlideTime;
+                break;
+            }
+
+            bool playerCrashed = false;
+            foreach (var crash in SystemAPI.Query<RefRO<CrashState>>().WithAll<PlayerVehicleTag>())
+            {
+                playerCrashed = crash.ValueRO.IsCrashed;
+                break;
+            }
+
+            if (sliding)
+            {
+                _slidePeakUsage = _wasSliding ? math.max(_slidePeakUsage, usage) : usage;
+                _slideDuration = slideTime;
+            }
+            else if (_wasSliding && !playerCrashed && _slideDuration >= SlideSaveMinTime)
+            {
+                float severity = math.saturate(_slidePeakUsage - 1f);
+                riskBonus += SlideSaveRiskBonus * (1f + severity);
+                _driftRecoveriesThisFrame++;
+                RegisterRiskEvent(ref riskBonus);
+            }
+            _wasSliding = sliding && !playerCrashed;
 
             // =============================================================
             // Full Spin Detection

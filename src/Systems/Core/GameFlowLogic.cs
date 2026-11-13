@@ -95,6 +95,36 @@ namespace Nightflow.Systems
         }
 
         /// <summary>
+        /// Whether this frame's control input may take the wheel from the
+        /// autopilot. While a menu is open or the crash sequence plays, takeover
+        /// is disarmed; it re-arms on the first frame with every control
+        /// released. So the Space/Enter that started a run, the S/W used to
+        /// navigate a menu, or the key that dismissed the summary never grabs
+        /// the wheel with a handbrake or brake the player didn't mean: the run
+        /// starts on a fresh, deliberate input.
+        /// </summary>
+        /// <param name="humanInput">Player moved a control this frame.</param>
+        /// <param name="blocked">A menu is open or the crash sequence is playing.</param>
+        /// <param name="armed">Persistent arm state (in/out).</param>
+        public static bool TakeoverIntent(bool humanInput, bool blocked, ref bool armed)
+        {
+            if (blocked)
+            {
+                armed = false;
+                return false;
+            }
+
+            if (!armed)
+            {
+                if (!humanInput)
+                    armed = true;
+                return false;
+            }
+
+            return humanInput;
+        }
+
+        /// <summary>
         /// Whether processed control values count as the player moving the controls.
         /// </summary>
         public static bool IsHumanInput(float steer, float throttle, float brake, bool handbrake)
@@ -127,7 +157,7 @@ namespace Nightflow.Systems
         /// <param name="timer">Seconds spent in the current phase (in/out, already incremented by the caller).</param>
         /// <param name="dismissRequested">Player asked to leave the summary (input or menu).</param>
         /// <param name="fadeAlpha">Black overlay alpha for this frame.</param>
-        /// <param name="timeScale">Presentation time-scale hint for this frame.</param>
+        /// <param name="timeScale">Slow-motion time scale for this frame (applied by TimeScaleDriver).</param>
         /// <returns>True when the Reset phase was just entered (vehicle reset must be requested).</returns>
         public static bool AdvanceCrashPhase(
             ref CrashFlowPhase phase,

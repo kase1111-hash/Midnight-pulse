@@ -29,14 +29,19 @@ namespace Nightflow.Systems
         private const float ScoreDisplaySmoothing = 8f;
         private const float WarningFlashRate = 4f;        // Hz
 
+        // Traction warning hysteresis: on near the limit, off once comfortably below
+        private const float TractionWarningOff = 0.75f;
+
         // Previous frame values for flash detection
         private float _prevDamage;
         private float _prevMultiplier;
+        private bool _tractionWarning;
 
         public void OnCreate(ref SystemState state)
         {
             _prevDamage = 0f;
             _prevMultiplier = 1f;
+            _tractionWarning = false;
         }
 
         [BurstCompile]
@@ -128,10 +133,27 @@ namespace Nightflow.Systems
                     // Warning flash state
                     uiState.ValueRW.WarningFlash = math.frac(time * WarningFlashRate) < 0.5f;
 
-                    // Priority: Emergency > Critical Damage > High Risk
+                    // Traction: warn as the tyres near their grip limit, so the
+                    // loss of control the momentum is building toward is readable
+                    float tractionUsage = 0f;
+                    foreach (var traction in SystemAPI.Query<RefRO<TractionState>>().WithAll<PlayerVehicleTag>())
+                    {
+                        tractionUsage = traction.ValueRO.Usage;
+                        break;
+                    }
+
+                    if (tractionUsage > VehicleDynamics.TractionWarningUsage)
+                        _tractionWarning = true;
+                    else if (tractionUsage < TractionWarningOff)
+                        _tractionWarning = false;
+
+                    uiState.ValueRW.TractionUsage = tractionUsage;
+                    uiState.ValueRW.TractionWarning = _tractionWarning;
+
+                    // Priority: Emergency > Traction / Critical Damage > High Risk
                     int priority = 0;
                     if (emergencyWarning) priority = 3;
-                    else if (uiState.ValueRO.CriticalDamage) priority = 2;
+                    else if (_tractionWarning || uiState.ValueRO.CriticalDamage) priority = 2;
                     else if (uiState.ValueRO.RiskPercent > 0.8f) priority = 1;
                     uiState.ValueRW.WarningPriority = priority;
 

@@ -7,6 +7,7 @@ using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
 using Nightflow.Components;
+using Nightflow.Tags;
 
 namespace Nightflow.Systems.Audio
 {
@@ -41,6 +42,25 @@ namespace Nightflow.Systems.Audio
         // RPM smoothing
         private const float RPMSmoothSpeed = 5f;
 
+        // Gearbox: there is no top speed, so the engine climbs through the
+        // gears as the momentum builds instead of sitting on the limiter.
+        // Each gear sweeps ShiftDownRPM -> ShiftUpRPM over its speed band; the
+        // top gear never tops out and creeps toward the redline forever.
+        private const float Gear1Top = 14f;               // m/s
+        private const float Gear2Top = 26f;
+        private const float Gear3Top = 40f;
+        private const float Gear4Top = 56f;
+        private const float Gear5Top = 76f;
+        private const float ShiftDownRPM = 3600f;
+        private const float ShiftUpRPM = 7400f;
+        private const float TopGearRPMSpan = 80f;         // m/s for the top gear to cover ~63% of its range
+        private const float OffThrottleRPMShare = 0.9f;   // momentum keeps the engine loaded off the pedal
+
+        // Tyre squeal from traction: starts as the tyres near their limit
+        private const float SquealStartUsage = 0.75f;
+        private const float SquealFullUsage = 1.15f;
+        private const float DriftSquealPerRadian = 1.5f;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<AudioConfig>();
@@ -54,6 +74,27 @@ namespace Nightflow.Systems.Audio
             // Get audio config
             AudioConfig config = SystemAPI.GetSingleton<AudioConfig>();
 
+            // Player pedal and tyre state (engine/tyre audio live on the player car)
+            float throttle = 0f;
+            foreach (var input in SystemAPI.Query<RefRO<PlayerInput>>().WithAll<PlayerVehicleTag>())
+            {
+                throttle = input.ValueRO.Throttle;
+                break;
+            }
+
+            float slipRatio = 0f;
+            foreach (var (traction, drift) in
+                SystemAPI.Query<RefRO<TractionState>, RefRO<DriftState>>().WithAll<PlayerVehicleTag>())
+            {
+                float gripSqueal = math.saturate((traction.ValueRO.Usage - SquealStartUsage) /
+                                                 (SquealFullUsage - SquealStartUsage));
+                float driftSqueal = drift.ValueRO.IsDrifting
+                    ? math.saturate(math.abs(drift.ValueRO.SlipAngle) * DriftSquealPerRadian)
+                    : 0f;
+                slipRatio = math.max(gripSqueal, driftSqueal);
+                break;
+            }
+
             // Update engine audio for all vehicles with engine audio
             foreach (var (engineAudio, velocity) in
                 SystemAPI.Query<RefRW<EngineAudio>, RefRO<VehicleVelocity>>())
@@ -61,6 +102,7 @@ namespace Nightflow.Systems.Audio
                 if (!engineAudio.ValueRO.IsActive)
                     continue;
 
+                engineAudio.ValueRW.ThrottleInput = throttle;
                 UpdateEngineAudio(ref engineAudio.ValueRW, velocity.ValueRO, deltaTime, config);
             }
 
@@ -71,6 +113,7 @@ namespace Nightflow.Systems.Audio
                 if (!tireAudio.ValueRO.IsActive)
                     continue;
 
+                tireAudio.ValueRW.SlipRatio = slipRatio;
                 UpdateTireAudio(ref tireAudio.ValueRW, velocity.ValueRO, deltaTime);
             }
 
@@ -89,14 +132,15 @@ namespace Nightflow.Systems.Audio
         {
             float speed = math.length(velocity.Linear);
 
-            // Calculate target RPM from speed and throttle
-            // Simplified: higher speed = higher RPM, throttle affects acceleration rate
-            float speedRPM = math.lerp(IdleRPMMin, HighRPMMax, math.saturate(speed / 70f)); // 70 m/s = ~250 km/h
-            engine.TargetRPM = math.lerp(speedRPM * 0.6f, speedRPM, engine.ThrottleInput);
+            // Target RPM from the gear the speed puts the car in; throttle adds
+            // the last bit of revs (off the pedal the pace still loads the engine)
+            float speedRPM = GearRPM(speed);
+            engine.TargetRPM = math.lerp(speedRPM * OffThrottleRPMShare, speedRPM, math.saturate(engine.ThrottleInput));
 
-            // Smooth RPM changes
+            // Smooth RPM changes (frame-rate independent); a shift drops the
+            // target and the smoothing makes it sound like one
             float rpmSmoothing = config.EngineRPMSmoothing > 0 ? config.EngineRPMSmoothing : RPMSmoothSpeed;
-            engine.RPM = math.lerp(engine.RPM, engine.TargetRPM, deltaTime * rpmSmoothing);
+            engine.RPM = math.lerp(engine.RPM, engine.TargetRPM, 1f - math.exp(-rpmSmoothing * deltaTime));
             engine.RPM = math.clamp(engine.RPM, IdleRPMMin, HighRPMMax);
 
             // Determine engine state
@@ -139,6 +183,31 @@ namespace Nightflow.Systems.Audio
                 return EngineState.Decelerating;
 
             return EngineState.Cruising;
+        }
+
+        /// <summary>
+        /// Engine RPM for a road speed through a five-ratio box plus an endless
+        /// top gear: each gear sweeps ShiftDownRPM to ShiftUpRPM, first gear
+        /// starts from idle, and the top gear keeps climbing toward the redline
+        /// however fast the car goes.
+        /// </summary>
+        private static float GearRPM(float speed)
+        {
+            float v = math.max(speed, 0f);
+
+            if (v < Gear1Top)
+                return math.lerp(IdleRPMMax, ShiftUpRPM, v / Gear1Top);
+            if (v < Gear2Top)
+                return math.lerp(ShiftDownRPM, ShiftUpRPM, (v - Gear1Top) / (Gear2Top - Gear1Top));
+            if (v < Gear3Top)
+                return math.lerp(ShiftDownRPM, ShiftUpRPM, (v - Gear2Top) / (Gear3Top - Gear2Top));
+            if (v < Gear4Top)
+                return math.lerp(ShiftDownRPM, ShiftUpRPM, (v - Gear3Top) / (Gear4Top - Gear3Top));
+            if (v < Gear5Top)
+                return math.lerp(ShiftDownRPM, ShiftUpRPM, (v - Gear4Top) / (Gear5Top - Gear4Top));
+
+            float topGear = 1f - math.exp(-(v - Gear5Top) / TopGearRPMSpan);
+            return math.lerp(ShiftDownRPM, HighRPMMax, topGear);
         }
 
         [BurstCompile]
@@ -187,15 +256,16 @@ namespace Nightflow.Systems.Audio
         {
             wind.Speed = math.length(velocity.Linear);
 
-            // Wind volume scales with speed squared (aerodynamic)
+            // Wind roars up with speed squared (aerodynamic) and keeps building
+            // past ~250 km/h instead of flattening out: there is no top speed
             float speedNormalized = wind.Speed / 70f; // ~250 km/h reference
-            wind.Volume = math.saturate(speedNormalized * speedNormalized) * 0.7f;
+            wind.Volume = (1f - math.exp(-speedNormalized * speedNormalized)) * 0.85f;
 
-            // Pitch increases slightly with speed
-            wind.Pitch = 0.8f + speedNormalized * 0.4f;
+            // Pitch increases with speed
+            wind.Pitch = math.min(0.8f + speedNormalized * 0.4f, 2f);
 
             // Turbulence increases at high speed
-            wind.TurbulenceAmount = speedNormalized * 0.2f;
+            wind.TurbulenceAmount = math.min(speedNormalized * 0.2f, 0.6f);
         }
     }
 

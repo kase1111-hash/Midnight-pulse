@@ -40,10 +40,19 @@ namespace Nightflow.Config
         public const float MinForwardSpeed = 8f;
 
         /// <summary>
-        /// Maximum forward speed in m/s (for normal mode).
-        /// TODO: Consider making max speed scale with difficulty level or unlockable upgrades
+        /// Reference "fast" speed in m/s (~290 km/h). This is NOT a cap: there
+        /// is no top speed in any mode, the run's momentum keeps building until
+        /// the driver loses control (see VehicleDynamics). Spawn fairness and
+        /// traffic tuning use it as their floor so early-run tuning is unchanged.
         /// </summary>
         public const float MaxForwardSpeed = 80f;
+
+        /// <summary>
+        /// Sanity bound for recorded speeds (m/s, ~1440 km/h). Far beyond any
+        /// survivable run (grip halves at 140 m/s), used only to reject corrupt
+        /// or tampered save data.
+        /// </summary>
+        public const float MaxPlausibleSpeed = 400f;
 
         /// <summary>
         /// Maximum vehicle damage before crash.
@@ -175,9 +184,12 @@ namespace Nightflow.Config
 
         /// <summary>
         /// Seconds without any control input before the autopilot takes the
-        /// wheel back and the run is suspended (attract mode).
+        /// wheel back and the run is suspended (attract mode). Long enough that
+        /// a player riding the momentum down a clear straight (the pace carries
+        /// the car and lane magnetism holds the lane, so no input is needed)
+        /// isn't mistaken for one who walked away.
         /// </summary>
-        public const float IdleTimeoutForAutopilot = 10f;
+        public const float IdleTimeoutForAutopilot = 15f;
 
         /// <summary>
         /// Minimum processed input magnitude (after deadzone) that counts as the
@@ -212,7 +224,7 @@ namespace Nightflow.Config
         /// <summary>Crash flow: fade-back-in length (s).</summary>
         public const float CrashFadeInDuration = 0.5f;
 
-        /// <summary>Presentation time-scale hint during the impact phase.</summary>
+        /// <summary>Slow-motion time scale during the impact phase (applied by TimeScaleDriver).</summary>
         public const float CrashSlowMotionScale = 0.3f;
 
         /// <summary>Seconds after unpausing before the game can be paused again.</summary>

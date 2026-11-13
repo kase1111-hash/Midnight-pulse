@@ -531,6 +531,7 @@ namespace Nightflow.UI
                 CrashReason.LethalHazard => "BARRIER CRASH",
                 CrashReason.CompoundFailure => "SPUN OUT",
                 CrashReason.ComponentFailure => "MECHANICAL FAILURE",
+                CrashReason.LostControl => "LOST CONTROL",
                 _ => "CRASHED"
             };
         }

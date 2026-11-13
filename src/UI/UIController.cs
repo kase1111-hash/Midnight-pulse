@@ -33,7 +33,8 @@ namespace Nightflow.UI
         [SerializeField] private float warningFlashRate = 2f;
 
         [Header("Speed Tiers")]
-        [SerializeField] private float[] speedTiers = { 60f, 100f, 140f, 180f, 220f };
+        [Tooltip("km/h at which each speedometer dot lights. There is no top speed, so the dots track the momentum up to where grip runs out (~340 km/h)")]
+        [SerializeField] private float[] speedTiers = { 100f, 160f, 220f, 280f, 340f };
 
         // Sub-controllers
         private HUDController hud;

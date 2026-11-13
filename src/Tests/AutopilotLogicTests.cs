@@ -122,5 +122,57 @@ namespace Nightflow.Tests
         }
 
         #endregion
+
+        #region Speed Handoff
+
+        [Test]
+        public void EaseTargetSpeed_FastHandoffEasesDownComfortably()
+        {
+            // Taking the wheel at 100 m/s toward a 35 m/s cruise: never faster than ComfortDecel
+            float target = 100f;
+            float prev = target;
+            for (int i = 0; i < 60; i++)
+            {
+                target = AutopilotLogic.EaseTargetSpeed(target, 35f, 1f / 60f);
+                Assert.LessOrEqual(prev - target, AutopilotLogic.ComfortDecel / 60f + 1e-4f);
+                prev = target;
+            }
+
+            Assert.AreEqual(100f - AutopilotLogic.ComfortDecel, target, 1e-3f);
+        }
+
+        [Test]
+        public void EaseTargetSpeed_ReachesGoalWithoutOvershoot()
+        {
+            Assert.AreEqual(35f, AutopilotLogic.EaseTargetSpeed(35.01f, 35f, 1f), 1e-5f);
+            Assert.AreEqual(20f, AutopilotLogic.EaseTargetSpeed(19.99f, 20f, 1f), 1e-5f);
+            Assert.AreEqual(20f, AutopilotLogic.EaseTargetSpeed(float.NaN, 20f, 1f / 60f), 1e-5f);
+        }
+
+        [Test]
+        public void DetectionRange_LooksSecondsAheadAtSpeed()
+        {
+            Assert.AreEqual(Range, AutopilotLogic.DetectionRange(20f, Range), 1e-5f);
+            Assert.AreEqual(100f * AutopilotLogic.DetectionSeconds, AutopilotLogic.DetectionRange(100f, Range), 1e-3f);
+        }
+
+        [Test]
+        public void SpeedControl_TracksTargetWithoutDrag()
+        {
+            AutopilotLogic.SpeedControl(20f, 30f, out float throttle, out float brake);
+            Assert.Greater(throttle, 0f);
+            Assert.AreEqual(0f, brake);
+
+            AutopilotLogic.SpeedControl(40f, 30f, out throttle, out brake);
+            Assert.AreEqual(0f, throttle);
+            Assert.Greater(brake, 0f);
+
+            // Inside the deadband: coast (nothing slows the car on its own)
+            AutopilotLogic.SpeedControl(30.2f, 30f, out throttle, out brake);
+            Assert.AreEqual(0f, throttle);
+            Assert.AreEqual(0f, brake);
+        }
+
+        #endregion
     }
 }

@@ -13,32 +13,67 @@ using Nightflow.Config;
 namespace Nightflow.Systems
 {
     /// <summary>
-    /// Controls camera follow behavior, crash zoom, and replay camera.
-    /// Smooth follow with speed-dependent FOV and offset.
+    /// Chase camera: follows where the car is going, not where it points, and
+    /// sells the momentum as it builds.
+    ///
+    /// - The camera sits a set distance behind the car along its smoothed
+    ///   direction of travel. Its offset is smoothed, never its world position,
+    ///   so it does not fall further behind the faster the car goes.
+    /// - When the car slides or spins, the camera keeps facing down the road
+    ///   and watches it rotate instead of orbiting with it.
+    /// - FOV, pull-back and height follow VehicleDynamics.SpeedFeel, which keeps
+    ///   building with no top speed; accelerating pulls the camera back a touch,
+    ///   braking lets it close in, and a fine shake grows with speed and with
+    ///   the tyres working near their grip limit.
+    /// - Every smoothing step is frame-rate independent (exponential damping).
+    /// - When the vehicle is reset under the crash fade the camera cuts
+    ///   straight to its chase position, so the fade-in reveals a settled view.
     ///
     /// From spec:
-    /// - Base FOV 55°, Max FOV 90°
-    /// - Speed FOV: scales from 55° to 90° with speed
-    /// - Pull-back: offset increases at high speed
+    /// - Base FOV 55°, widening with speed
+    /// - Pull-back: distance and height increase with speed
     /// - Impact Recoil: from collision impulse
     /// - Damage Wobble: from accumulated damage
-    /// - All motion critically damped per axis
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial struct CameraSystem : ISystem
     {
-        // Follow parameters
+        // Follow parameters (spec 10: base 3 m up / 8 m back, +1.5 m / +4 m with speed)
         private const float BaseHeight = 3f;              // meters above vehicle
+        private const float SpeedHeightBonus = 1.5f;
         private const float BaseDistance = 8f;            // meters behind vehicle
-        private const float MaxDistance = 12f;            // at max speed
-        private const float FollowSmoothing = 5f;         // position lerp speed
-        private const float LookSmoothing = 8f;           // rotation lerp speed
+        private const float SpeedDistanceBonus = 4f;
+        private const float LookAheadFactor = 0.5f;       // s of travel looked ahead
+        private const float MaxLookAhead = 15f;           // m
+        private const float LookHeight = 0.8f;            // m above the car's origin
 
-        // FOV parameters (from spec)
+        // Smoothing rates (1/s, exponential)
+        private const float HeadingResponse = 6f;
+        private const float DistanceResponse = 4f;
+        private const float HeightResponse = 4f;
+        private const float LateralResponse = 3f;
+        private const float RollResponse = 4f;
+        private const float FOVResponse = 3f;
+        private const float LookResponse = 10f;
+
+        // FOV (from spec, widening with SpeedFeel; keeps creeping up, never past MaxFOV)
         private const float BaseFOV = 55f;                // degrees at low speed
-        private const float MaxFOV = 90f;                 // degrees at max speed
-        private const float SpeedForMaxFOV = 70f;         // m/s
+        private const float MaxFOV = 95f;                 // asymptote at extreme speed
+        private const float DriftFOVBonus = 5f;
+
+        // Momentum: accelerating pulls the camera back, braking lets it in
+        private const float AccelPullBack = 0.12f;        // m per m/s²
+        private const float MaxAccelPullBack = 1.2f;      // m
+        private const float MaxAccelPushIn = 0.8f;        // m
+        private const float AccelResponse = 4f;           // 1/s
+
+        // Fine shake: grows with speed and with the tyres near their limit
+        private const float SpeedShakeStart = 45f;        // m/s
+        private const float SpeedShakeScale = 60f;        // m/s
+        private const float SpeedShakeMax = 0.06f;        // m
+        private const float TractionShakeMax = 0.12f;     // m
+        private const float TractionShakeRoll = 0.012f;   // rad
 
         // Drift camera
         private const float DriftOffsetMax = 2f;          // lateral offset when drifting
@@ -46,10 +81,8 @@ namespace Nightflow.Systems
         private const float DriftWhipMultiplier = 1.3f;   // extra rotational follow
 
         // Crash camera
-        // TODO: Add slow-motion effect during crash with time scale reduction and chromatic aberration
-        private const float CrashZoomSpeed = 2f;          // zoom out speed
+        private const float CrashZoomResponse = 2f;       // 1/s
         private const float CrashMaxDistance = 20f;       // max zoom distance
-        private const float CrashSlowMotion = 0.3f;       // time scale
 
         // Environment offsets (fork pull-back etc.) decay back to neutral
         private const float EnvironmentOffsetDecay = 2f;  // 1/s
@@ -66,16 +99,28 @@ namespace Nightflow.Systems
         private const float SuspensionShakeSpeedScale = 0.01f;// Speed multiplier for shake intensity
         private const float SuspensionFailedShakeAmp = 0.4f;  // Shake when suspension fully failed
 
-        // State
+        // State (single player camera)
         private float3 _recoilOffset;
         private float _wobblePhase;
         private float _suspensionShakePhase;
+        private float _shakeTime;
+        private float3 _heading;
+        private float _accelOffset;
+        private float _prevSpeed;
+        private bool _wasCrashed;
+        private bool _initialized;
 
         public void OnCreate(ref SystemState state)
         {
             _recoilOffset = float3.zero;
             _wobblePhase = 0f;
             _suspensionShakePhase = 0f;
+            _shakeTime = 0f;
+            _heading = new float3(0f, 0f, 1f);
+            _accelOffset = 0f;
+            _prevSpeed = 0f;
+            _wasCrashed = false;
+            _initialized = false;
         }
 
         [BurstCompile]
@@ -91,9 +136,12 @@ namespace Nightflow.Systems
             float yawRate = 0f;
             bool isDrifting = false;
             bool isCrashed = false;
+            bool foundPlayer = false;
             float totalDamage = 0f;
             float impulseMagnitude = 0f;
             float3 impulseDirection = float3.zero;
+            float3 travelVelocity = float3.zero;
+            float tractionUsage = 0f;
 
             // Phase 2: Component health for suspension shake
             float suspensionHealth = 1f;
@@ -109,12 +157,28 @@ namespace Nightflow.Systems
                 yawOffset = driftState.ValueRO.YawOffset;
                 yawRate = driftState.ValueRO.YawRate;
                 isDrifting = driftState.ValueRO.IsDrifting;
+                foundPlayer = true;
+                break;
+            }
+
+            if (!foundPlayer)
+                return;
+
+            foreach (var vehicleVelocity in SystemAPI.Query<RefRO<VehicleVelocity>>().WithAll<PlayerVehicleTag>())
+            {
+                travelVelocity = vehicleVelocity.ValueRO.Linear;
                 break;
             }
 
             foreach (var crashState in SystemAPI.Query<RefRO<CrashState>>().WithAll<PlayerVehicleTag>())
             {
                 isCrashed = crashState.ValueRO.IsCrashed;
+                break;
+            }
+
+            foreach (var traction in SystemAPI.Query<RefRO<TractionState>>().WithAll<PlayerVehicleTag>())
+            {
+                tractionUsage = traction.ValueRO.Usage;
                 break;
             }
 
@@ -147,6 +211,45 @@ namespace Nightflow.Systems
             }
 
             // =============================================================
+            // Direction of travel (smoothed) and cuts
+            // =============================================================
+
+            float3 carForward = math.mul(playerRot, new float3(0f, 0f, 1f));
+            float3 travel = math.lengthsq(travelVelocity) > 1f
+                ? math.normalize(travelVelocity)
+                : carForward;
+
+            // Cut on the first frame and when the wreck is reset under the fade
+            bool cut = !_initialized || (_wasCrashed && !isCrashed);
+            _initialized = true;
+            _wasCrashed = isCrashed;
+
+            if (cut)
+            {
+                _heading = travel;
+                _accelOffset = 0f;
+                _prevSpeed = playerSpeed;
+                _recoilOffset = float3.zero;
+            }
+            else
+            {
+                _heading = math.normalizesafe(
+                    math.lerp(_heading, travel, VehicleDynamics.Damp(HeadingResponse, deltaTime)),
+                    travel);
+            }
+
+            // =============================================================
+            // Momentum: acceleration pull-back
+            // =============================================================
+
+            float accel = deltaTime > 0f ? (playerSpeed - _prevSpeed) / deltaTime : 0f;
+            _prevSpeed = playerSpeed;
+            float accelTarget = isCrashed
+                ? 0f
+                : math.clamp(accel * AccelPullBack, -MaxAccelPushIn, MaxAccelPullBack);
+            _accelOffset = math.lerp(_accelOffset, accelTarget, VehicleDynamics.Damp(AccelResponse, deltaTime));
+
+            // =============================================================
             // Impact Recoil
             // =============================================================
 
@@ -157,7 +260,7 @@ namespace Nightflow.Systems
                 _recoilOffset += impulseDirection * recoilAmount;
             }
 
-            // Decay recoil (critically damped)
+            // Decay recoil (exponential, frame-rate independent)
             _recoilOffset *= math.exp(-ImpactRecoilDecay * deltaTime);
 
             // =============================================================
@@ -214,92 +317,96 @@ namespace Nightflow.Systems
             }
 
             // =============================================================
+            // Speed and traction shake (fine, high frequency)
+            // =============================================================
+
+            _shakeTime += deltaTime;
+            if (_shakeTime > 1000f)
+                _shakeTime -= 1000f;   // keep the sine arguments small
+
+            float tractionEdge = math.saturate((tractionUsage - 0.8f) / 0.5f);
+            tractionEdge = tractionEdge * tractionEdge * (3f - 2f * tractionEdge);
+            float shakeAmp = isCrashed ? 0f
+                : SpeedShakeMax * (1f - math.exp(-math.max(0f, playerSpeed - SpeedShakeStart) / SpeedShakeScale))
+                  + TractionShakeMax * tractionEdge;
+            float shakeX = (math.sin(_shakeTime * 31.7f) * 0.6f + math.sin(_shakeTime * 57.3f) * 0.4f) * shakeAmp;
+            float shakeY = (math.sin(_shakeTime * 43.1f) * 0.5f + math.sin(_shakeTime * 71.9f) * 0.5f) * shakeAmp;
+            float shakeRoll = math.sin(_shakeTime * 23.3f) * TractionShakeRoll * tractionEdge;
+
+            // =============================================================
             // Update Camera State
             // =============================================================
 
+            float speedFeel = VehicleDynamics.SpeedFeel(playerSpeed);
+
             foreach (var camera in SystemAPI.Query<RefRW<CameraState>>())
             {
-                // Calculate speed-dependent parameters
-                float speedNorm = math.saturate(playerSpeed / SpeedForMaxFOV);
+                float targetDistance;
+                float targetHeight;
+                float targetLateral = 0f;
+                float targetRoll = 0f;
+                float targetFOV;
+                float distanceResponse = DistanceResponse;
+                float heightResponse = HeightResponse;
 
-                // =============================================================
-                // Crash Camera Mode
-                // =============================================================
+                float followFOV = BaseFOV + (MaxFOV - BaseFOV) * speedFeel + camera.ValueRO.FOVOffset;
 
                 if (isCrashed)
                 {
+                    // =========================================================
+                    // Crash Camera: pull out and rise to watch the wreck
+                    // =========================================================
                     camera.ValueRW.Mode = CameraMode.Crash;
-
-                    // Zoom out
-                    float targetDist = CrashMaxDistance;
-                    camera.ValueRW.FollowDistance = math.lerp(
-                        camera.ValueRO.FollowDistance,
-                        targetDist,
-                        CrashZoomSpeed * deltaTime
-                    );
-
-                    // Rise up
-                    camera.ValueRW.FollowHeight = math.lerp(
-                        camera.ValueRO.FollowHeight,
-                        BaseHeight * 2f,
-                        CrashZoomSpeed * deltaTime
-                    );
+                    targetDistance = CrashMaxDistance;
+                    targetHeight = BaseHeight * 2f;
+                    targetFOV = camera.ValueRO.FOV;
+                    distanceResponse = CrashZoomResponse;
+                    heightResponse = CrashZoomResponse;
                 }
-                // =============================================================
-                // Drift Camera Mode
-                // =============================================================
-                else if (isDrifting && math.abs(yawOffset) > 0.3f)
-                {
-                    camera.ValueRW.Mode = CameraMode.Drift;
-
-                    // Lateral offset based on drift direction
-                    float driftSign = math.sign(yawOffset);
-                    camera.ValueRW.LateralOffset = math.lerp(
-                        camera.ValueRO.LateralOffset,
-                        driftSign * DriftOffsetMax,
-                        3f * deltaTime
-                    );
-
-                    // Roll camera into the drift
-                    camera.ValueRW.Roll = math.lerp(
-                        camera.ValueRO.Roll,
-                        -driftSign * math.radians(DriftTiltMax),
-                        4f * deltaTime
-                    );
-
-                    // Slightly wider FOV during drift
-                    camera.ValueRW.FOV = math.lerp(camera.ValueRO.FOV, MaxFOV, 2f * deltaTime);
-                }
-                // =============================================================
-                // Normal Follow Mode
-                // =============================================================
                 else
                 {
-                    camera.ValueRW.Mode = CameraMode.Follow;
+                    targetDistance = BaseDistance + SpeedDistanceBonus * speedFeel
+                        + camera.ValueRO.DistanceOffset + _accelOffset;
+                    targetHeight = BaseHeight + SpeedHeightBonus * speedFeel;
+                    targetFOV = followFOV;
 
-                    // Speed-dependent distance (+ environment pull-back, e.g. forks)
-                    float targetDist = math.lerp(BaseDistance, MaxDistance, speedNorm)
-                        + camera.ValueRO.DistanceOffset;
-                    camera.ValueRW.FollowDistance = math.lerp(
-                        camera.ValueRO.FollowDistance,
-                        targetDist,
-                        FollowSmoothing * deltaTime
-                    );
+                    if (isDrifting && math.abs(yawOffset) > 0.3f)
+                    {
+                        // =====================================================
+                        // Drift Camera: slide out to the side and lean in
+                        // =====================================================
+                        camera.ValueRW.Mode = CameraMode.Drift;
+                        float driftSign = math.sign(yawOffset);
+                        targetLateral = driftSign * DriftOffsetMax;
+                        targetRoll = -driftSign * math.radians(DriftTiltMax);
+                        targetFOV += DriftFOVBonus;
+                    }
+                    else
+                    {
+                        camera.ValueRW.Mode = CameraMode.Follow;
+                    }
+                }
 
-                    // Reset height
-                    camera.ValueRW.FollowHeight = math.lerp(
-                        camera.ValueRO.FollowHeight,
-                        BaseHeight,
-                        FollowSmoothing * deltaTime
-                    );
-
-                    // Reset lateral offset and roll
-                    camera.ValueRW.LateralOffset = math.lerp(camera.ValueRO.LateralOffset, 0f, 4f * deltaTime);
-                    camera.ValueRW.Roll = math.lerp(camera.ValueRO.Roll, 0f, 4f * deltaTime);
-
-                    // Speed-dependent FOV (+ per-frame environment squeeze, e.g. tunnels)
-                    float targetFOV = math.lerp(BaseFOV, MaxFOV, speedNorm) + camera.ValueRO.FOVOffset;
-                    camera.ValueRW.FOV = math.lerp(camera.ValueRO.FOV, targetFOV, 3f * deltaTime);
+                if (cut)
+                {
+                    camera.ValueRW.FollowDistance = targetDistance;
+                    camera.ValueRW.FollowHeight = targetHeight;
+                    camera.ValueRW.LateralOffset = targetLateral;
+                    camera.ValueRW.Roll = targetRoll;
+                    camera.ValueRW.FOV = targetFOV;
+                }
+                else
+                {
+                    camera.ValueRW.FollowDistance = math.lerp(camera.ValueRO.FollowDistance, targetDistance,
+                        VehicleDynamics.Damp(distanceResponse, deltaTime));
+                    camera.ValueRW.FollowHeight = math.lerp(camera.ValueRO.FollowHeight, targetHeight,
+                        VehicleDynamics.Damp(heightResponse, deltaTime));
+                    camera.ValueRW.LateralOffset = math.lerp(camera.ValueRO.LateralOffset, targetLateral,
+                        VehicleDynamics.Damp(LateralResponse, deltaTime));
+                    camera.ValueRW.Roll = math.lerp(camera.ValueRO.Roll, targetRoll,
+                        VehicleDynamics.Damp(RollResponse, deltaTime));
+                    camera.ValueRW.FOV = math.lerp(camera.ValueRO.FOV, targetFOV,
+                        VehicleDynamics.Damp(FOVResponse, deltaTime));
                 }
 
                 // Environment requests are per-frame: decay the pull-back, clear the squeeze
@@ -307,47 +414,39 @@ namespace Nightflow.Systems
                 camera.ValueRW.FOVOffset = 0f;
 
                 // =============================================================
-                // Calculate Camera Transform
+                // Camera Transform
                 // =============================================================
 
-                float3 forward = math.mul(playerRot, new float3(0, 0, 1));
-                float3 right = math.mul(playerRot, new float3(1, 0, 0));
-                float3 up = new float3(0, 1, 0);
+                float3 up = new float3(0f, 1f, 0f);
+                float3 right = math.normalizesafe(math.cross(up, _heading), new float3(1f, 0f, 0f));
 
-                float3 targetPos = playerPos
-                    - forward * camera.ValueRO.FollowDistance
+                // Rigid offset from the car (smoothed above), so the camera
+                // never lags further behind as the speed builds
+                float3 cameraPos = playerPos
+                    - _heading * camera.ValueRO.FollowDistance
                     + up * camera.ValueRO.FollowHeight
                     + right * camera.ValueRO.LateralOffset
                     + camera.ValueRO.TargetOffset;
 
-                // Apply impact recoil offset
-                targetPos += _recoilOffset;
+                // Recoil, damage wobble, suspension shake, speed/traction shake
+                cameraPos += _recoilOffset;
+                cameraPos += right * (wobbleAmount + suspensionShake.x + shakeX);
+                cameraPos += up * (suspensionShake.y + shakeY);
 
-                // Apply damage wobble (horizontal sway)
-                targetPos += right * wobbleAmount;
+                camera.ValueRW.Position = cameraPos;
 
-                // Phase 2: Apply suspension shake (local space converted to world)
-                targetPos += up * suspensionShake.y + right * suspensionShake.x;
+                // Look down the road just ahead of the car
+                float lookAhead = math.min(MaxLookAhead, math.max(playerSpeed, 0f) * LookAheadFactor);
+                float3 lookTarget = playerPos + _heading * lookAhead + up * LookHeight;
+                float3 lookDir = math.normalizesafe(lookTarget - cameraPos, _heading);
 
-                // Smooth follow (critically damped)
-                camera.ValueRW.Position = math.lerp(
-                    camera.ValueRO.Position,
-                    targetPos,
-                    FollowSmoothing * deltaTime
-                );
+                quaternion targetRot = quaternion.LookRotationSafe(lookDir, up);
 
-                // Look at player (slightly ahead)
-                float3 lookTarget = playerPos + forward * 10f;
-                float3 lookDir = math.normalize(lookTarget - camera.ValueRO.Position);
-
-                quaternion targetRot = quaternion.LookRotation(lookDir, up);
-
-                // Apply roll from drift + damage wobble
-                float totalRoll = camera.ValueRO.Roll + wobbleAmount * 0.5f;
-                if (math.abs(totalRoll) > 0.001f)
+                // Apply roll from drift + damage wobble + traction shake
+                float totalRoll = camera.ValueRO.Roll + wobbleAmount * 0.5f + shakeRoll;
+                if (math.abs(totalRoll) > 0.0001f)
                 {
-                    quaternion rollRot = quaternion.RotateZ(totalRoll);
-                    targetRot = math.mul(targetRot, rollRot);
+                    targetRot = math.mul(targetRot, quaternion.RotateZ(totalRoll));
                 }
 
                 // Drift whip: extra yaw follow during drift
@@ -355,16 +454,13 @@ namespace Nightflow.Systems
                 if (isDrifting && math.abs(yawRate) > 0.1f)
                 {
                     whipYaw = yawRate * DriftWhipMultiplier * 0.1f;
-                    quaternion whipRot = quaternion.RotateY(whipYaw);
-                    targetRot = math.mul(targetRot, whipRot);
+                    targetRot = math.mul(targetRot, quaternion.RotateY(whipYaw));
                 }
                 camera.ValueRW.YawOffset = whipYaw;
 
-                camera.ValueRW.Rotation = math.slerp(
-                    camera.ValueRO.Rotation,
-                    targetRot,
-                    LookSmoothing * deltaTime
-                );
+                camera.ValueRW.Rotation = cut
+                    ? targetRot
+                    : math.slerp(camera.ValueRO.Rotation, targetRot, VehicleDynamics.Damp(LookResponse, deltaTime));
             }
         }
     }

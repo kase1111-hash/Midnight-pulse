@@ -33,6 +33,7 @@ namespace Nightflow.Systems
         private const float ImpulseScale = 1.2f;        // k_i
         private const float VirtualMass = 1200f;        // m_virtual
         private const float YawKickScale = 0.5f;        // k_y
+        private const float CollisionSpeedPenalty = 0.3f; // share of impact speed lost (spec 10)
         // MinForwardSpeed uses GameConstants.MinForwardSpeed
 
         [BurstCompile]
@@ -113,8 +114,10 @@ namespace Nightflow.Systems
                 velocity.ValueRW.Lateral += Il / VirtualMass;
 
                 // Forward response (clamped): v_f ← v_f - |I_f| / m_virtual
+                // plus the spec's collision speed penalty (30% of the impact
+                // speed): hits cost momentum, which the run's pace then rebuilds.
                 // But v_f ≥ v_min (forward motion preserved)
-                float forwardReduction = math.abs(If) / VirtualMass;
+                float forwardReduction = math.abs(If) / VirtualMass + CollisionSpeedPenalty * vImpact;
                 velocity.ValueRW.Forward -= forwardReduction;
                 velocity.ValueRW.Forward = math.max(velocity.ValueRO.Forward, GameConstants.MinForwardSpeed);
 
