@@ -18,7 +18,7 @@ namespace Nightflow.Systems
     ///
     /// Modes:
     /// - Nightflow: Standard gameplay (default)
-    /// - Redline: No top speed, diminishing acceleration - push your limits
+    /// - Redline: Momentum builds harder (faster pace, bigger throttle boost) - push your limits
     /// - Ghost: Race against your past self using a seed
     /// - Freeflow: No hazards, relaxed driving
     /// </summary>
@@ -283,24 +283,9 @@ namespace Nightflow.Systems
             return mode != GameMode.Freeflow;
         }
 
-        /// <summary>
-        /// Gets the speed limit for the current mode.
-        /// Returns float.MaxValue for Redline (no limit).
-        /// </summary>
-        public static float GetSpeedLimit(GameMode mode)
-        {
-            return mode == GameMode.Redline ? float.MaxValue : 80f; // 80 m/s default
-        }
-
-        /// <summary>
-        /// Calculates acceleration modifier for Redline mode.
-        /// Acceleration decreases as speed increases (asymptotic approach).
-        /// Formula: modifier = 1 / (1 + speed/referenceSpeed)
-        /// </summary>
-        public static float GetRedlineAccelerationModifier(float currentSpeed)
-        {
-            const float ReferenceSpeed = 50f; // Speed at which acceleration is halved
-            return 1f / (1f + currentSpeed / ReferenceSpeed);
-        }
+        // No mode has a speed limit: momentum builds until the driver loses
+        // control (VehicleDynamics). Redline builds harder (pace and throttle
+        // boost scaled up), Freeflow lets the driver pick the speed (no pace
+        // climb, no brake floor); VehicleMovementSystem applies the rules.
     }
 }

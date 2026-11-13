@@ -166,6 +166,18 @@ namespace Nightflow.Systems
                     }
 
                     // =============================================================
+                    // Condition E: Lost Control
+                    // The momentum outran the tyres: the car is sliding further
+                    // sideways than is survivable at this speed (slow spins are fine)
+                    // =============================================================
+
+                    if (reason == CrashReason.None &&
+                        VehicleDynamics.IsLostControl(driftState.SlipAngle, velocity.Forward))
+                    {
+                        reason = CrashReason.LostControl;
+                    }
+
+                    // =============================================================
                     // Trigger Crash
                     // =============================================================
 
@@ -274,6 +286,10 @@ namespace Nightflow.Systems
 
             // Motion: straighten out, keep rolling at recovery speed
             SystemAPI.SetComponent(entity, new DriftState());
+            if (SystemAPI.HasComponent<TractionState>(entity))
+            {
+                SystemAPI.SetComponent(entity, new TractionState());
+            }
             var velocity = SystemAPI.GetComponent<Velocity>(entity);
             velocity.Forward = math.max(GameConstants.AutopilotRecoverySpeed, GameConstants.MinForwardSpeed);
             velocity.Lateral = 0f;
@@ -292,6 +308,7 @@ namespace Nightflow.Systems
             steering.CurrentAngle = 0f;
             steering.TargetAngle = 0f;
             steering.ChangingLanes = false;
+            steering.LaneChangeAborting = false;
             steering.LaneChangeTimer = 0f;
             steering.LaneChangeRequested = false;
             steering.LaneChangeDirection = 0;

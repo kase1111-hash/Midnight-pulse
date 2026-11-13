@@ -27,7 +27,8 @@ namespace Nightflow.Systems
     {
         // Signal thresholds
         private const float EmergencySignalDistance = 100f;   // meters
-        private const float HazardSignalDistance = 80f;       // meters ahead
+        private const float HazardSignalDistance = 80f;       // meters ahead (at low speed)
+        private const float HazardSignalSeconds = 2f;         // at speed: seconds of travel ahead
         private const float SignalFadeDistance = 20f;         // fade in/out range
 
         [BurstCompile]
@@ -92,7 +93,10 @@ namespace Nightflow.Systems
             // Check for Crashed Vehicles Ahead
             // =============================================================
 
-            // Find any crashed car hazards ahead
+            // Find any crashed car hazards ahead. There is no top speed, so the
+            // warning looks a couple of seconds ahead rather than a fixed 80 m
+            // (under a second of warning at 100 m/s)
+            float hazardSignalRange = math.max(HazardSignalDistance, playerSpeed * HazardSignalSeconds);
             float nearestCrashedZ = float.MaxValue;
             float3 nearestCrashedPos = float3.zero;
 
@@ -105,7 +109,7 @@ namespace Nightflow.Systems
                     float dz = transform.ValueRO.Position.z - playerPos.z;
 
                     // Only signal if ahead and within range
-                    if (dz > 0 && dz < HazardSignalDistance && dz < nearestCrashedZ)
+                    if (dz > 0 && dz < hazardSignalRange && dz < nearestCrashedZ)
                     {
                         nearestCrashedZ = dz;
                         nearestCrashedPos = transform.ValueRO.Position;
@@ -132,7 +136,7 @@ namespace Nightflow.Systems
                     signal.ValueRW.Direction = math.normalize(new float2(xDir, 1));
 
                     // Urgency based on distance and speed
-                    float distRatio = nearestCrashedZ / HazardSignalDistance;
+                    float distRatio = nearestCrashedZ / hazardSignalRange;
                     float timeToImpact = nearestCrashedZ / math.max(playerSpeed, 1f);
                     signal.ValueRW.Urgency = math.saturate(1f - distRatio) *
                                              math.saturate(3f / timeToImpact);

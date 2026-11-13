@@ -113,13 +113,22 @@ namespace Nightflow.Components
 
         /// <summary>
         /// Programmatic lane change request (set by AutopilotSystem).
-        /// Consumed by SteeringSystem, which applies the same blocked-lane
-        /// checks as a steering-triggered change.
+        /// Consumed by SteeringSystem the next time it runs, which applies the
+        /// same blocked-lane checks as a steering-triggered change and gives it
+        /// the autopilot's lane-change time; a refused request is simply made
+        /// again by AutopilotSystem the next frame.
         /// </summary>
         public bool LaneChangeRequested;
 
         /// <summary>Requested lane change direction: -1 = left, +1 = right.</summary>
         public int LaneChangeDirection;
+
+        /// <summary>
+        /// True while an aborted lane change runs its blend back to CurrentLane.
+        /// An abort never changes CurrentLane/TargetLane, so lane-based logic
+        /// (risk events, traffic, forks) never sees a lane the car didn't reach.
+        /// </summary>
+        public bool LaneChangeAborting;
     }
 
     /// <summary>
@@ -163,6 +172,33 @@ namespace Nightflow.Components
 
         /// <summary>Whether currently in drift state (handbrake recently used).</summary>
         public bool IsDrifting;
+    }
+
+    /// <summary>
+    /// How hard the player car's tyres are working. Written by
+    /// LaneMagnetismSystem every frame; read by VehicleMovementSystem (the rear
+    /// steps out past the limit), the camera (shake), audio (squeal) and the
+    /// HUD (traction warning). See VehicleDynamics for the model.
+    /// </summary>
+    public struct TractionState : IComponentData
+    {
+        /// <summary>Smoothed tyre load / grip: 0 cruising, 1 at the limit, above 1 sliding.</summary>
+        public float Usage;
+
+        /// <summary>Grip available this frame (m/s^2); falls as the car goes faster.</summary>
+        public float Grip;
+
+        /// <summary>Acceleration needed to follow the road's curve (v^2 * curvature, + = right).</summary>
+        public float CurveAccel;
+
+        /// <summary>Direction of the lateral load (-1 left, 0, +1 right): the way the rear steps out.</summary>
+        public float LoadDirection;
+
+        /// <summary>Seconds the tyres have been continuously past the limit.</summary>
+        public float SlideTime;
+
+        /// <summary>True while Usage is above 1.</summary>
+        public bool Sliding;
     }
 
     /// <summary>

@@ -31,8 +31,8 @@
 | Input | Function |
 |-------|----------|
 | **Analog Steer** | Smoothed, lane-based steering with magnetism assist |
-| **Throttle** | Speed up (accelerate) |
-| **Brake** | Slow down (ends scoring) |
+| **Throttle** | Boost above the run's pace (there is no top speed) |
+| **Brake** | Trim speed down to the momentum floor, 70% of the pace (ends scoring) |
 | **Handbrake** | Drift/spin (must maintain forward velocity >= 8 m/s) |
 
 **Wheel Support:** Logitech SDK integration with force feedback.
@@ -169,6 +169,19 @@ Score = Distance x Speed_Tier x (1 + RiskMultiplier)
 v_f >= v_min (8 m/s) - spins never stall
 ```
 
+### Momentum (no terminal velocity)
+```
+pace(t, d) = 25 + 0.25 x t^2 / (t + 30) + 0.0012 x d   (m/s, never capped)
+brake floor = 0.7 x pace
+```
+
+### Grip and Loss of Control
+```
+grip(v) = 32 x tyres x suspension / (1 + (v/140)^2)
+usage   = |v^2 x curvature + LaneLoad(v) x a_lane| / grip
+LOST CONTROL when |slip| > limit(v)  (unlimited below 35 m/s, 0.85 rad at 75+ m/s)
+```
+
 ### Component Health Degradation
 ```
 Health[component] -= damage x sensitivity_ratio
@@ -183,7 +196,7 @@ Failure when Health < 0.1
 |-----------|-------|---------|
 | `LaneWidth` | 3.6 m | Standard freeway lane |
 | `MinForwardSpeed` | 8 m/s | Never stalls (critical rule) |
-| `MaxForwardSpeed` | 80 m/s | Speed cap |
+| `MaxForwardSpeed` | 80 m/s | Reference speed (no cap: momentum builds until you lose control) |
 | `MaxDamage` | 100 | Crash threshold |
 | `SegmentLength` | 200 m | Track segment length |
 | `SegmentsAhead` | 5 | Lookahead buffer |

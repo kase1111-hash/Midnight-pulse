@@ -22,9 +22,11 @@ namespace Nightflow.Systems.Presentation
     {
         private Random random;
 
-        // Speed line configuration
-        private const float SpeedThreshold = 120f;      // km/h to start showing lines
-        private const float MaxSpeedEffect = 250f;      // km/h for maximum effect
+        // Speed line configuration: on the shared speed curve
+        // (VehicleDynamics.SpeedFeel), so they start ~120 km/h and keep
+        // thickening well past 250 km/h instead of maxing out there
+        private const float StartFeel = 0.347f;         // SpeedFeel at ~120 km/h
+        private const float FullFeel = 0.93f;           // SpeedFeel at ~145 m/s
         private const float LineLengthMin = 2f;
         private const float LineLengthMax = 8f;
         private const float LineWidthMin = 0.02f;
@@ -55,9 +57,14 @@ namespace Nightflow.Systems.Presentation
                 SystemAPI.Query<RefRO<WorldTransform>, RefRO<VehicleVelocity>>()
                     .WithAll<PlayerVehicleTag>())
             {
-                playerSpeed = math.length(velocity.ValueRO.Linear) * 3.6f; // Convert to km/h
+                playerSpeed = math.length(velocity.ValueRO.Linear); // m/s
                 playerPos = transform.ValueRO.Position;
-                playerForward = math.forward(transform.ValueRO.Rotation);
+
+                // Streak along the direction of travel, the way the camera
+                // faces, not the body: a sliding or spinning car would
+                // otherwise sweep the streaks across a camera looking down the road
+                playerForward = math.normalizesafe(velocity.ValueRO.Linear,
+                    math.forward(transform.ValueRO.Rotation));
                 break;
             }
 
@@ -69,7 +76,8 @@ namespace Nightflow.Systems.Presentation
                     continue;
 
                 // Calculate effect intensity
-                float intensity = math.saturate((playerSpeed - SpeedThreshold) / (MaxSpeedEffect - SpeedThreshold));
+                float intensity = math.saturate(
+                    (VehicleDynamics.SpeedFeel(playerSpeed) - StartFeel) / (FullFeel - StartFeel));
                 speedLineEffect.ValueRW.Intensity = intensity;
                 speedLineEffect.ValueRW.IsActive = intensity > 0.01f;
 

@@ -79,7 +79,7 @@ namespace Nightflow.Systems
 
                         // Fade based on age
                         point.Alpha = 1f - normalizedAge * ghostRender.ValueRO.TrailFade;
-                        trailBuffer[i] = point;
+                        trailBuffer.ElementAt(i) = point;
                     }
                 }
             }

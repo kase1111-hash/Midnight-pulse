@@ -26,7 +26,6 @@ namespace Nightflow.Tests
             Assert.AreEqual(DifficultyCurve.HazardRateStart, l.HazardRateScale, 1e-5f);
             Assert.AreEqual(DifficultyCurve.LethalStart, l.LethalScale, 1e-5f);
             Assert.AreEqual(DifficultyCurve.EmergencyStart, l.EmergencyFrequencyScale, 1e-5f);
-            Assert.AreEqual(DifficultyCurve.BaseCruiseStart, l.BaseCruiseSpeed, 1e-5f);
         }
 
         [Test]
@@ -51,7 +50,7 @@ namespace Nightflow.Tests
 
             Assert.AreEqual(0f, nan.Progress);
             Assert.AreEqual(0f, neg.Progress);
-            Assert.AreEqual(DifficultyCurve.BaseCruiseStart, nan.BaseCruiseSpeed, 1e-5f);
+            Assert.AreEqual(DifficultyCurve.HazardRateStart, nan.HazardRateScale, 1e-5f);
         }
 
         [Test]
@@ -61,15 +60,6 @@ namespace Nightflow.Tests
 
             Assert.LessOrEqual(l.Intensity, DifficultyCurve.MaxIntensity);
             Assert.AreEqual(DifficultyCurve.MaxIntensity, l.Intensity, 1e-3f);
-        }
-
-        [Test]
-        public void BaseCruise_NeverReachesTopSpeed()
-        {
-            // Throttle must always have headroom over the "gravity" speed
-            float cap = DifficultyCurve.Knob(DifficultyCurve.BaseCruiseStart, DifficultyCurve.BaseCruiseFull,
-                DifficultyCurve.MaxIntensity);
-            Assert.Less(cap, GameConstants.MaxForwardSpeed);
         }
 
         [Test]
@@ -103,11 +93,10 @@ namespace Nightflow.Tests
                 Assert.GreaterOrEqual(l.TrafficDensityScale, prev.TrafficDensityScale - 1e-6f);
                 Assert.GreaterOrEqual(l.HazardRateScale, prev.HazardRateScale - 1e-6f);
                 Assert.GreaterOrEqual(l.EmergencyFrequencyScale, prev.EmergencyFrequencyScale - 1e-6f);
-                Assert.GreaterOrEqual(l.BaseCruiseSpeed, prev.BaseCruiseSpeed - 1e-6f);
 
-                // No frame may move base speed by more than a hair (no steps)
-                Assert.Less(l.BaseCruiseSpeed - prev.BaseCruiseSpeed, 0.01f);
+                // No frame may move a knob by more than a hair (no steps)
                 Assert.Less(l.HazardRateScale - prev.HazardRateScale, 0.001f);
+                Assert.Less(l.TrafficDensityScale - prev.TrafficDensityScale, 0.001f);
 
                 prev = l;
             }
@@ -153,40 +142,6 @@ namespace Nightflow.Tests
             float slow = DifficultyCurve.Progress(30f * 120f, 120f);
 
             Assert.Greater(fast, slow);
-        }
-
-        #endregion
-
-        #region Cruise Assist
-
-        [Test]
-        public void CruiseAssist_OffPedals_EasesUpTowardBase()
-        {
-            float v = DifficultyCurve.ApplyCruiseAssist(30f, 50f, 0f, 0f, Dt);
-
-            Assert.Greater(v, 30f);
-            Assert.AreEqual(30f + DifficultyCurve.CruiseAssistAcceleration * Dt, v, 1e-5f);
-        }
-
-        [Test]
-        public void CruiseAssist_NeverOvershootsBase()
-        {
-            float v = DifficultyCurve.ApplyCruiseAssist(49.99f, 50f, 0f, 0f, 1f);
-
-            Assert.AreEqual(50f, v, 1e-5f);
-        }
-
-        [Test]
-        public void CruiseAssist_AboveBase_DoesNotSlowCar()
-        {
-            Assert.AreEqual(70f, DifficultyCurve.ApplyCruiseAssist(70f, 50f, 0f, 0f, Dt));
-        }
-
-        [Test]
-        public void CruiseAssist_PedalsHeld_PlayerKeepsControl()
-        {
-            Assert.AreEqual(30f, DifficultyCurve.ApplyCruiseAssist(30f, 50f, 1f, 0f, Dt));
-            Assert.AreEqual(30f, DifficultyCurve.ApplyCruiseAssist(30f, 50f, 0f, 1f, Dt));
         }
 
         #endregion

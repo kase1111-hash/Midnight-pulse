@@ -15,57 +15,49 @@ using Nightflow.Config;
 namespace Nightflow.Systems
 {
     /// <summary>
-    /// Handles vehicle forward movement, drift mechanics, and yaw dynamics.
+    /// Handles forward momentum, yaw (drift, spin, slide) and the car's pose.
     ///
     /// The autopilot drives through this exact same path: AutopilotSystem writes
     /// PlayerInput, so there is no separate AI movement model. A crashed vehicle
     /// coasts (see the crashed branch) so the car never stops, not even during
     /// the crash sequence.
     ///
-    /// Critical Rule: v_f >= v_min (8 m/s)
-    /// This is why spins never stall the run - forward velocity is always maintained.
+    /// Momentum (VehicleDynamics): there is no top speed. While the player
+    /// drives a run, the car is carried at a pace that keeps climbing; throttle
+    /// boosts above it, the brake trims down to a floor under it, and nothing
+    /// slows the car on its own. Critical rule: v_f >= v_min (8 m/s), so spins
+    /// never stall the run.
     ///
-    /// Yaw Dynamics (Explicit Torque Model):
-    /// ψ̈ = τ_steer + τ_drift - c_ψ·ψ̇
+    /// Yaw (VehicleDynamics.StepYaw): the tyres keep the nose in line with
+    /// where the car is going; steering and the handbrake twist it; past the
+    /// grip limit reported by LaneMagnetismSystem the rear steps out. The
+    /// resulting slip angle is what CrashSystem judges loss of control by.
     ///
-    /// Where:
-    /// - τ_steer = k_s × s × (v_f/v_ref)
-    /// - τ_drift = k_d × sign(s) × √v_f (if handbrake)
+    /// Lateral motion is handled by LaneMagnetismSystem (which runs first).
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(LaneMagnetismSystem))]
     public partial struct VehicleMovementSystem : ISystem
     {
-        // Movement parameters - centralized in GameConstants
-        // MinForwardSpeed (8 m/s) - CRITICAL: never go below this - uses GameConstants.MinForwardSpeed
-        // MaxForwardSpeed (80 m/s) - uses GameConstants.MaxForwardSpeed
-        private const float Acceleration = 15f;           // m/s²
-        private const float BrakeDeceleration = 25f;      // m/s²
-        private const float DragCoefficient = 0.01f;      // Natural deceleration
-        private const float ReferenceSpeed = 40f;         // m/s
+        // Yaw damping while a wreck spins down (1/s)
+        private const float CrashYawDamping = 0.8f;
 
-        // Yaw/Drift parameters (from spec)
-        private const float SteeringGain = 1.2f;          // k_s
-        private const float DriftGain = 2.5f;             // k_d
-        private const float YawDamping = 0.8f;            // c_ψ
-        private const float MaxYawRate = 6f;              // rad/s
-        private const float SlipGain = 1.1f;              // k_slip
-        private const float RecoveryGain = 2f;            // k_r
+        // A wreck's sideways slide dies out quickly (1/s) instead of stopping dead
+        private const float CrashLateralDamping = 4f;
 
-        // Drift state thresholds
-        private const float DriftExitYaw = 0.1f;          // radians
-        private const float DriftExitRate = 0.5f;         // rad/s
+        // The barrier stops a sliding wreck this far inside the road edge (m)
+        private const float WreckBarrierInset = 1f;
 
-        // Redline mode parameters
-        private const float RedlineReferenceSpeed = 50f;      // Speed at which acceleration is halved
-        private const float RedlineBaseAcceleration = 20f;    // Higher base accel for Redline
-        private const float RedlineDragCoefficient = 0.005f;  // Lower drag for higher speeds
+        // How quickly the body follows the track frame + yaw (1/s)
+        private const float RotationResponse = 20f;
+        private const float CrashRotationResponse = 5f;
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             float deltaTime = SystemAPI.Time.DeltaTime;
+            int steps = VehicleDynamics.SubSteps(deltaTime, out float h);
 
             // Get current game mode
             GameMode currentMode = GameMode.Nightflow;
@@ -75,11 +67,17 @@ namespace Nightflow.Systems
                 break;
             }
 
-            bool isRedlineMode = currentMode == GameMode.Redline;
+            // Mode momentum rules: Redline builds harder, Freeflow lets the
+            // driver choose the speed (no climb, no floor); none of them cap it
+            float paceGrowth = currentMode == GameMode.Redline ? VehicleDynamics.RedlinePaceScale
+                : currentMode == GameMode.Freeflow ? 0f
+                : 1f;
+            float boostScale = currentMode == GameMode.Redline ? VehicleDynamics.RedlineBoostScale : 1f;
+            bool useFloor = currentMode != GameMode.Freeflow;
 
-            foreach (var (velocity, input, driftState, damage, transform, laneFollower, entity) in
+            foreach (var (velocity, input, driftState, damage, transform, entity) in
                 SystemAPI.Query<RefRW<Velocity>, RefRO<PlayerInput>, RefRW<DriftState>,
-                               RefRO<DamageState>, RefRW<WorldTransform>, RefRO<LaneFollower>>()
+                               RefRO<DamageState>, RefRW<WorldTransform>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithNone<CrashedTag>()
                     .WithEntityAccess())
@@ -101,216 +99,104 @@ namespace Nightflow.Systems
                     : default;
 
                 // Engine health affects acceleration
-                // At full health (1.0): 100% acceleration
-                // At 50% health: 75% acceleration
-                // At engine failure: 50% acceleration (limp mode)
-                // TODO: Engine limp mode should also cap max RPM and add audio stutter
+                // At full health (1.0): 100%; at 50% health: 75%; failed: 50% (limp mode)
+                // TODO: Engine limp mode should also add audio stutter
                 float engineModifier = failures.HasFailed(ComponentFailures.Engine)
-                    ? 0.5f  // Engine failed: limp mode
-                    : 0.5f + (health.Engine * 0.5f);  // Gradual degradation
+                    ? 0.5f
+                    : 0.5f + (health.Engine * 0.5f);
 
-                // Transmission health affects speed changes and max speed
-                // At failure: slower acceleration response
+                // Transmission health affects how quickly speed changes
                 float transmissionModifier = failures.HasFailed(ComponentFailures.Transmission)
                     ? 0.6f
                     : 0.6f + (health.Transmission * 0.4f);
 
+                // Steering health and front damage weaken steering torque
+                float steeringHealthFactor = failures.HasFailed(ComponentFailures.Steering)
+                    ? 0.15f
+                    : 0.3f + (health.Steering * 0.7f);
+                float steerResponse = steeringHealthFactor * (1f - damage.ValueRO.Front * 0.4f);
+
+                // Transmission health slows drift recovery
+                float recoveryResponse = failures.HasFailed(ComponentFailures.Transmission)
+                    ? 0.4f
+                    : 0.4f + (health.Transmission * 0.6f);
+
                 // =============================================================
-                // Forward Velocity (Throttle/Brake)
+                // Forward momentum (no terminal velocity)
                 // =============================================================
 
-                float throttle = input.ValueRO.Throttle;
-                float brake = input.ValueRO.Brake;
+                bool autopilotDriving = !SystemAPI.HasComponent<Autopilot>(entity) ||
+                                        SystemAPI.GetComponent<Autopilot>(entity).Enabled;
 
-                // Accelerate - with mode-specific behavior and component effects
-                if (throttle > 0.01f)
-                {
-                    // Apply engine and transmission damage modifiers
-                    float componentModifier = engineModifier * transmissionModifier;
-
-                    if (isRedlineMode)
-                    {
-                        // REDLINE MODE: No top speed, but acceleration decreases asymptotically
-                        // Formula: effectiveAccel = baseAccel / (1 + speed/referenceSpeed)
-                        // At 0 m/s: full acceleration
-                        // At 50 m/s: half acceleration
-                        // At 100 m/s: 1/3 acceleration
-                        // At 150 m/s: 1/4 acceleration ... and so on
-                        float accelModifier = 1f / (1f + vel.Forward / RedlineReferenceSpeed);
-                        float effectiveAccel = RedlineBaseAcceleration * accelModifier * componentModifier;
-                        vel.Forward += throttle * effectiveAccel * deltaTime;
-                    }
-                    else
-                    {
-                        // Normal mode acceleration with component damage
-                        vel.Forward += throttle * Acceleration * componentModifier * deltaTime;
-                    }
-                }
-
-                // Rising base speed (Nightflow only, player driving): off the
-                // pedals the car eases up to the run's base cruise speed
-                if (currentMode == GameMode.Nightflow &&
-                    SystemAPI.HasComponent<Autopilot>(entity) &&
-                    !SystemAPI.GetComponent<Autopilot>(entity).Enabled &&
+                // The run's pace carries the car while the player drives; the
+                // autopilot manages its own speed with the pedals
+                float pace = 0f;
+                float floor = GameConstants.MinForwardSpeed;
+                if (!autopilotDriving &&
                     SystemAPI.HasComponent<ScoreSession>(entity) &&
                     SystemAPI.HasComponent<ScoreSummary>(entity))
                 {
-                    float runDistance = SystemAPI.GetComponent<ScoreSession>(entity).Distance;
-                    float runTime = SystemAPI.GetComponent<ScoreSummary>(entity).TimeSurvived;
-                    float baseCruise = DifficultyCurve.Evaluate(runDistance, runTime).BaseCruiseSpeed;
-                    vel.Forward = DifficultyCurve.ApplyCruiseAssist(vel.Forward, baseCruise, throttle, brake, deltaTime);
-                }
-
-                // Brake
-                if (brake > 0.01f)
-                {
-                    vel.Forward -= brake * BrakeDeceleration * deltaTime;
-                }
-
-                // Natural deceleration (aerodynamic drag) - reduced in Redline mode
-                // Use exponential decay for framerate independence
-                float drag = isRedlineMode ? RedlineDragCoefficient : DragCoefficient;
-                vel.Forward *= math.exp(-drag * deltaTime);
-
-                // =============================================================
-                // Forward Velocity Constraint (CRITICAL)
-                // =============================================================
-                // v_f >= v_min - spins never stall the run
-                // This is the core design rule that allows 360° spins
-                //
-                // In Redline mode: No upper limit! Push your speed to the limit.
-                // In other modes: Capped at MaxForwardSpeed
-
-                float maxSpeed = isRedlineMode ? float.MaxValue : GameConstants.MaxForwardSpeed;
-                vel.Forward = math.clamp(vel.Forward, GameConstants.MinForwardSpeed, maxSpeed);
-
-                // =============================================================
-                // Yaw Dynamics: ψ̈ = τ_steer + τ_drift - c_ψ·ψ̇
-                // =============================================================
-
-                float steer = input.ValueRO.Steer;
-                bool handbrake = input.ValueRO.Handbrake;
-
-                // Steering torque: τ_steer = k_s × s × (v_f / v_ref)
-                float speedRatio = vel.Forward / ReferenceSpeed;
-                float steerTorque = SteeringGain * steer * speedRatio;
-
-                // Apply rear damage penalty to slip gain
-                float rearDamage = damage.ValueRO.Rear;
-                float effectiveSlipGain = SlipGain * (1f + 0.6f * rearDamage);
-
-                // Phase 2: Tire and suspension affect slip behavior
-                // Low tire health = more slipping
-                // Suspension failure = unpredictable handling
-                float tireModifier = failures.HasFailed(ComponentFailures.Tires)
-                    ? 1.8f  // Blown tires: very slippery
-                    : 1f + (1f - health.Tires) * 0.5f;  // Gradual degradation
-
-                float suspensionModifier = failures.HasFailed(ComponentFailures.Suspension)
-                    ? 1.5f  // Broken suspension: unstable
-                    : 1f + (1f - health.Suspension) * 0.3f;
-
-                effectiveSlipGain *= tireModifier * suspensionModifier;
-
-                // Drift torque: τ_drift = k_d × sign(s) × √v_f (if handbrake)
-                float driftTorque = 0f;
-
-                if (handbrake && math.abs(steer) > 0.1f)
-                {
-                    driftTorque = DriftGain * math.sign(steer) * math.sqrt(vel.Forward);
-                    drift.IsDrifting = true;
-                }
-                else if (drift.IsDrifting)
-                {
-                    // Recovery torque: τ_recover = -k_r × ψ (when handbrake released)
-                    // Phase 2: Transmission affects recovery speed
-                    float recoveryModifier = failures.HasFailed(ComponentFailures.Transmission)
-                        ? 0.4f  // Failed transmission: very slow recovery
-                        : 0.4f + (health.Transmission * 0.6f);  // Gradual degradation
-
-                    float recoveryTorque = -RecoveryGain * drift.YawOffset * recoveryModifier;
-                    steerTorque += recoveryTorque;
-
-                    // Exit drift state when yaw is small and stable
-                    if (math.abs(drift.YawOffset) < DriftExitYaw &&
-                        math.abs(drift.YawRate) < DriftExitRate)
+                    var session = SystemAPI.GetComponent<ScoreSession>(entity);
+                    if (session.Active)
                     {
-                        drift.IsDrifting = false;
-                        drift.YawOffset = 0f;
+                        float runTime = SystemAPI.GetComponent<ScoreSummary>(entity).TimeSurvived;
+                        pace = VehicleDynamics.PaceSpeed(runTime, session.Distance, paceGrowth);
+                        if (useFloor)
+                            floor = VehicleDynamics.MomentumFloor(pace);
                     }
                 }
 
-                // Total yaw acceleration
-                float yawAccel = steerTorque + driftTorque - YawDamping * drift.YawRate;
-
-                // Integrate yaw rate
-                drift.YawRate += yawAccel * deltaTime;
-                drift.YawRate = math.clamp(drift.YawRate, -MaxYawRate, MaxYawRate);
-
-                // Integrate yaw offset (allows full 360° spins)
-                drift.YawOffset += drift.YawRate * deltaTime;
+                vel.Forward = VehicleDynamics.StepForwardSpeed(
+                    vel.Forward, pace, floor,
+                    input.ValueRO.Throttle, input.ValueRO.Brake,
+                    engineModifier * transmissionModifier, boostScale, deltaTime);
 
                 // =============================================================
-                // Drift Slip Angle
+                // Yaw: alignment, steering, drift, slide (sub-stepped)
                 // =============================================================
 
-                if (handbrake || drift.IsDrifting)
-                {
-                    // β = ψ - arctan(v_l / v_f)
-                    float lateralVel = vel.Lateral;
-                    float slipAngle = drift.YawOffset - math.atan2(lateralVel, vel.Forward);
-                    drift.SlipAngle = slipAngle;
+                var traction = SystemAPI.HasComponent<TractionState>(entity)
+                    ? SystemAPI.GetComponent<TractionState>(entity)
+                    : default;
 
-                    // v_l += k_slip × sin(β) × v_f × Δt
-                    vel.Lateral += effectiveSlipGain * math.sin(slipAngle) * vel.Forward * deltaTime;
-
-                    // Clamp lateral velocity
-                    vel.Lateral = math.clamp(vel.Lateral, -15f, 15f);
-                }
-                else
+                var yawInput = new YawInputs
                 {
-                    // Decay lateral velocity when not drifting (framerate-independent)
-                    vel.Lateral *= math.exp(-3f * deltaTime);
-                    drift.SlipAngle = 0f;
+                    ForwardSpeed = vel.Forward,
+                    LateralSpeed = vel.Lateral,
+                    Steer = input.ValueRO.Steer,
+                    Handbrake = input.ValueRO.Handbrake,
+                    Usage = traction.Usage,
+                    LoadDirection = traction.LoadDirection,
+                    SteerResponse = steerResponse,
+                    RecoveryResponse = recoveryResponse
+                };
+
+                for (int i = 0; i < steps; i++)
+                {
+                    VehicleDynamics.StepYaw(ref drift, yawInput, h);
                 }
 
                 // Store angular velocity for other systems
                 vel.Angular = drift.YawRate;
 
                 // =============================================================
-                // Find Current Spline Frame
+                // Advance along the track
                 // =============================================================
 
                 FindTrackFrame(ref state, transform.ValueRO.Position.z,
-                    out float3 forward, out float3 right, out float3 up);
-
-                // =============================================================
-                // Update World Transform
-                // =============================================================
+                    out float3 forward, out float3 right, out float3 up, out _, out _);
 
                 // Forward movement along spline direction
+                // (lateral movement handled by LaneMagnetismSystem)
                 transform.ValueRW.Position += forward * vel.Forward * deltaTime;
 
-                // Lateral movement handled by LaneMagnetismSystem
-
-                // =============================================================
-                // Update Rotation
-                // =============================================================
-
-                // Base rotation aligned with track
+                // Body = track frame turned by the yaw offset
                 quaternion trackRot = quaternion.LookRotation(forward, up);
-
-                // Apply yaw offset from drift
-                quaternion yawRot = quaternion.RotateY(drift.YawOffset);
-                quaternion targetRot = math.mul(trackRot, yawRot);
-
-                // Smooth rotation blend (framerate-independent)
-                float rotBlend = drift.IsDrifting ? 5f * deltaTime : 8f * deltaTime;
+                quaternion targetRot = math.mul(trackRot, quaternion.RotateY(drift.YawOffset));
                 transform.ValueRW.Rotation = math.slerp(
                     transform.ValueRO.Rotation,
                     targetRot,
-                    math.saturate(rotBlend)
-                );
+                    VehicleDynamics.Damp(RotationResponse, deltaTime));
 
                 SyncWorldVelocity(ref state, entity, forward, right, vel.Forward, vel.Lateral, drift.YawRate);
             }
@@ -331,24 +217,50 @@ namespace Nightflow.Systems
                 ref var drift = ref driftState.ValueRW;
 
                 vel.Forward = GameFlowLogic.CoastingSpeed(vel.Forward, deltaTime);
-                vel.Lateral *= math.exp(-3f * deltaTime);
+                vel.Lateral *= math.exp(-CrashLateralDamping * deltaTime);
 
                 // Spin bleeds off; the yaw offset settles wherever the wreck ends up
-                drift.YawRate *= math.exp(-YawDamping * deltaTime);
-                drift.YawRate = math.clamp(drift.YawRate, -MaxYawRate, MaxYawRate);
-                drift.YawOffset += drift.YawRate * deltaTime;
+                drift.YawRate *= math.exp(-CrashYawDamping * deltaTime);
+                drift.YawRate = math.clamp(drift.YawRate, -VehicleDynamics.MaxYawRate, VehicleDynamics.MaxYawRate);
+                drift.YawOffset = VehicleDynamics.WrapAngle(drift.YawOffset + drift.YawRate * deltaTime);
                 drift.IsDrifting = false;
                 vel.Angular = drift.YawRate;
 
-                FindTrackFrame(ref state, transform.ValueRO.Position.z,
-                    out float3 forward, out float3 right, out float3 up);
+                // The tyre load dies away with the slide: lane magnetism (its
+                // only live writer) skips crashed cars, and a load frozen at the
+                // crash value would hold the skid squeal, the grip warning and
+                // the traction fringe through the whole crash sequence
+                if (SystemAPI.HasComponent<TractionState>(entity))
+                {
+                    var traction = SystemAPI.GetComponent<TractionState>(entity);
+                    traction.Usage *= math.exp(-CrashLateralDamping * deltaTime);
+                    traction.Sliding = false;
+                    traction.SlideTime = 0f;
+                    SystemAPI.SetComponent(entity, traction);
+                }
 
-                transform.ValueRW.Position += forward * vel.Forward * deltaTime;
+                FindTrackFrame(ref state, transform.ValueRO.Position.z,
+                    out float3 forward, out float3 right, out float3 up,
+                    out float3 roadCentre, out float halfRoadWidth);
+
+                // The barrier stops a sliding wreck: no further outward motion
+                // once it reaches the road edge (lane magnetism, which holds a
+                // live car on the road, skips crashed cars)
+                float roadOffset = math.dot(transform.ValueRO.Position - roadCentre, right);
+                if (halfRoadWidth > 0f &&
+                    math.abs(roadOffset) >= halfRoadWidth - WreckBarrierInset &&
+                    roadOffset * vel.Lateral > 0f)
+                {
+                    vel.Lateral = 0f;
+                }
+
+                transform.ValueRW.Position += (forward * vel.Forward + right * vel.Lateral) * deltaTime;
 
                 quaternion trackRot = quaternion.LookRotation(forward, up);
                 quaternion targetRot = math.mul(trackRot, quaternion.RotateY(drift.YawOffset));
                 transform.ValueRW.Rotation = math.slerp(
-                    transform.ValueRO.Rotation, targetRot, math.saturate(5f * deltaTime));
+                    transform.ValueRO.Rotation, targetRot,
+                    VehicleDynamics.Damp(CrashRotationResponse, deltaTime));
 
                 SyncWorldVelocity(ref state, entity, forward, right, vel.Forward, vel.Lateral, drift.YawRate);
             }
@@ -356,7 +268,7 @@ namespace Nightflow.Systems
 
         /// <summary>
         /// Mirrors the lane-relative velocity into the world-space VehicleVelocity
-        /// that audio (engine/wind/music) and speed-line effects read.
+        /// that the camera, audio (engine/wind/music) and speed-line effects read.
         /// </summary>
         private void SyncWorldVelocity(ref SystemState state, Entity entity,
             float3 forward, float3 right, float forwardSpeed, float lateralSpeed, float yawRate)
@@ -372,16 +284,20 @@ namespace Nightflow.Systems
         }
 
         /// <summary>
-        /// Frenet frame of the track spline at the given Z. Falls back to the
-        /// world axes when no segment covers that Z (segment gap while the
-        /// generator catches up), so the car always has a forward direction.
+        /// Frenet frame of the track spline at the given Z, plus the road's
+        /// centre point there and half its width. Falls back to the world axes
+        /// (and a zero width) when no segment covers that Z (segment gap while
+        /// the generator catches up), so the car always has a forward direction.
         /// </summary>
         private void FindTrackFrame(ref SystemState state, float playerZ,
-            out float3 forward, out float3 right, out float3 up)
+            out float3 forward, out float3 right, out float3 up,
+            out float3 roadCentre, out float halfRoadWidth)
         {
             forward = new float3(0, 0, 1);
             right = new float3(1, 0, 0);
             up = new float3(0, 1, 0);
+            roadCentre = float3.zero;
+            halfRoadWidth = 0f;
 
             foreach (var (segment, spline) in
                 SystemAPI.Query<RefRO<TrackSegment>, RefRO<HermiteSpline>>()
@@ -395,11 +311,11 @@ namespace Nightflow.Systems
 
                     float t = math.saturate((playerZ - segment.ValueRO.StartZ) / length);
 
-                    float3 tangent = SplineUtilities.EvaluateTangent(
+                    SplineUtilities.BuildFrameAtT(
                         spline.ValueRO.P0, spline.ValueRO.T0,
-                        spline.ValueRO.P1, spline.ValueRO.T1, t);
-
-                    SplineUtilities.BuildFrenetFrame(tangent, out forward, out right, out up);
+                        spline.ValueRO.P1, spline.ValueRO.T1, t,
+                        out roadCentre, out forward, out right, out up);
+                    halfRoadWidth = segment.ValueRO.NumLanes * GameConstants.LaneWidth * 0.5f;
                     break;
                 }
             }

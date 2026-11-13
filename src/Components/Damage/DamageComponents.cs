@@ -135,7 +135,10 @@ namespace Nightflow.Components
         LethalHazard = 1,
         TotalDamage = 2,
         CompoundFailure = 3,
-        ComponentFailure = 4
+        ComponentFailure = 4,
+
+        /// <summary>Slid too far sideways for the speed: the momentum outran the tyres.</summary>
+        LostControl = 5
     }
 
     // =========================================================================

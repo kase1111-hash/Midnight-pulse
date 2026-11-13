@@ -3,6 +3,7 @@
 // phase timing, coasting and run lifecycle defaults.
 
 using NUnit.Framework;
+using Unity.Mathematics;
 using Nightflow.Components;
 using Nightflow.Config;
 using Nightflow.Systems;
@@ -78,8 +79,10 @@ namespace Nightflow.Tests
 
             Assert.AreEqual(PilotDecision.EngageForIdle, decision);
             float elapsed = frames * Dt;
+            // The timer accumulates in float, so it can land one frame late
+            // (900 x 1/60 sums to 14.99994): allow two frames of slack
             Assert.GreaterOrEqual(elapsed, GameConstants.IdleTimeoutForAutopilot - Dt);
-            Assert.LessOrEqual(elapsed, GameConstants.IdleTimeoutForAutopilot + Dt);
+            Assert.LessOrEqual(elapsed, GameConstants.IdleTimeoutForAutopilot + 2f * Dt);
             Assert.AreEqual(0f, idle, "idle timer resets when autopilot engages");
         }
 
@@ -120,6 +123,45 @@ namespace Nightflow.Tests
         }
 
         [Test]
+        public void TakeoverIntent_KeyHeldFromMenu_MustBeReleasedFirst()
+        {
+            bool armed = false;
+
+            // Menu open: input never arms or takes over
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(true, true, ref armed));
+            Assert.IsFalse(armed);
+
+            // Menu closed with Space still held (the key that pressed Start)
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(true, false, ref armed));
+            Assert.IsFalse(armed);
+
+            // Released: arms without taking over
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(false, false, ref armed));
+            Assert.IsTrue(armed);
+
+            // A fresh press takes the wheel
+            Assert.IsTrue(GameFlowLogic.TakeoverIntent(true, false, ref armed));
+        }
+
+        [Test]
+        public void TakeoverIntent_MenuOrCrashDisarms()
+        {
+            bool armed = true;
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(false, true, ref armed));
+            Assert.IsFalse(armed);
+        }
+
+        [Test]
+        public void TakeoverIntent_IdleHandoff_NextInputTakesOverImmediately()
+        {
+            // The autopilot took over after the idle timeout (nothing held), so
+            // takeover is already armed and the first touch takes the wheel
+            bool armed = false;
+            GameFlowLogic.TakeoverIntent(false, false, ref armed);
+            Assert.IsTrue(GameFlowLogic.TakeoverIntent(true, false, ref armed));
+        }
+
+        [Test]
         public void AutopilotTargetSpeed_HoldsComfortBand()
         {
             Assert.AreEqual(GameConstants.AutopilotRecoverySpeed,
@@ -127,6 +169,137 @@ namespace Nightflow.Tests
             Assert.AreEqual(30f, GameFlowLogic.AutopilotTargetSpeedFor(30f), 0.001f);
             Assert.AreEqual(GameFlowLogic.AutopilotComfortMaxSpeed,
                 GameFlowLogic.AutopilotTargetSpeedFor(GameConstants.MaxForwardSpeed), 0.001f);
+        }
+
+        [Test]
+        public void AutopilotTargetSpeed_SuspendedRun_KeepsTheRunsSpeed()
+        {
+            // A paused or idle run keeps its momentum under the autopilot...
+            Assert.AreEqual(80f, GameFlowLogic.AutopilotTargetSpeedFor(80f, true), 0.001f);
+            // ...up to the hold cap...
+            Assert.AreEqual(GameFlowLogic.SuspendedRunMaxSpeed,
+                GameFlowLogic.AutopilotTargetSpeedFor(150f, true), 0.001f);
+            // ...never below the recovery cruise
+            Assert.AreEqual(GameConstants.AutopilotRecoverySpeed,
+                GameFlowLogic.AutopilotTargetSpeedFor(5f, true), 0.001f);
+            // With no run underneath it settles into the comfort band
+            Assert.AreEqual(GameFlowLogic.AutopilotComfortMaxSpeed,
+                GameFlowLogic.AutopilotTargetSpeedFor(80f, false), 0.001f);
+        }
+
+        [Test]
+        public void SuspendedRunHoldSpeed_ScalesWithTheCarsGrip()
+        {
+            Assert.AreEqual(GameFlowLogic.SuspendedRunMaxSpeed, GameFlowLogic.SuspendedRunHoldSpeed(1f), 1e-4f);
+            Assert.AreEqual(GameFlowLogic.SuspendedRunMaxSpeed * math.sqrt(0.55f),
+                GameFlowLogic.SuspendedRunHoldSpeed(0.55f), 1e-3f);
+            // Never below the comfort band; NaN reads as a healthy car
+            Assert.AreEqual(GameFlowLogic.AutopilotComfortMaxSpeed, GameFlowLogic.SuspendedRunHoldSpeed(0f), 1e-4f);
+            Assert.AreEqual(GameFlowLogic.SuspendedRunMaxSpeed, GameFlowLogic.SuspendedRunHoldSpeed(float.NaN), 1e-4f);
+        }
+
+        [Test]
+        public void LosingControl_SlidingOrNoseWellOff()
+        {
+            Assert.IsTrue(GameFlowLogic.LosingControl(true, 0f));
+            Assert.IsTrue(GameFlowLogic.LosingControl(false, GameFlowLogic.PauseSlipLimit + 0.05f));
+            Assert.IsTrue(GameFlowLogic.LosingControl(false, -(GameFlowLogic.PauseSlipLimit + 0.05f)));
+            Assert.IsFalse(GameFlowLogic.LosingControl(false, 0.05f));
+            Assert.IsFalse(GameFlowLogic.LosingControl(false, float.NaN));
+        }
+
+        [Test]
+        public void Pause_OpensAndResumes_WithCooldown()
+        {
+            var gs = new GameState();
+            Assert.IsTrue(GameFlowLogic.TogglePause(ref gs));
+            Assert.AreEqual(MenuState.Pause, gs.CurrentMenu);
+            Assert.IsTrue(gs.IsPaused);
+
+            Assert.IsTrue(GameFlowLogic.TogglePause(ref gs));
+            Assert.AreEqual(MenuState.None, gs.CurrentMenu);
+            Assert.AreEqual(GameConstants.PauseCooldownDuration, gs.PauseCooldown, 1e-5f);
+
+            // Cooldown: no new pause yet
+            Assert.IsFalse(GameFlowLogic.TogglePause(ref gs));
+            Assert.AreEqual(MenuState.None, gs.CurrentMenu);
+        }
+
+        [Test]
+        public void Pause_MidSlide_IsHeldAndASecondPressKeepsIt()
+        {
+            var gs = new GameState { PlayerLosingControl = true };
+            Assert.IsTrue(GameFlowLogic.TogglePause(ref gs));
+            Assert.IsTrue(gs.PauseRequested);
+            Assert.AreEqual(MenuState.None, gs.CurrentMenu);
+
+            // Regression: a second press used to cancel the held request
+            GameFlowLogic.TogglePause(ref gs);
+            Assert.IsTrue(gs.PauseRequested);
+
+            // Still sliding: stays held
+            GameFlowLogic.UpdateHeldPause(ref gs, true, Dt);
+            Assert.AreEqual(MenuState.None, gs.CurrentMenu);
+
+            // Back in hand: opens
+            GameFlowLogic.UpdateHeldPause(ref gs, false, Dt);
+            Assert.AreEqual(MenuState.Pause, gs.CurrentMenu);
+            Assert.IsFalse(gs.PauseRequested);
+        }
+
+        [Test]
+        public void Pause_HeldPauseJustOpened_IgnoresTheStraySecondPress()
+        {
+            var gs = new GameState { PlayerLosingControl = true };
+            GameFlowLogic.TogglePause(ref gs);
+            gs.PlayerLosingControl = false;
+            GameFlowLogic.UpdateHeldPause(ref gs, false, Dt);
+            Assert.AreEqual(MenuState.Pause, gs.CurrentMenu);
+
+            // A press right after it opened must not resume it...
+            Assert.IsFalse(GameFlowLogic.TogglePause(ref gs));
+            Assert.AreEqual(MenuState.Pause, gs.CurrentMenu);
+
+            // ...but one after the guard does
+            for (int i = 0; i < 60; i++)
+                GameFlowLogic.UpdateHeldPause(ref gs, false, Dt);
+            Assert.IsTrue(GameFlowLogic.TogglePause(ref gs));
+            Assert.AreEqual(MenuState.None, gs.CurrentMenu);
+        }
+
+        [Test]
+        public void Pause_HeldRequest_DroppedByACrashOrAnotherMenu()
+        {
+            var crashed = new GameState { PauseRequested = true, CrashPhase = CrashFlowPhase.Impact };
+            GameFlowLogic.UpdateHeldPause(ref crashed, false, Dt);
+            Assert.IsFalse(crashed.PauseRequested);
+            Assert.AreNotEqual(MenuState.Pause, crashed.CurrentMenu);
+
+            var menu = new GameState { PauseRequested = true, CurrentMenu = MenuState.MainMenu };
+            GameFlowLogic.UpdateHeldPause(ref menu, false, Dt);
+            Assert.IsFalse(menu.PauseRequested);
+            Assert.AreEqual(MenuState.MainMenu, menu.CurrentMenu);
+
+            // No pause during the crash flow at all
+            var flow = new GameState { CrashPhase = CrashFlowPhase.Summary };
+            Assert.IsFalse(GameFlowLogic.TogglePause(ref flow));
+        }
+
+        [Test]
+        public void SummaryDismiss_ControlHeldFromTheCrash_MustBeReleasedFirst()
+        {
+            // GameStateSystem gates the summary's input dismissal with
+            // TakeoverIntent, blocked outside the Summary phase
+            bool armed = false;
+
+            // Throttle held through impact, shake and fade
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(true, true, ref armed));
+            // Still held when the summary shows: ignored, stays disarmed
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(true, false, ref armed));
+            Assert.IsFalse(armed);
+            // Released, then pressed again: dismisses
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(false, false, ref armed));
+            Assert.IsTrue(GameFlowLogic.TakeoverIntent(true, false, ref armed));
         }
 
         #endregion

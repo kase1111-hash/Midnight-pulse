@@ -385,7 +385,7 @@ namespace Nightflow.Systems
                         challengeState.ValueRW.TotalBonusEarned += challenge.ScoreReward;
                     }
 
-                    challenges[i] = new ChallengeBuffer { Value = challenge };
+                    challenges.ElementAt(i) = new ChallengeBuffer { Value = challenge };
                 }
 
                 // Update streak if any challenge completed

@@ -87,7 +87,7 @@ namespace Nightflow.Systems.Audio
                     }
                     else
                     {
-                        intensityEvents[i] = evt;
+                        intensityEvents.ElementAt(i) = evt;
                     }
                 }
 

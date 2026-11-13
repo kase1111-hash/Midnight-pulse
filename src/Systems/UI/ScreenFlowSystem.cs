@@ -56,6 +56,7 @@ namespace Nightflow.Systems.UI
             gameState.IsPaused = pauseMenu;
             gameState.MenuVisible = gameState.CurrentMenu != MenuState.None;
             uiState.ShowPauseMenu = pauseMenu;
+            uiState.PausePending = gameState.PauseRequested;
         }
 
         [BurstCompile]
@@ -108,6 +109,7 @@ namespace Nightflow.Systems.UI
             gameState.CrashPhase = CrashFlowPhase.Impact;
             gameState.CrashPhaseTimer = 0f;
             gameState.AutopilotQueued = queueAutopilot;
+            gameState.PauseRequested = false;
 
             // A crash closes any pause menu; the summary is the only overlay now
             if (gameState.CurrentMenu == MenuState.Pause)
@@ -166,36 +168,21 @@ namespace Nightflow.Systems.UI
         /// <summary>
         /// Toggle the pause menu if the cooldown allows. Pausing never stops the
         /// car: GameStateSystem hands the wheel to the autopilot while any menu
-        /// is open, and gives it back on the first control input after resume.
+        /// is open (holding the run's speed), and gives it back on the first
+        /// control input after resume. Asked for while the car is getting away
+        /// from the driver, the pause is held and opens once it is back in hand
+        /// (dropped if the slide ends in a crash). Returns true when GameState
+        /// changed. Rules: GameFlowLogic.TogglePause.
         /// </summary>
         public static bool TryTogglePause(ref GameState gameState)
         {
-            // Can't pause during crash flow
-            if (gameState.CrashPhase != CrashFlowPhase.None)
-                return false;
+            return GameFlowLogic.TogglePause(ref gameState);
+        }
 
-            bool paused = gameState.CurrentMenu == MenuState.Pause;
-
-            // Only the pause menu toggles here (other menus have their own back actions)
-            if (!paused && gameState.CurrentMenu != MenuState.None)
-                return false;
-
-            // Check cooldown
-            if (!paused && gameState.PauseCooldown > 0f)
-                return false;
-
-            if (paused)
-            {
-                ResumeFromPause(ref gameState);
-            }
-            else
-            {
-                gameState.CurrentMenu = MenuState.Pause;
-                gameState.MenuVisible = true;
-                gameState.IsPaused = true;
-            }
-
-            return true;
+        /// <summary>Opens the pause menu (no checks).</summary>
+        public static void OpenPause(ref GameState gameState)
+        {
+            GameFlowLogic.OpenPause(ref gameState, false);
         }
 
         /// <summary>
@@ -203,14 +190,7 @@ namespace Nightflow.Systems.UI
         /// </summary>
         public static void ResumeFromPause(ref GameState gameState)
         {
-            if (gameState.CurrentMenu != MenuState.Pause)
-                return;
-
-            gameState.CurrentMenu = MenuState.None;
-            gameState.MenuVisible = false;
-            gameState.IsPaused = false;
-            gameState.TimeScale = 1f;
-            gameState.PauseCooldown = GameConstants.PauseCooldownDuration;
+            GameFlowLogic.ResumeFromPause(ref gameState);
         }
     }
 

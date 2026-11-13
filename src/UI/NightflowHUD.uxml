@@ -321,9 +321,15 @@
             <ui:Button name="resume-button" text="RESUME" class="menu-button" />
             <ui:Button name="restart-button" text="RESTART" class="menu-button" />
             <ui:Button name="settings-button" text="SETTINGS" class="menu-button" />
+            <ui:Button name="pause-menu-button" text="MAIN MENU" class="menu-button" />
             <ui:Button name="quit-button" text="QUIT" class="menu-button" />
         </ui:VisualElement>
     </ui:VisualElement>
+
+    <!-- Fade Overlay: drawn over the HUD, menus and pause panel but under the
+         game-over summary, so the crash fades to black, the summary shows on
+         black and the vehicle reset happens unseen before the fade back in -->
+    <ui:VisualElement name="fade-overlay" class="fade-overlay hidden" />
 
     <!-- Game Over Overlay -->
     <ui:VisualElement name="gameover-overlay" class="overlay hidden">
@@ -363,9 +369,6 @@
             <ui:Button name="menu-button" text="MAIN MENU" class="menu-button" />
         </ui:VisualElement>
     </ui:VisualElement>
-
-    <!-- Fade Overlay -->
-    <ui:VisualElement name="fade-overlay" class="fade-overlay hidden" />
 
     <!-- Settings Overlay -->
     <ui:VisualElement name="settings-overlay" class="overlay settings-overlay hidden">

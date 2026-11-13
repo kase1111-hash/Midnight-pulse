@@ -149,11 +149,12 @@ namespace Nightflow.Systems
 
                 float scoreThisFrame = distanceThisFrame * totalMultiplier;
 
-                // Cap per-frame score to prevent exploits
-                // At max speed (80 m/s), max tier (2.5×), max risk (2.0):
-                // 80 * 0.016 * 2.5 * 3.0 ≈ 9.6 per frame. 50 gives generous headroom.
-                const float MaxScorePerFrame = 50f;
-                scoreThisFrame = math.min(scoreThisFrame, MaxScorePerFrame);
+                // Cap the score rate to prevent exploits. There is no top speed,
+                // so the cap is per second (a per-frame cap would eat score at
+                // low frame rates): 400 m/s (MaxPlausibleSpeed) at max tier
+                // (2.5x) and max risk (3x) is 3000/s; 5000/s is generous headroom.
+                const float MaxScorePerSecond = 5000f;
+                scoreThisFrame = math.min(scoreThisFrame, MaxScorePerSecond * deltaTime);
 
                 scoreSession.ValueRW.Score += scoreThisFrame;
 

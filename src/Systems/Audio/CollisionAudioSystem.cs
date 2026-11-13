@@ -59,7 +59,7 @@ namespace Nightflow.Systems.Audio
                         delayed.Delay -= deltaTime;
                         if (delayed.Delay > 0f)
                         {
-                            collisionEvents[i] = delayed;
+                            collisionEvents.ElementAt(i) = delayed;
                             continue;
                         }
                     }

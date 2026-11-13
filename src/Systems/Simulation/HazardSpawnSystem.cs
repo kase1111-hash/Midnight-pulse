@@ -36,6 +36,7 @@ namespace Nightflow.Systems
         private const float MaxSpawnDistance = 400f;      // meters ahead
         private const float DespawnDistance = 50f;        // meters behind player
         private const float SpawnCheckInterval = 15f;     // check every 15 meters
+        private const float SpawnLeadSeconds = 2f;        // At speed, place hazards at least this far ahead in time
         // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
         // NumLanes uses GameConstants.DefaultNumLanes
 
@@ -172,20 +173,32 @@ namespace Nightflow.Systems
                 // Spawn New Hazards Ahead (skipped in Freeflow mode)
                 // =============================================================
 
+                // No terminal velocity: place hazards far enough ahead in time
+                // that they come out of the fog, never pop in close at speed
+                float spawnMin = math.max(MinSpawnDistance, math.max(playerSpeed, 0f) * SpawnLeadSeconds);
+                float spawnMax = spawnMin + (MaxSpawnDistance - MinSpawnDistance);
+
+                // ...but never past the road generated so far (unreachable in
+                // practice: grip runs out long before ~375 m/s)
+                float trackHorizon = (GameConstants.SegmentsAhead - 0.5f) * GameConstants.SegmentLength;
+                spawnMax = math.min(spawnMax, trackHorizon);
+                spawnMin = math.min(spawnMin, spawnMax - SpawnCheckInterval);
+
                 // Initialize furthest spawned if needed
-                if (_furthestSpawnedZ < playerPos.z + MinSpawnDistance)
+                if (_furthestSpawnedZ < playerPos.z + spawnMin)
                 {
-                    _furthestSpawnedZ = playerPos.z + MinSpawnDistance;
+                    _furthestSpawnedZ = playerPos.z + spawnMin;
                 }
 
                 // Spawn hazards up to max distance (unless in Freeflow mode)
                 // Limit spawns per frame to prevent entity explosion on lag spikes
-                float targetZ = playerPos.z + MaxSpawnDistance;
+                float targetZ = playerPos.z + spawnMax;
                 int hazardsSpawnedThisFrame = 0;
 
                 // Fairness: a stretch as long as a lane change must always stay
-                // drivable. Sized for top speed (or faster, in Redline): hazards
-                // spawn 150-400 m out, and the player may floor it before then
+                // drivable. Sized for at least the reference fast speed (there is
+                // no top speed): hazards spawn seconds out, and the player may
+                // floor it before reaching them
                 float window = HazardPlacement.SafetyWindow(math.max(playerSpeed, GameConstants.MaxForwardSpeed));
 
                 while (_furthestSpawnedZ < targetZ && hazardsSpawnedThisFrame < MaxHazardsPerFrame)

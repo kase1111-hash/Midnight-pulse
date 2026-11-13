@@ -25,27 +25,30 @@ namespace Nightflow.Systems
     /// - Not already transitioning
     ///
     /// Transition: λ(t) = 3t² - 2t³ (smoothstep)
-    /// Duration: T = clamp(T_base × (v/v_ref), T_min, T_max)
+    /// Duration: T = clamp(T_base × (v/v_ref), T_min, T_max); a change the
+    /// autopilot requests takes AutopilotLogic.LaneChangeDuration
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(LaneBlockingSystem))]
     public partial struct SteeringSystem : ISystem
     {
-        // Lane change parameters (from spec)
-        private const float SteerTriggerThreshold = 0.35f;
+        // Lane change parameters (from spec). The trigger threshold lives in
+        // VehicleDynamics (the in-lane lean hands over to a lane change there)
+        // and the speed-aware duration in HazardPlacement (hazard fairness uses
+        // the same lane-change time).
         private const float AbortThreshold = 0.7f;
-        private const float BaseDuration = 0.6f;
-        private const float MinDuration = 0.45f;
-        private const float MaxDuration = 1.0f;
-        private const float ReferenceSpeed = 40f;         // m/s
+        private const float BaseDuration = HazardPlacement.LaneChangeBaseDuration;
         private const int NumLanes = 4;
 
-        // Blocking check parameters
-        // FIXME: Block check range is fixed but should scale with player speed — at 80m/s, 20m ahead is only 0.25s reaction time
-        private const float BlockCheckAhead = 20f;
+        // Blocking check parameters. The window ahead is the road the car
+        // closes on the blocker while the change is under way (relative speed x
+        // lane-change time), the same window HazardPlacement keeps two lanes
+        // free in. It scales with speed, but unlike a fixed number of seconds
+        // it never refuses a change because of something far down the road.
+        private const float BlockCheckAhead = 12f;
         private const float BlockCheckBehind = 10f;
-        // GameConstants.LaneWidth uses GameConstants.GameConstants.LaneWidth
+        private const float BlockBehindSeconds = 1.5f;    // faster cars closing from behind
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -167,19 +170,27 @@ namespace Nightflow.Systems
 
                     if (counterSteer && t < 0.5f)
                     {
-                        // Abort: reverse direction
+                        // Abort: run the same blend backwards from where the car
+                        // is (LaneMagnetismSystem blends with 1 - λ while
+                        // aborting). Mirroring the timer keeps the lateral target
+                        // continuous (smoothstep is symmetric: 1 - λ(1-t) == λ(t)),
+                        // so the car reverses smoothly instead of snapping back,
+                        // and the lanes are left alone so CurrentLane never names
+                        // a lane the car didn't reach
+                        steeringState.ValueRW.LaneChangeAborting = !steeringState.ValueRO.LaneChangeAborting;
                         steeringState.ValueRW.LaneChangeDir = -dir;
                         steeringState.ValueRW.LaneChangeTimer = duration * (1f - t);
-
-                        // Swap target back to current
-                        laneFollower.ValueRW.TargetLane = laneFollower.ValueRO.CurrentLane;
                     }
                     else if (t >= 1f)
                     {
-                        // Lane change complete
+                        // Lane change complete; an aborted one ends where it started
                         steeringState.ValueRW.ChangingLanes = false;
                         steeringState.ValueRW.LaneChangeTimer = 0f;
-                        laneFollower.ValueRW.CurrentLane = laneFollower.ValueRO.TargetLane;
+                        if (steeringState.ValueRO.LaneChangeAborting)
+                            laneFollower.ValueRW.TargetLane = laneFollower.ValueRO.CurrentLane;
+                        else
+                            laneFollower.ValueRW.CurrentLane = laneFollower.ValueRO.TargetLane;
+                        steeringState.ValueRW.LaneChangeAborting = false;
                     }
                 }
                 else
@@ -192,16 +203,18 @@ namespace Nightflow.Systems
                     // through the same blocked-lane safety check.
 
                     bool wantsChange = false;
+                    bool requested = false;
                     int direction = 0;
 
                     if (steeringState.ValueRO.LaneChangeRequested)
                     {
                         direction = math.clamp(steeringState.ValueRO.LaneChangeDirection, -1, 1);
                         wantsChange = direction != 0;
+                        requested = true;
                         steeringState.ValueRW.LaneChangeRequested = false;
                         steeringState.ValueRW.LaneChangeDirection = 0;
                     }
-                    else if (math.abs(steerInput) > SteerTriggerThreshold)
+                    else if (math.abs(steerInput) > VehicleDynamics.LaneChangeSteerThreshold)
                     {
                         direction = steerInput > 0 ? 1 : -1;
                         wantsChange = true;
@@ -215,19 +228,25 @@ namespace Nightflow.Systems
                         // Check lane bounds
                         if (targetLane >= 0 && targetLane < NumLanes)
                         {
+                            // Speed-aware duration per spec: T = clamp(T_base × (v / v_ref), T_min, T_max)
+                            // Higher speed → longer duration (harder to change lanes at speed).
+                            // The autopilot's requests take its own calmer time near the
+                            // speed its tyres can hold (T_max, so a worn car never squeals)
+                            float duration = requested
+                                ? AutopilotLogic.LaneChangeDuration(mySpeed, GameFlowLogic.SuspendedRunHoldSpeed(
+                                    VehicleDynamics.GripShare(
+                                        health.Tires, failures.HasFailed(ComponentFailures.Tires),
+                                        health.Suspension, failures.HasFailed(ComponentFailures.Suspension))))
+                                : HazardPlacement.LaneChangeDuration(mySpeed);
+
                             // Check if lane is blocked
-                            bool isBlocked = IsLaneBlocked(myZ, mySpeed, targetLane, ref blockers);
+                            bool isBlocked = IsLaneBlocked(myZ, mySpeed, duration, targetLane, ref blockers);
 
                             if (!isBlocked)
                             {
-                                // Calculate speed-aware duration per spec: T = T_base × (v / v_ref)
-                                // Higher speed → longer duration (harder to change lanes at speed)
-                                float speed = velocity.ValueRO.Forward;
-                                float duration = BaseDuration * (speed / ReferenceSpeed);
-                                duration = math.clamp(duration, MinDuration, MaxDuration);
-
                                 // Start lane change
                                 steeringState.ValueRW.ChangingLanes = true;
+                                steeringState.ValueRW.LaneChangeAborting = false;
                                 steeringState.ValueRW.LaneChangeTimer = 0f;
                                 steeringState.ValueRW.LaneChangeDuration = duration;
                                 steeringState.ValueRW.LaneChangeDir = direction;
@@ -257,37 +276,14 @@ namespace Nightflow.Systems
                 }
             }
 
-            // =============================================================
-            // Complete Traffic Lane Changes
-            // =============================================================
-
-            foreach (var (steeringState, laneFollower) in
-                SystemAPI.Query<RefRW<SteeringState>, RefRW<LaneFollower>>()
-                    .WithAll<TrafficVehicleTag>())
-            {
-                if (!steeringState.ValueRO.ChangingLanes)
-                    continue;
-
-                steeringState.ValueRW.LaneChangeTimer += deltaTime;
-
-                float duration = steeringState.ValueRO.LaneChangeDuration;
-                if (duration <= 0) duration = 0.8f;
-
-                float t = steeringState.ValueRO.LaneChangeTimer / duration;
-
-                if (t >= 1f)
-                {
-                    // Lane change complete
-                    steeringState.ValueRW.ChangingLanes = false;
-                    steeringState.ValueRW.LaneChangeTimer = 0f;
-                    laneFollower.ValueRW.CurrentLane = laneFollower.ValueRO.TargetLane;
-                }
-            }
+            // Traffic lane changes are advanced and completed by
+            // TrafficMovementSystem alone (advancing them here as well ran
+            // every traffic lane change at double speed)
 
             blockers.Dispose();
         }
 
-        private bool IsLaneBlocked(float myZ, float mySpeed, int targetLane,
+        private bool IsLaneBlocked(float myZ, float mySpeed, float laneChangeDuration, int targetLane,
                                    ref NativeList<BlockerInfo> blockers)
         {
             for (int i = 0; i < blockers.Length; i++)
@@ -297,10 +293,10 @@ namespace Nightflow.Systems
 
                 float dz = b.Z - myZ;
 
-                // Adjust blocking distance based on relative speed
+                // Road closed on the blocker while the change is under way
                 float relSpeed = mySpeed - b.Speed;
-                float ahead = BlockCheckAhead + math.max(0, relSpeed * 1.5f);
-                float behind = BlockCheckBehind + math.max(0, -relSpeed * 2f);
+                float ahead = BlockCheckAhead + math.max(0f, relSpeed) * laneChangeDuration;
+                float behind = BlockCheckBehind + math.max(0f, -relSpeed) * BlockBehindSeconds;
 
                 if (dz > -behind && dz < ahead)
                 {

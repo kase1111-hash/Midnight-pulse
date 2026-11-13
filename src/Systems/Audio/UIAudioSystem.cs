@@ -137,7 +137,7 @@ namespace Nightflow.Systems.Audio
                     if (evt.Delay > 0f)
                     {
                         evt.Delay -= deltaTime;
-                        uiAudioEvents[i] = evt;
+                        uiAudioEvents.ElementAt(i) = evt;
                         continue;
                     }
 

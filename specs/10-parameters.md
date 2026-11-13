@@ -15,7 +15,8 @@ Complete reference of all tuning values and defaults. Source files are noted for
 | LaneWidth | 3.6 m | Standard freeway lane width |
 | DefaultNumLanes | 4 | Lanes per road |
 | MinForwardSpeed | 8 m/s | Never stalls (critical rule) |
-| MaxForwardSpeed | 80 m/s | Speed cap |
+| MaxForwardSpeed | 80 m/s | Reference "fast" speed (not a cap: there is no top speed) |
+| MaxPlausibleSpeed | 400 m/s | Save-data sanity bound for recorded speeds |
 | MaxDamage | 100 | Crash threshold |
 | SegmentLength | 200 m | Track segment length |
 | SegmentsAhead | 5 | Lookahead buffer |
@@ -23,19 +24,66 @@ Complete reference of all tuning values and defaults. Source files are noted for
 
 ---
 
+## Momentum (no terminal velocity)
+
+> **Source:** `src/Systems/Core/VehicleDynamics.cs` (rules), `src/Systems/Simulation/VehicleMovementSystem.cs`
+
+`pace(t, d) = 25 + 0.25 × t² / (t + 30) + 0.0012 × d` (t = seconds driven this run, d = metres driven). There is no top speed and no drag: off the pedals the car is pulled up to the pace, throttle boosts above it, the brake trims down to the floor, and speed you gain is speed you keep.
+
+| Parameter | Value |
+|-----------|-------|
+| Pace at run start | 25 m/s (90 km/h) |
+| Pace climb (eased in over 30 s) | 0.25 m/s per second |
+| Pace per metre driven | 0.0012 m/s |
+| Pull toward the pace | 0.8/s of the gap, max 3 m/s² |
+| Throttle boost | 7 / (1 + v / 25) m/s² (never zero) |
+| Brake | 25 m/s² |
+| Momentum floor (brake limit) | 70% of the pace (a held brake trails it as it rises) |
+| Redline mode | pace climb ×1.3, throttle boost ×1.6 |
+| Freeflow mode | no pace climb, no floor |
+| Collision speed penalty | 30% of impact speed |
+
+Cruising at the pace: ~195 km/h after 2 min, ~265 km/h after 3 min, ~340 km/h after 4 min, ~420 km/h after 5 min, ~505 km/h after 6 min. Full throttle reaches 360 km/h in ~40 s.
+
+## Grip & Loss of Control
+
+> **Source:** `src/Systems/Core/VehicleDynamics.cs`, `src/Systems/Simulation/LaneMagnetismSystem.cs`, `src/Systems/Simulation/CrashSystem.cs`
+
+`grip(v) = 32 × tyres × suspension / (1 + (v / 140)²)` m/s², `load = v² × curvature + LaneLoad(v) × lane-spring acceleration`, `LaneLoad(v) = 0.5 × max(0, v − 20) / 40`. Usage = load / grip (smoothed at 12/s). Past usage 1 the tyre force is scaled back by the usage (the car runs wide), the alignment torque fades (`1 / (1 + 4 × excess)`) and an oversteer torque (`6 × excess × v / 40`) steps the rear out. The run ends (`LOST CONTROL`) when the slip angle passes the limit for the speed.
+
+| Parameter | Value |
+|-----------|-------|
+| Grip at low speed | 32 m/s² |
+| Lift speed (grip halves) | 140 m/s |
+| Worn / failed tyres | 70% / 55% |
+| Worn / failed suspension | 90% / 80% |
+| Handbrake grip | 35% |
+| Autopilot grip | 200% of the car's own (with the hold speed below and its calm lane changes, its dodges stay below the tyre squeal) |
+| Suspended-run hold speed | 85 m/s × √(grip share) (~63 m/s on failed tyres), never below 35 m/s; a run paused faster is brought down at 8 m/s² (the comfort rate below it is 4 m/s²) |
+| Autopilot lane change | the player's duration below 60% of the hold speed, easing to 1 s by 75% of it; asked again every frame while the lane is blocked; cooldown 1.6 s from the start of a change |
+| Traction warning | usage 0.85 (off below 0.75) |
+| Survivable slip | any below 35 m/s, easing to 0.85 rad (~49°) at 75 m/s and above |
+
+Where it bites: the generated road's tightest bends (the generator caps the curvature at R = 300 m, but only reaches it for a metre or two at each segment join; segment middles are ~R 7.5 km) start to slide at ~97 m/s and spin out without a correction at ~120 m/s; lane changes on a straight start to slide at ~108 m/s and spin out at ~140 m/s; handbrake drifts are survivable up to ~55 m/s. (A sustained R = 300 m arc, which the generator never builds, would slide at ~85 m/s.)
+
+---
+
 ## Lane Magnetism
 
-> **Source:** `src/Systems/Simulation/LaneMagnetismSystem.cs`, `src/Config/GameplayConfig.cs`
+> **Source:** `src/Systems/Simulation/LaneMagnetismSystem.cs`, `src/Systems/Core/VehicleDynamics.cs`
+
+Critically damped spring toward the lane target (and the lane-change blend's velocity, so lane changes don't lag), integrated in sub-steps of at most 1/120 s so it behaves the same at any frame rate. The in-lane lean and the emergency yield move the target's position only (their rate is never fed to the spring's damper).
 
 | Parameter | Value |
 |-----------|-------|
 | omega | 8.0 |
 | v_ref | 40 m/s |
-| Max lateral speed | 6 m/s |
-| Edge stiffness | 20 |
-| Soft zone | 85% lane width |
-| Magnetism strength | 0.7 (configurable) |
-| Min magnetism at high speed | 0.3 |
+| Max lateral speed | 6 m/s (10 m/s sliding, 15 m/s drifting) |
+| Edge stiffness | 60 |
+| Soft zone | 85% of half the road width |
+| Analog in-lane lean | up to 0.9 m below the lane-change threshold, eased at 6/s |
+| Emergency yield | moves at most 1.5 m/s, never aims within 0.5 m of the soft edge; holds still while a lane change is in flight; a change the way it points takes it over (it fades with the blend, its rate fed to the spring), one pointing back at the old lane stays applied |
+| Magnetism strength | 1.0 (side damage reduces it) |
 
 ---
 
@@ -51,21 +99,26 @@ Complete reference of all tuning values and defaults. Source files are noted for
 | Min duration | 0.45 s |
 | Max duration | 1.0 s |
 | Lane width | 3.6 m |
-| Fork magnetism | 70% (strength of lane pull at road forks) |
+| Fork magnetism | eases to 70% across a fork, back to 100% at 1/s after it |
 | Lane change cooldown | 0.2 s |
+| Blocking window ahead | 12 m + closing speed × lane-change time |
+| Blocking window behind | 10 m + closing speed × 1.5 s |
 
 ---
 
 ## Drift / Yaw
 
-> **Source:** `src/Systems/Simulation/VehicleMovementSystem.cs`
+> **Source:** `src/Systems/Core/VehicleDynamics.cs`, `src/Systems/Simulation/VehicleMovementSystem.cs`
 
 | Parameter | Value |
 |-----------|-------|
 | Min forward speed | 8 m/s |
 | Steering gain (k_s) | 1.2 |
 | Drift gain (k_d) | 2.5 |
-| Yaw damping (c_psi) | 0.8 |
+| Recovery gain (k_r) | 2.0 |
+| Alignment stiffness | 40 rad/s² per rad of slip |
+| Yaw damping | 9/s at 40 m/s, × sqrt(40 / v) (min 45%): twitchier at speed |
+| Handbrake alignment | 15% |
 | Max yaw rate | 6 rad/s |
 | Slip gain (k_slip) | 1.1 |
 | Drift magnetism | 0.3 |
@@ -76,22 +129,24 @@ Complete reference of all tuning values and defaults. Source files are noted for
 
 > **Source:** `src/Systems/Presentation/CameraSystem.cs`
 
+Speed-driven values follow `SpeedFeel(v) = 1 − exp(−max(0, v − 12) / 50)` (~0.5 at 50 m/s, ~0.8 at 90 m/s, still creeping toward 1), so FOV, pull-back, blur, speed lines and audio keep building with no top speed. The camera follows the smoothed direction of travel (not the car's nose), smooths its offset rather than its world position (no speed-proportional lag), and cuts to its chase position whenever the car is reset under the black (crash, RESTART, leaving a run for the menu). All smoothing is exponential (frame-rate independent).
+
 | Parameter | Value |
 |-----------|-------|
-| Base FOV | 60 degrees |
-| Speed FOV Bonus | 20 degrees |
+| Base FOV | 55 degrees |
+| Max FOV (asymptote) | 95 degrees (+5 drifting) |
 | Base Height | 3 m |
 | Base Distance | 8 m |
 | Speed Height Bonus | 1.5 m |
 | Speed Distance Bonus | 4 m |
 | Look Ahead Factor | 0.5 |
 | Max Look Ahead | 15 m |
-| Position Smooth Speed | 8 |
-| Rotation Smooth Speed | 5 |
-| FOV Smooth Speed | 3 |
+| Heading / Distance / Height / FOV response | 6 / 4 / 4 / 3 per s |
+| Look response | 10 per s |
+| Acceleration pull-back | 0.12 m per m/s² (max 1.2 m back, 0.8 m in) |
+| Speed shake | up to 0.06 m, from 45 m/s |
+| Traction shake | up to 0.12 m as usage passes 0.8 |
 | Collision Shake Intensity | 0.5 |
-| Collision Shake Duration | 0.3 s |
-| Speed Shake Intensity | 0.02 |
 
 ---
 
@@ -298,9 +353,7 @@ Run progress = `0.5 × distance / 10 km + 0.5 × time / 5 min`. Intensity eases 
 | Hazard multiplier | 1x | 2.5x | 3.25x |
 | Lethal hazard share | 0.6x | 1x | 1.2x |
 | Emergency multiplier | 1x (every 45 s) | 3x (15 s) | 4x (~11 s) |
-| Base cruise speed | 90 km/h | 180 km/h | 225 km/h |
-
-Base cruise speed: when the player is off both pedals (Nightflow mode), the car eases up toward it at 2.5 m/s². Throttle still reaches 80 m/s, braking still goes lower. Traffic never spawns faster than 65% of the player's top speed, and emergency vehicles always drive at least 12 m/s faster than the player.
+Speed is not on this table: the run's pace (see Momentum above) climbs with no ceiling and is what ends runs. Traffic never spawns faster than 65% of the 80 m/s reference speed (52 m/s), so the player only pulls further ahead as the run builds; traffic and hazards spawn at least 1.6 s / 2 s of travel ahead so they come out of the fog at any speed, and emergency vehicles always drive at least 12 m/s faster than the player.
 
 ### Adaptive Difficulty (across runs)
 
@@ -314,4 +367,4 @@ Every player-driven run that lasts at least 3 s is folded into a skill profile w
 
 ### Hazard Fairness
 
-Any stretch of road as long as a lane change at top speed (lane-change time × speed + 10 m, ~90 m at 80 m/s) keeps at least two lanes free, and every blocked lane keeps a free neighbour. Hazards that would break this are placed in another lane instead. Brute-force path search finds no unavoidable walls at any hazard rate.
+Any stretch of road as long as a lane change at the current speed (lane-change time × speed + 10 m, ~90 m at 80 m/s, never sized below 80 m/s) keeps at least two lanes free, and every blocked lane keeps a free neighbour. Hazards that would break this are placed in another lane instead. Brute-force path search finds no unavoidable walls at any hazard rate.

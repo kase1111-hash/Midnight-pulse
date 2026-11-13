@@ -233,9 +233,13 @@ namespace Nightflow.Systems.UI
             // Leaving the crash summary (or any point of the crash flow) for the
             // menu still needs the wreck reset and handed to the autopilot; the
             // flow tail (Reset → FadeIn) runs underneath the menu overlay.
-            if (gameState.CrashPhase != CrashFlowPhase.None)
+            // Leaving a suspended run (pause menu → Main Menu) abandons it the
+            // same way: the car is repaired under the fade, the run is closed,
+            // and the first input after Start begins a fresh run at a fresh pace.
+            if (gameState.CrashPhase != CrashFlowPhase.None || gameState.RunSuspended)
             {
                 ScreenFlowSystem.RequestVehicleReset(ref gameState);
+                gameState.RunSuspended = false;
             }
 
             // Clear gameplay overlays

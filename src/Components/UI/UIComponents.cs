@@ -46,7 +46,12 @@ namespace Nightflow.Components
         public bool CriticalDamage;
 
         // Warnings
-        public int WarningPriority;     // 0=None, 1=Risk, 2=Damage, 3=Emergency
+        public int WarningPriority;     // 0=None, 1=Risk, 2=Damage or traction, 3=Emergency
+
+        // Tyre load (TractionState.Usage): 1 = at the grip limit, above = sliding
+        public float TractionUsage;
+        public bool TractionWarning;    // Near the limit (with hysteresis so it doesn't flicker)
+        public bool PausePending;       // Pause asked for mid-slide: opens once the car is back in hand
         public bool WarningFlash;
         public float EmergencyDistance;
         public float EmergencyETA;
@@ -113,13 +118,40 @@ namespace Nightflow.Components
         public MenuState CurrentMenu;
         public bool MenuVisible;
 
-        // Presentation time-scale hint (crash slow-mo). Never zero: nothing
-        // pauses the simulation. Consumed by force feedback / effects only.
+        // Crash slow-motion (0.3x on impact, easing back to 1x before the fade).
+        // Never zero: nothing pauses the simulation. Applied to Unity time by
+        // TimeScaleDriver (clamped to [0.25, 1]); force feedback reads it too.
         public float TimeScale;
 
         // One-shot request consumed by CrashSystem: reset the vehicle's
         // damage, health, drift and crash state and hand it to the autopilot.
         public bool VehicleResetPending;
+
+        // Control input may take the wheel from the autopilot only once every
+        // control has been released since the last menu / crash sequence, so a
+        // key still held from a menu (Space, S, W...) never starts a run with a
+        // handbrake or brake the player didn't mean. See GameFlowLogic.TakeoverIntent.
+        public bool TakeoverArmed;
+
+        // Same rule for leaving the crash summary with a driving control: a
+        // throttle or steer still held from the crash must be released first.
+        public bool DismissArmed;
+
+        // Mirrored by GameStateSystem every frame: a scoring run is in progress
+        // but the autopilot has the wheel (pause menu, idle). Leaving for the
+        // main menu abandons it.
+        public bool RunSuspended;
+
+        // Mirrored by GameStateSystem every frame: the player's car is getting
+        // away from them (GameFlowLogic.LosingControl). A pause asked for then
+        // is held in PauseRequested and opens once the car is back in hand.
+        public bool PlayerLosingControl;
+        public bool PauseRequested;
+
+        // Seconds during which the pause key is ignored after a held pause
+        // opened on its own (a second press of the same request must not
+        // immediately resume it). See GameFlowLogic.TogglePause.
+        public float PauseResumeGuard;
     }
 
     /// <summary>

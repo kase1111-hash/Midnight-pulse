@@ -13,48 +13,77 @@ using Nightflow.Config;
 namespace Nightflow.Systems
 {
     /// <summary>
-    /// AI-driven vehicle control when autopilot is enabled.
-    /// Activates after crash, score save, or player request.
+    /// AI-driven vehicle control when autopilot is enabled: attract mode under
+    /// the menus, after a crash, and when the player goes idle.
     ///
     /// From spec:
     /// - Lane-following at medium speed
     /// - Avoids hazards
     /// - Maintains visual flow
     /// - Menu overlay stays active
+    ///
+    /// The autopilot drives like a calm human: lane magnetism keeps it centred
+    /// (it never steers against the road centre), lane changes go through the
+    /// same request/blocked-lane path as the player's, and speed changes ease
+    /// in at comfortable rates. Taking the wheel from a fast player it eases
+    /// down from that speed instead of braking hard, so the handoff is seamless;
+    /// while the player's run is suspended underneath (pause menu, idle) it
+    /// keeps the run's speed instead, so resuming never loses momentum.
+    ///
+    /// A lane change it wants is asked for every frame until SteeringSystem
+    /// starts it (a blocked lane, e.g. traffic alongside, only defers it; the
+    /// other side is tried in turn when it is a way out too), and its own
+    /// changes take a calm AutopilotLogic.LaneChangeDuration. A run paused
+    /// above the speed its tyres let it hold is brought down to it at
+    /// AutopilotLogic.SettleDecel.
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateBefore(typeof(SteeringSystem))]   // its lane-change request is consumed the same frame
     public partial struct AutopilotSystem : ISystem
     {
-        // Speed control
-        private const float CruiseSpeed = 25f;          // m/s (~90 km/h)
-        private const float MaxAutopilotSpeed = 35f;    // m/s (~126 km/h)
+        // Speed control. The cruise target is Autopilot.TargetSpeed: the
+        // comfort band (20-35 m/s) in attract mode, or the run's own speed
+        // (up to GameFlowLogic.SuspendedRunHoldSpeed for the car's grip) while
+        // a paused or idle run waits underneath
         private const float MinAutopilotSpeed = 15f;    // m/s (~54 km/h)
 
-        // Steering control
-        private const float LaneCenteringGain = 0.8f;
-        private const float SteerSmoothing = 5f;
+        // Steering: a small lean toward the way out of a hazard, always below
+        // the lane-change threshold (lane changes are explicit requests)
+        private const float MaxLeanSteer = 0.25f;
+        private const float SteerSmoothing = 5f;        // 1/s
 
-        // Hazard avoidance
+        // Hazard avoidance (the lane-change cooldown, look-ahead and duration
+        // live in AutopilotLogic)
         // TODO: Autopilot should vary its driving style (cautious vs aggressive) based on player's typical playstyle
-        private const float HazardDetectionRange = 80f;
+        private const float MinHazardDetectionRange = 80f;
         private const float HazardAvoidanceStrength = 1.5f;
         private const float LaneChangeThreshold = 0.5f;
 
         // Emergency response
         private const float EmergencySlowdownFactor = 0.6f;
-        private const float EmergencyYieldOffset = 3f;
 
-        // State
+        // State (single player vehicle)
         private float _smoothedSteer;
         private float _laneChangeTimer;
-        private int _targetLane;
+        private float _easedSpeed;
+        private bool _wasEnabled;
+
+        // Lane change asked for last frame (0 = none), and whether one was
+        // under way: SteeringSystem consumes a request the frame it is made,
+        // so one followed by no change was turned down; the cooldown starts
+        // with the change itself
+        private int _requestedDirection;
+        private bool _wasChangingLanes;
 
         public void OnCreate(ref SystemState state)
         {
             _smoothedSteer = 0f;
             _laneChangeTimer = 0f;
-            _targetLane = -1;
+            _easedSpeed = 0f;
+            _wasEnabled = false;
+            _requestedDirection = 0;
+            _wasChangingLanes = false;
         }
 
         [BurstCompile]
@@ -68,19 +97,36 @@ namespace Nightflow.Systems
                 _laneChangeTimer -= deltaTime;
             }
 
-            foreach (var (autopilot, input, laneFollower, velocity, steeringState, transform, detection) in
+            foreach (var (autopilot, input, laneFollower, velocity, steeringState, transform, detection, entity) in
                 SystemAPI.Query<RefRO<Autopilot>, RefRW<PlayerInput>, RefRO<LaneFollower>,
                                RefRO<Velocity>, RefRW<SteeringState>, RefRO<WorldTransform>,
                                RefRO<EmergencyDetection>>()
                     .WithAll<PlayerVehicleTag>()
-                    .WithNone<CrashedTag>())
+                    .WithNone<CrashedTag>()
+                    .WithEntityAccess())
             {
+                float currentSpeed = velocity.ValueRO.Forward;
+                bool changingLanes = steeringState.ValueRO.ChangingLanes;
+
                 if (!autopilot.ValueRO.Enabled)
+                {
+                    _wasEnabled = false;
+                    _smoothedSteer = 0f;
+                    _requestedDirection = 0;
+                    _wasChangingLanes = changingLanes;
                     continue;
+                }
+
+                // Taking the wheel: start from the car's speed and lean, so the
+                // handoff itself never jolts the car
+                if (!_wasEnabled)
+                {
+                    _wasEnabled = true;
+                    _easedSpeed = currentSpeed;
+                    _smoothedSteer = input.ValueRO.Steer;
+                }
 
                 float3 playerPos = transform.ValueRO.Position;
-                float currentSpeed = velocity.ValueRO.Forward;
-                float targetSpeed = autopilot.ValueRO.TargetSpeed;
 
                 // =============================================================
                 // Hazard Detection
@@ -94,10 +140,14 @@ namespace Nightflow.Systems
                 int myLane = AutopilotLogic.DrivingLane(
                     laneFollower.ValueRO.CurrentLane,
                     laneFollower.ValueRO.TargetLane,
-                    steeringState.ValueRO.ChangingLanes);
+                    steeringState.ValueRO.ChangingLanes && !steeringState.ValueRO.LaneChangeAborting);
+
+                // Look a few seconds ahead, not a fixed distance: at speed the
+                // fixed range would leave no time to react
+                float detectionRange = AutopilotLogic.DetectionRange(currentSpeed, MinHazardDetectionRange);
 
                 float4 laneThreat = float4.zero;
-                float nearestHazardDist = HazardDetectionRange;
+                float nearestHazardDist = detectionRange;
 
                 foreach (var (hazardTransform, hazard) in
                     SystemAPI.Query<RefRO<WorldTransform>, RefRO<Hazard>>()
@@ -110,7 +160,7 @@ namespace Nightflow.Systems
                     // stand-in for distance along the road
                     float forwardDist = hazardTransform.ValueRO.Position.z - playerPos.z;
                     float threat = AutopilotLogic.HazardThreat(
-                        hazard.ValueRO.Severity, forwardDist, HazardDetectionRange);
+                        hazard.ValueRO.Severity, forwardDist, detectionRange);
 
                     if (threat <= 0f)
                         continue;
@@ -129,116 +179,111 @@ namespace Nightflow.Systems
                 // =============================================================
                 // Emergency Vehicle Response
                 // =============================================================
+                // Yielding sideways is done by LaneMagnetismSystem through
+                // EmergencyDetection.AvoidanceOffset; here we only slow down
 
                 float emergencySpeedMod = 1f;
-                float emergencySteerMod = 0f;
-
                 if (detection.ValueRO.WarningActive)
                 {
-                    float urgency = detection.ValueRO.Urgency;
-
-                    // Slow down
-                    emergencySpeedMod = 1f - urgency * (1f - EmergencySlowdownFactor);
-
-                    // Yield to side (use avoidance offset)
-                    emergencySteerMod = detection.ValueRO.AvoidanceOffset * 0.3f;
+                    emergencySpeedMod = 1f - detection.ValueRO.Urgency * (1f - EmergencySlowdownFactor);
                 }
+
+                // What the car's own (possibly worn) tyres let it hold: caps a
+                // held run's speed and sets how calmly it changes lanes
+                float gripShare = 1f;
+                if (SystemAPI.HasComponent<ComponentHealth>(entity) &&
+                    SystemAPI.HasComponent<ComponentFailureState>(entity))
+                {
+                    var health = SystemAPI.GetComponent<ComponentHealth>(entity);
+                    var failures = SystemAPI.GetComponent<ComponentFailureState>(entity);
+                    gripShare = VehicleDynamics.GripShare(
+                        health.Tires, failures.HasFailed(ComponentFailures.Tires),
+                        health.Suspension, failures.HasFailed(ComponentFailures.Suspension));
+                }
+                float holdSpeed = GameFlowLogic.SuspendedRunHoldSpeed(gripShare);
 
                 // =============================================================
                 // Lane Change Decision
                 // =============================================================
 
-                bool shouldChangeLane = false;
-                int laneChangeDirection = 0;
-
-                if (hazardThreat > LaneChangeThreshold && _laneChangeTimer <= 0 && escapeDirection != 0)
+                // The cooldown runs from the start of each change
+                if (changingLanes && !_wasChangingLanes)
                 {
-                    laneChangeDirection = escapeDirection;
-                    shouldChangeLane = true;
-                    _laneChangeTimer = 3f; // Cooldown between lane changes
+                    _laneChangeTimer = AutopilotLogic.LaneChangeCooldown;
                 }
+                _wasChangingLanes = changingLanes;
+
+                // Last frame's request was consumed (SteeringSystem runs right
+                // after us) without a change starting: that lane was blocked
+                int refusedDirection = !changingLanes && !steeringState.ValueRO.LaneChangeRequested
+                    ? _requestedDirection
+                    : 0;
+                _requestedDirection = 0;
+
+                // Leave the lane for a serious threat, or for anything at all it
+                // would otherwise run over in the next couple of seconds
+                int laneEscape = AutopilotLogic.LaneEscape(laneThreat, myLane, laneCount,
+                    nearestHazardDist, currentSpeed, LaneChangeThreshold, refusedDirection);
+                bool wantsLaneChange = laneEscape != 0 && _laneChangeTimer <= 0f && !changingLanes;
 
                 // =============================================================
                 // Speed Control
                 // =============================================================
 
-                // Adjust target speed based on threats
-                float effectiveTargetSpeed = targetSpeed * emergencySpeedMod;
+                // Cruise target, slowed for emergencies and hazards close ahead.
+                // A held run's speed is capped by what the car's own (possibly
+                // worn) tyres can take, so it never slides under the menu
+                float cruiseSpeed = math.clamp(autopilot.ValueRO.TargetSpeed, MinAutopilotSpeed, holdSpeed);
+                float goalSpeed = cruiseSpeed * emergencySpeedMod;
+                if (hazardThreat > 0.3f && nearestHazardDist < detectionRange * 0.5f)
+                {
+                    goalSpeed *= 1f - hazardThreat * 0.4f;
+                }
+                goalSpeed = math.clamp(goalSpeed, MinAutopilotSpeed, cruiseSpeed);
 
-                // Slow down for hazards
-                if (hazardThreat > 0.3f && nearestHazardDist < 40f)
-                {
-                    float hazardSlowdown = 1f - (hazardThreat * 0.4f);
-                    effectiveTargetSpeed *= hazardSlowdown;
-                }
+                // Ease the working target toward the goal at comfortable rates
+                // (shedding a run paused above the hold speed twice as fast),
+                // never from above a car that something else already slowed
+                // (RESTART resets the car in place without disengaging us)
+                _easedSpeed = AutopilotLogic.EaseTargetSpeed(_easedSpeed, goalSpeed, currentSpeed, holdSpeed, deltaTime);
 
-                // Clamp to safe range
-                effectiveTargetSpeed = math.clamp(
-                    effectiveTargetSpeed,
-                    MinAutopilotSpeed,
-                    MaxAutopilotSpeed
-                );
-
-                // Apply throttle/brake
-                if (currentSpeed < effectiveTargetSpeed - 1f)
-                {
-                    input.ValueRW.Throttle = math.saturate(
-                        (effectiveTargetSpeed - currentSpeed) / 10f
-                    );
-                    input.ValueRW.Brake = 0f;
-                }
-                else if (currentSpeed > effectiveTargetSpeed + 2f)
-                {
-                    input.ValueRW.Throttle = 0f;
-                    input.ValueRW.Brake = math.saturate(
-                        (currentSpeed - effectiveTargetSpeed) / 15f
-                    );
-                }
-                else
-                {
-                    // Cruise - gentle throttle
-                    input.ValueRW.Throttle = 0.3f;
-                    input.ValueRW.Brake = 0f;
-                }
+                AutopilotLogic.SpeedControl(currentSpeed, _easedSpeed, out float throttle, out float brake);
+                input.ValueRW.Throttle = throttle;
+                input.ValueRW.Brake = brake;
 
                 // =============================================================
-                // Steering Control
+                // Steering
                 // =============================================================
 
-                // Lane centering
-                float lateralOffset = laneFollower.ValueRO.LateralOffset;
-                float steerToCenter = -lateralOffset * LaneCenteringGain;
-
-                // Add emergency yield
-                steerToCenter += emergencySteerMod;
-
-                // Lean toward the way out while a hazard closes in (no lane
-                // change yet, e.g. on cooldown); with no way out, the speed
-                // control above slows the car instead
-                if (hazardThreat > 0.2f && !shouldChangeLane && escapeDirection != 0)
+                // Lane magnetism (x1.5 for the autopilot) keeps the car centred in
+                // its lane; steering here only leans toward the clearer
+                // neighbour while a real threat closes in, and always stays
+                // below the lane-change threshold so the car never weaves on its
+                // own. The lean also holds while a lane change waits for a gap,
+                // steady even while the two sides are asked for in turn (a
+                // change that starts either way eases it out)
+                float leanTarget = 0f;
+                if (hazardThreat > 0.2f && !changingLanes && escapeDirection != 0)
                 {
-                    float avoidSteer = escapeDirection * hazardThreat * HazardAvoidanceStrength;
-                    steerToCenter += avoidSteer;
+                    leanTarget = escapeDirection * hazardThreat * HazardAvoidanceStrength;
                 }
+                leanTarget = math.clamp(leanTarget, -MaxLeanSteer, MaxLeanSteer);
 
-                // Smooth steering
-                _smoothedSteer = math.lerp(
-                    _smoothedSteer,
-                    steerToCenter,
-                    SteerSmoothing * deltaTime
-                );
-
-                input.ValueRW.Steer = math.clamp(_smoothedSteer, -1f, 1f);
+                _smoothedSteer = math.lerp(_smoothedSteer, leanTarget,
+                    VehicleDynamics.Damp(SteerSmoothing, deltaTime));
+                input.ValueRW.Steer = math.clamp(_smoothedSteer, -MaxLeanSteer, MaxLeanSteer);
 
                 // =============================================================
                 // Lane Change Execution
                 // =============================================================
 
-                if (shouldChangeLane && !steeringState.ValueRO.ChangingLanes)
+                if (wantsLaneChange)
                 {
-                    // Request lane change through steering state
+                    // Request lane change through steering state (same blocked-lane
+                    // checks as the player); asked again next frame if refused
                     steeringState.ValueRW.LaneChangeRequested = true;
-                    steeringState.ValueRW.LaneChangeDirection = laneChangeDirection;
+                    steeringState.ValueRW.LaneChangeDirection = laneEscape;
+                    _requestedDirection = laneEscape;
                 }
 
                 // No handbrake during autopilot

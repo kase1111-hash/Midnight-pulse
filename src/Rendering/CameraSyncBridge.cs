@@ -29,9 +29,9 @@ namespace Nightflow.Rendering
         [Range(0f, 20f)]
         [SerializeField] private float rotationSmoothing = 0f;
 
-        [Tooltip("Smoothing applied to FOV changes (0 = instant, higher = smoother)")]
+        [Tooltip("Extra smoothing applied to FOV changes (0 = instant). CameraSystem already eases the FOV, so leave at 0 unless you want more lag")]
         [Range(0f, 10f)]
-        [SerializeField] private float fovSmoothing = 5f;
+        [SerializeField] private float fovSmoothing = 0f;
 
         [Header("Fallback Settings")]
         [Tooltip("Use fallback transform when CameraState entity is missing")]
@@ -168,7 +168,7 @@ namespace Nightflow.Rendering
                 _currentPosition = Vector3.Lerp(
                     _currentPosition,
                     targetPosition,
-                    positionSmoothing * deltaTime
+                    Damp(positionSmoothing, deltaTime)
                 );
             }
             else
@@ -181,7 +181,7 @@ namespace Nightflow.Rendering
                 _currentRotation = Quaternion.Slerp(
                     _currentRotation,
                     targetRotation,
-                    rotationSmoothing * deltaTime
+                    Damp(rotationSmoothing, deltaTime)
                 );
             }
             else
@@ -194,7 +194,7 @@ namespace Nightflow.Rendering
                 _currentFOV = Mathf.Lerp(
                     _currentFOV,
                     targetFOV,
-                    fovSmoothing * deltaTime
+                    Damp(fovSmoothing, deltaTime)
                 );
             }
             else
@@ -228,7 +228,7 @@ namespace Nightflow.Rendering
             // Apply smoothing if enabled
             if (positionSmoothing > 0f)
             {
-                _currentPosition = Vector3.Lerp(_currentPosition, targetPosition, positionSmoothing * deltaTime);
+                _currentPosition = Vector3.Lerp(_currentPosition, targetPosition, Damp(positionSmoothing, deltaTime));
             }
             else
             {
@@ -237,7 +237,7 @@ namespace Nightflow.Rendering
 
             if (rotationSmoothing > 0f)
             {
-                _currentRotation = Quaternion.Slerp(_currentRotation, targetRotation, rotationSmoothing * deltaTime);
+                _currentRotation = Quaternion.Slerp(_currentRotation, targetRotation, Damp(rotationSmoothing, deltaTime));
             }
             else
             {
@@ -246,7 +246,7 @@ namespace Nightflow.Rendering
 
             if (fovSmoothing > 0f)
             {
-                _currentFOV = Mathf.Lerp(_currentFOV, targetFOV, fovSmoothing * deltaTime);
+                _currentFOV = Mathf.Lerp(_currentFOV, targetFOV, Damp(fovSmoothing, deltaTime));
             }
             else
             {
@@ -256,6 +256,14 @@ namespace Nightflow.Rendering
             transform.position = _currentPosition;
             transform.rotation = _currentRotation;
             _camera.fieldOfView = _currentFOV;
+        }
+
+        /// <summary>
+        /// Frame-rate independent blend factor for exponential smoothing.
+        /// </summary>
+        private static float Damp(float rate, float deltaTime)
+        {
+            return 1f - Mathf.Exp(-rate * Mathf.Max(deltaTime, 0f));
         }
 
         /// <summary>

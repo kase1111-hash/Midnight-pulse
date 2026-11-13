@@ -95,6 +95,36 @@ namespace Nightflow.Systems
         }
 
         /// <summary>
+        /// Whether this frame's control input may take the wheel from the
+        /// autopilot. While a menu is open or the crash sequence plays, takeover
+        /// is disarmed; it re-arms on the first frame with every control
+        /// released. So the Space/Enter that started a run, the S/W used to
+        /// navigate a menu, or the key that dismissed the summary never grabs
+        /// the wheel with a handbrake or brake the player didn't mean: the run
+        /// starts on a fresh, deliberate input.
+        /// </summary>
+        /// <param name="humanInput">Player moved a control this frame.</param>
+        /// <param name="blocked">A menu is open or the crash sequence is playing.</param>
+        /// <param name="armed">Persistent arm state (in/out).</param>
+        public static bool TakeoverIntent(bool humanInput, bool blocked, ref bool armed)
+        {
+            if (blocked)
+            {
+                armed = false;
+                return false;
+            }
+
+            if (!armed)
+            {
+                if (!humanInput)
+                    armed = true;
+                return false;
+            }
+
+            return humanInput;
+        }
+
+        /// <summary>
         /// Whether processed control values count as the player moving the controls.
         /// </summary>
         public static bool IsHumanInput(float steer, float throttle, float brake, bool handbrake)
@@ -113,8 +143,161 @@ namespace Nightflow.Systems
             return math.clamp(currentSpeed, GameConstants.AutopilotRecoverySpeed, AutopilotComfortMaxSpeed);
         }
 
+        /// <summary>
+        /// Autopilot cruise target on handoff. With a run suspended underneath
+        /// it (pause menu, idle) the autopilot keeps the run's momentum, up to
+        /// SuspendedRunMaxSpeed, so the player picks the run up where they left
+        /// it and a pause can never be used to shed speed; with no run it
+        /// settles into the comfort band.
+        /// </summary>
+        public static float AutopilotTargetSpeedFor(float currentSpeed, bool runSuspended)
+        {
+            if (!runSuspended)
+                return AutopilotTargetSpeedFor(currentSpeed);
+
+            return math.clamp(currentSpeed, GameConstants.AutopilotRecoverySpeed, SuspendedRunMaxSpeed);
+        }
+
         /// <summary>Upper bound of the speed the autopilot will hold on handoff (m/s).</summary>
         public const float AutopilotComfortMaxSpeed = 35f;
+
+        /// <summary>
+        /// Fastest a suspended run is held under the autopilot with a healthy car
+        /// (m/s, ~306 km/h): even a hazard-dodging lane change inside the
+        /// tightest generated bend stays below the squeal threshold there.
+        /// </summary>
+        public const float SuspendedRunMaxSpeed = 85f;
+
+        /// <summary>
+        /// Hold speed for a suspended run on a car with this share of its grip
+        /// (VehicleDynamics.GripShare): corner load grows with speed squared,
+        /// so the cap scales with its square root (failed tyres: ~63 m/s).
+        /// Never below the attract-mode comfort band.
+        /// </summary>
+        public static float SuspendedRunHoldSpeed(float gripShare)
+        {
+            float share = math.saturate(math.isfinite(gripShare) ? gripShare : 1f);
+            return math.max(AutopilotComfortMaxSpeed, SuspendedRunMaxSpeed * math.sqrt(share));
+        }
+
+        // =====================================================================
+        // Pause
+        // =====================================================================
+
+        /// <summary>Slip angle (rad) beyond which the car counts as getting away from the driver.</summary>
+        public const float PauseSlipLimit = 0.2f;
+
+        /// <summary>
+        /// Whether the player's car is getting away from them (tyres past the
+        /// limit, or the nose well off the direction of travel). A pause asked
+        /// for now waits until the car is back in hand: the autopilot drives
+        /// under the pause menu with far more grip, and must not catch a slide
+        /// the driver lost.
+        /// </summary>
+        public static bool LosingControl(bool sliding, float slipAngle)
+        {
+            return sliding || math.abs(slipAngle) > PauseSlipLimit;
+        }
+
+        /// <summary>
+        /// After a held pause opens on its own, a pause/resume press this soon
+        /// (s) is ignored: it was a second press of the same request, not a
+        /// request to resume the pause that just opened.
+        /// </summary>
+        public const float HeldPauseResumeGuard = 0.5f;
+
+        /// <summary>
+        /// The pause key. Opens the pause menu (cooldown permitting) or resumes
+        /// from it. While the car is getting away from the driver the request is
+        /// held instead (a latch: pressing again keeps it held) and
+        /// UpdateHeldPause opens it once the car is back in hand. Returns true
+        /// when GameState changed.
+        /// </summary>
+        public static bool TogglePause(ref GameState gameState)
+        {
+            // Can't pause during crash flow
+            if (gameState.CrashPhase != CrashFlowPhase.None)
+                return false;
+
+            bool paused = gameState.CurrentMenu == MenuState.Pause;
+
+            // Only the pause menu toggles here (other menus have their own back actions)
+            if (!paused && gameState.CurrentMenu != MenuState.None)
+                return false;
+
+            if (paused)
+            {
+                if (gameState.PauseResumeGuard > 0f)
+                    return false;
+                ResumeFromPause(ref gameState);
+                return true;
+            }
+
+            // Check cooldown
+            if (gameState.PauseCooldown > 0f)
+                return false;
+
+            if (gameState.PlayerLosingControl)
+            {
+                if (gameState.PauseRequested)
+                    return false;
+                gameState.PauseRequested = true;
+                return true;
+            }
+
+            OpenPause(ref gameState, false);
+            return true;
+        }
+
+        /// <summary>
+        /// Opens the pause menu. <paramref name="held"/>: a held request is
+        /// opening on its own, so a stray second press is ignored for a moment.
+        /// </summary>
+        public static void OpenPause(ref GameState gameState, bool held)
+        {
+            gameState.CurrentMenu = MenuState.Pause;
+            gameState.MenuVisible = true;
+            gameState.IsPaused = true;
+            gameState.PauseRequested = false;
+            gameState.PauseResumeGuard = held ? HeldPauseResumeGuard : 0f;
+        }
+
+        /// <summary>Closes the pause menu and starts the pause cooldown.</summary>
+        public static void ResumeFromPause(ref GameState gameState)
+        {
+            if (gameState.CurrentMenu != MenuState.Pause)
+                return;
+
+            gameState.CurrentMenu = MenuState.None;
+            gameState.MenuVisible = false;
+            gameState.IsPaused = false;
+            gameState.TimeScale = 1f;
+            gameState.PauseCooldown = GameConstants.PauseCooldownDuration;
+            gameState.PauseResumeGuard = 0f;
+        }
+
+        /// <summary>
+        /// One frame of a held pause request: dropped by a crash or another
+        /// menu, opened as soon as the car is back in hand. Also runs down the
+        /// resume guard.
+        /// </summary>
+        public static void UpdateHeldPause(ref GameState gameState, bool losingControl, float deltaTime)
+        {
+            if (gameState.PauseResumeGuard > 0f)
+                gameState.PauseResumeGuard = math.max(0f, gameState.PauseResumeGuard - math.max(deltaTime, 0f));
+
+            if (!gameState.PauseRequested)
+                return;
+
+            if (gameState.CrashPhase != CrashFlowPhase.None || gameState.CurrentMenu != MenuState.None)
+            {
+                gameState.PauseRequested = false;
+                return;
+            }
+
+            if (!losingControl)
+                OpenPause(ref gameState, true);
+        }
 
         // =====================================================================
         // Crash flow
@@ -127,7 +310,7 @@ namespace Nightflow.Systems
         /// <param name="timer">Seconds spent in the current phase (in/out, already incremented by the caller).</param>
         /// <param name="dismissRequested">Player asked to leave the summary (input or menu).</param>
         /// <param name="fadeAlpha">Black overlay alpha for this frame.</param>
-        /// <param name="timeScale">Presentation time-scale hint for this frame.</param>
+        /// <param name="timeScale">Slow-motion time scale for this frame (applied by TimeScaleDriver).</param>
         /// <returns>True when the Reset phase was just entered (vehicle reset must be requested).</returns>
         public static bool AdvanceCrashPhase(
             ref CrashFlowPhase phase,

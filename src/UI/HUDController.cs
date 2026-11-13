@@ -57,6 +57,16 @@ namespace Nightflow.UI
         private float lastDamage;
         private int lastMultiplier;
 
+        // Last values written to labels: text is only rebuilt when it changes,
+        // so the HUD allocates nothing per frame (GC spikes are hitches)
+        private int lastScoreShown = -1;
+        private int lastMultiplierTenths = -1;
+        private int lastDistanceHundredths = -1;
+        private int lastSpeedShown = -1;
+        private int lastSpeedTierMask = -1;
+        private string lastWarningText;
+        private readonly List<VisualElement> speedTierDots = new List<VisualElement>();
+
         // Notification callback (wired by UIController)
         private System.Action<string, string, string> onShowNotification;
 
@@ -125,10 +135,13 @@ namespace Nightflow.UI
 
         private void UpdateScore(UIState state, float deltaTime)
         {
-            displayedScore = Mathf.Lerp(displayedScore, state.Score, deltaTime * scoreAnimationSpeed);
-            if (scoreValue != null)
+            displayedScore = Mathf.Lerp(displayedScore, state.Score,
+                1f - Mathf.Exp(-scoreAnimationSpeed * deltaTime));
+            int shown = Mathf.RoundToInt(displayedScore);
+            if (scoreValue != null && shown != lastScoreShown)
             {
-                scoreValue.text = Mathf.RoundToInt(displayedScore).ToString("N0");
+                lastScoreShown = shown;
+                scoreValue.text = shown.ToString("N0");
             }
         }
 
@@ -137,7 +150,12 @@ namespace Nightflow.UI
             if (multiplierValue != null)
             {
                 int currentMult = Mathf.RoundToInt(state.Multiplier);
-                multiplierValue.text = $"x{state.Multiplier:F1}";
+                int tenths = Mathf.RoundToInt(state.Multiplier * 10f);
+                if (tenths != lastMultiplierTenths)
+                {
+                    lastMultiplierTenths = tenths;
+                    multiplierValue.text = $"x{state.Multiplier:F1}";
+                }
 
                 if (currentMult > lastMultiplier && lastMultiplier > 0)
                 {
@@ -163,17 +181,21 @@ namespace Nightflow.UI
 
         private void UpdateDistance(UIState state)
         {
-            if (distanceValue != null)
+            int hundredths = Mathf.RoundToInt(state.DistanceKm * 100f);
+            if (distanceValue != null && hundredths != lastDistanceHundredths)
             {
+                lastDistanceHundredths = hundredths;
                 distanceValue.text = $"{state.DistanceKm:F2} km";
             }
         }
 
         private void UpdateSpeed(UIState state)
         {
-            if (speedValue != null)
+            int speedShown = Mathf.RoundToInt(state.SpeedKmh);
+            if (speedValue != null && speedShown != lastSpeedShown)
             {
-                speedValue.text = Mathf.RoundToInt(state.SpeedKmh).ToString();
+                lastSpeedShown = speedShown;
+                speedValue.text = speedShown.ToString();
             }
 
             if (speedometer != null)
@@ -189,21 +211,41 @@ namespace Nightflow.UI
 
         private void UpdateSpeedTierIndicator(float speed)
         {
-            if (speedTierIndicator == null) return;
+            if (speedTierIndicator == null || speedTiers == null) return;
 
-            speedTierIndicator.Clear();
-
-            for (int i = 0; i < speedTiers.Length; i++)
+            // Build the dots once (rebuilding them every frame allocated and
+            // re-laid-out the HUD each frame)
+            if (speedTierDots.Count != speedTiers.Length)
             {
-                var tierDot = new VisualElement();
-                tierDot.AddToClassList("speed-tier-dot");
-
-                if (speed >= speedTiers[i])
+                speedTierIndicator.Clear();
+                speedTierDots.Clear();
+                for (int i = 0; i < speedTiers.Length; i++)
                 {
-                    tierDot.AddToClassList("active");
+                    var tierDot = new VisualElement();
+                    tierDot.AddToClassList("speed-tier-dot");
+                    speedTierIndicator.Add(tierDot);
+                    speedTierDots.Add(tierDot);
                 }
+                lastSpeedTierMask = -1;
+            }
 
-                speedTierIndicator.Add(tierDot);
+            int mask = 0;
+            for (int i = 0; i < speedTiers.Length && i < 31; i++)
+            {
+                if (speed >= speedTiers[i])
+                    mask |= 1 << i;
+            }
+
+            if (mask == lastSpeedTierMask)
+                return;
+            lastSpeedTierMask = mask;
+
+            for (int i = 0; i < speedTierDots.Count; i++)
+            {
+                if ((mask & (1 << i)) != 0)
+                    speedTierDots[i].AddToClassList("active");
+                else
+                    speedTierDots[i].RemoveFromClassList("active");
             }
         }
 
@@ -355,7 +397,7 @@ namespace Nightflow.UI
 
         private void UpdateWarningIndicator(UIState state)
         {
-            bool showWarning = state.WarningPriority > 0;
+            bool showWarning = state.WarningPriority > 0 || state.PausePending;
 
             if (warningIndicator != null)
             {
@@ -363,14 +405,25 @@ namespace Nightflow.UI
 
                 if (showWarning && warningText != null)
                 {
-                    if (state.WarningPriority >= 3)
-                        warningText.text = "EMERGENCY VEHICLE";
+                    string text;
+                    if (state.PausePending)
+                        text = "PAUSE QUEUED";   // acknowledged: opens once the car is back in hand
+                    else if (state.WarningPriority >= 3)
+                        text = "EMERGENCY VEHICLE";
+                    else if (state.TractionWarning)
+                        text = state.TractionUsage > 1f ? "LOSING GRIP" : "TRACTION LIMIT";
                     else if (state.WarningPriority == 2 || state.CriticalDamage)
-                        warningText.text = "CRITICAL DAMAGE";
+                        text = "CRITICAL DAMAGE";
                     else if (state.DamageTotal > 0.5f)
-                        warningText.text = "HEAVY DAMAGE";
+                        text = "HEAVY DAMAGE";
                     else
-                        warningText.text = "HIGH RISK";
+                        text = "HIGH RISK";
+
+                    if (text != lastWarningText)
+                    {
+                        lastWarningText = text;
+                        warningText.text = text;
+                    }
 
                     if (state.WarningFlash)
                         warningIndicator.AddToClassList("flash");

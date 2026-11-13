@@ -33,11 +33,21 @@ namespace Nightflow.Systems
         private const float ImpulseScale = 1.2f;        // k_i
         private const float VirtualMass = 1200f;        // m_virtual
         private const float YawKickScale = 0.5f;        // k_y
+        private const float CollisionSpeedPenalty = 0.3f; // share of impact speed lost (spec 10)
         // MinForwardSpeed uses GameConstants.MinForwardSpeed
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
+            // A crashed car takes no new impulses: clear the crash-frame impulse
+            // so presentation (camera recoil, impact audio) sees it for one
+            // frame only instead of re-applying it every frame of the crash
+            foreach (var impulse in SystemAPI.Query<RefRW<ImpulseData>>()
+                         .WithAll<PlayerVehicleTag, CrashedTag>())
+            {
+                impulse.ValueRW.Magnitude = 0f;
+            }
+
             foreach (var (collision, impulse, velocity, driftState) in
                 SystemAPI.Query<RefRW<CollisionEvent>, RefRW<ImpulseData>,
                                RefRW<Velocity>, RefRW<DriftState>>()
@@ -113,8 +123,10 @@ namespace Nightflow.Systems
                 velocity.ValueRW.Lateral += Il / VirtualMass;
 
                 // Forward response (clamped): v_f ← v_f - |I_f| / m_virtual
+                // plus the spec's collision speed penalty (30% of the impact
+                // speed): hits cost momentum, which the run's pace then rebuilds.
                 // But v_f ≥ v_min (forward motion preserved)
-                float forwardReduction = math.abs(If) / VirtualMass;
+                float forwardReduction = math.abs(If) / VirtualMass + CollisionSpeedPenalty * vImpact;
                 velocity.ValueRW.Forward -= forwardReduction;
                 velocity.ValueRW.Forward = math.max(velocity.ValueRO.Forward, GameConstants.MinForwardSpeed);
 

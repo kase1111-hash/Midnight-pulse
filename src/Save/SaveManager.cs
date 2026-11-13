@@ -474,9 +474,9 @@ namespace Nightflow.Save
             // Validate entry before adding
             if (entry.Score < 0 || entry.Score > 999_999_999) return;
             if (!float.IsFinite(entry.Distance) || entry.Distance < 0f) return;
-            // Reject impossible speeds. MaxForwardSpeed is the in-game cap; allow a small
-            // tolerance for transient impulse spikes before clamping kicks in.
-            const float maxRecordableSpeed = GameConstants.MaxForwardSpeed * 1.25f;
+            // Reject impossible speeds. There is no in-game top speed (momentum keeps
+            // building until the driver loses control), so only implausible values go.
+            const float maxRecordableSpeed = GameConstants.MaxPlausibleSpeed;
             if (!float.IsFinite(entry.MaxSpeed) || entry.MaxSpeed < 0f || entry.MaxSpeed > maxRecordableSpeed) return;
             if (!float.IsFinite(entry.TimeSurvived) || entry.TimeSurvived < 0f) return;
             if (entry.Initials == null || entry.Initials.Length == 0)
@@ -1177,7 +1177,7 @@ namespace Nightflow.Save
         private static void ValidateHighScoreList(List<HighScoreEntry> scores)
         {
             const int MaxScore = 999_999_999;
-            const float MaxPlausibleSpeed = 200f;   // m/s (~720 km/h)
+            const float MaxPlausibleSpeed = GameConstants.MaxPlausibleSpeed;   // m/s (~1440 km/h)
             const float MaxPlausibleDistance = 500_000f; // meters
             const float MaxPlausibleTime = 36_000f;  // 10 hours
 
