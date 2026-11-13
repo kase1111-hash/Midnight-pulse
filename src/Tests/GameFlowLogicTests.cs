@@ -3,6 +3,7 @@
 // phase timing, coasting and run lifecycle defaults.
 
 using NUnit.Framework;
+using Unity.Mathematics;
 using Nightflow.Components;
 using Nightflow.Config;
 using Nightflow.Systems;
@@ -184,6 +185,17 @@ namespace Nightflow.Tests
             // With no run underneath it settles into the comfort band
             Assert.AreEqual(GameFlowLogic.AutopilotComfortMaxSpeed,
                 GameFlowLogic.AutopilotTargetSpeedFor(80f, false), 0.001f);
+        }
+
+        [Test]
+        public void SuspendedRunHoldSpeed_ScalesWithTheCarsGrip()
+        {
+            Assert.AreEqual(GameFlowLogic.SuspendedRunMaxSpeed, GameFlowLogic.SuspendedRunHoldSpeed(1f), 1e-4f);
+            Assert.AreEqual(GameFlowLogic.SuspendedRunMaxSpeed * math.sqrt(0.55f),
+                GameFlowLogic.SuspendedRunHoldSpeed(0.55f), 1e-3f);
+            // Never below the comfort band; NaN reads as a healthy car
+            Assert.AreEqual(GameFlowLogic.AutopilotComfortMaxSpeed, GameFlowLogic.SuspendedRunHoldSpeed(0f), 1e-4f);
+            Assert.AreEqual(GameFlowLogic.SuspendedRunMaxSpeed, GameFlowLogic.SuspendedRunHoldSpeed(float.NaN), 1e-4f);
         }
 
         [Test]

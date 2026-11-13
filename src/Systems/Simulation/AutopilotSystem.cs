@@ -36,8 +36,8 @@ namespace Nightflow.Systems
     {
         // Speed control. The cruise target is Autopilot.TargetSpeed: the
         // comfort band (20-35 m/s) in attract mode, or the run's own speed
-        // (up to GameFlowLogic.SuspendedRunMaxSpeed) while a paused or idle
-        // run waits underneath
+        // (up to GameFlowLogic.SuspendedRunHoldSpeed for the car's grip) while
+        // a paused or idle run waits underneath
         private const float MinAutopilotSpeed = 15f;    // m/s (~54 km/h)
 
         // Steering: a small lean toward the way out of a hazard, always below
@@ -80,12 +80,13 @@ namespace Nightflow.Systems
                 _laneChangeTimer -= deltaTime;
             }
 
-            foreach (var (autopilot, input, laneFollower, velocity, steeringState, transform, detection) in
+            foreach (var (autopilot, input, laneFollower, velocity, steeringState, transform, detection, entity) in
                 SystemAPI.Query<RefRO<Autopilot>, RefRW<PlayerInput>, RefRO<LaneFollower>,
                                RefRO<Velocity>, RefRW<SteeringState>, RefRO<WorldTransform>,
                                RefRO<EmergencyDetection>>()
                     .WithAll<PlayerVehicleTag>()
-                    .WithNone<CrashedTag>())
+                    .WithNone<CrashedTag>()
+                    .WithEntityAccess())
             {
                 float currentSpeed = velocity.ValueRO.Forward;
 
@@ -186,9 +187,21 @@ namespace Nightflow.Systems
                 // Speed Control
                 // =============================================================
 
-                // Cruise target, slowed for emergencies and hazards close ahead
+                // Cruise target, slowed for emergencies and hazards close ahead.
+                // A held run's speed is capped by what the car's own (possibly
+                // worn) tyres can take, so it never slides under the menu
+                float gripShare = 1f;
+                if (SystemAPI.HasComponent<ComponentHealth>(entity) &&
+                    SystemAPI.HasComponent<ComponentFailureState>(entity))
+                {
+                    var health = SystemAPI.GetComponent<ComponentHealth>(entity);
+                    var failures = SystemAPI.GetComponent<ComponentFailureState>(entity);
+                    gripShare = VehicleDynamics.GripShare(
+                        health.Tires, failures.HasFailed(ComponentFailures.Tires),
+                        health.Suspension, failures.HasFailed(ComponentFailures.Suspension));
+                }
                 float cruiseSpeed = math.clamp(autopilot.ValueRO.TargetSpeed,
-                    MinAutopilotSpeed, GameFlowLogic.SuspendedRunMaxSpeed);
+                    MinAutopilotSpeed, GameFlowLogic.SuspendedRunHoldSpeed(gripShare));
                 float goalSpeed = cruiseSpeed * emergencySpeedMod;
                 if (hazardThreat > 0.3f && nearestHazardDist < detectionRange * 0.5f)
                 {

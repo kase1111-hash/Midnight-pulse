@@ -162,10 +162,23 @@ namespace Nightflow.Systems
         public const float AutopilotComfortMaxSpeed = 35f;
 
         /// <summary>
-        /// Fastest a suspended run is held under the autopilot (m/s, ~360 km/h):
-        /// well inside the autopilot's own grip on the generated road.
+        /// Fastest a suspended run is held under the autopilot with a healthy car
+        /// (m/s, ~306 km/h): even a hazard-dodging lane change inside the
+        /// tightest generated bend stays below the squeal threshold there.
         /// </summary>
-        public const float SuspendedRunMaxSpeed = 100f;
+        public const float SuspendedRunMaxSpeed = 85f;
+
+        /// <summary>
+        /// Hold speed for a suspended run on a car with this share of its grip
+        /// (VehicleDynamics.GripShare): corner load grows with speed squared,
+        /// so the cap scales with its square root (failed tyres: ~63 m/s).
+        /// Never below the attract-mode comfort band.
+        /// </summary>
+        public static float SuspendedRunHoldSpeed(float gripShare)
+        {
+            float share = math.saturate(math.isfinite(gripShare) ? gripShare : 1f);
+            return math.max(AutopilotComfortMaxSpeed, SuspendedRunMaxSpeed * math.sqrt(share));
+        }
 
         // =====================================================================
         // Pause

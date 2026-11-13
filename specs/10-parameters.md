@@ -58,7 +58,8 @@ Cruising at the pace: ~195 km/h after 2 min, ~265 km/h after 3 min, ~340 km/h af
 | Worn / failed tyres | 70% / 55% |
 | Worn / failed suspension | 90% / 80% |
 | Handbrake grip | 35% |
-| Autopilot grip | 200% (attract mode never slides) |
+| Autopilot grip | 200% of the car's own (with the hold speed below, attract mode never slides) |
+| Suspended-run hold speed | 85 m/s × √(grip share) (~63 m/s on failed tyres), never below 35 m/s |
 | Traction warning | usage 0.85 (off below 0.75) |
 | Survivable slip | any below 35 m/s, easing to 0.85 rad (~49°) at 75 m/s and above |
 
@@ -97,7 +98,7 @@ Critically damped spring toward the lane target (and the lane-change blend's vel
 | Min duration | 0.45 s |
 | Max duration | 1.0 s |
 | Lane width | 3.6 m |
-| Fork magnetism | eases to 70% across a fork, back to 100% after it |
+| Fork magnetism | eases to 70% across a fork, back to 100% at 1/s after it |
 | Lane change cooldown | 0.2 s |
 | Blocking window ahead | 12 m + closing speed × lane-change time |
 | Blocking window behind | 10 m + closing speed × 1.5 s |

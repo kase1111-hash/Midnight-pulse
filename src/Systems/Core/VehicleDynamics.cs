@@ -197,7 +197,11 @@ namespace Nightflow.Systems
         /// <summary>The handbrake lets the rear go.</summary>
         public const float HandbrakeGripFactor = 0.35f;
 
-        /// <summary>The autopilot drives with perfect tyres: attract mode never slides.</summary>
+        /// <summary>
+        /// The autopilot's grip on top of the car's own (damage still applies):
+        /// with its speed held to GameFlowLogic.SuspendedRunHoldSpeed it stays
+        /// clear of the squeal threshold, so attract mode never slides.
+        /// </summary>
         public const float AutopilotGripFactor = 2f;
 
         /// <summary>Share of the lane spring's acceleration counted as tyre load at speed.</summary>
@@ -266,6 +270,12 @@ namespace Nightflow.Systems
 
         /// <summary>Lane magnetism at the end of a fork (m_fork), so the car can pick a branch.</summary>
         public const float ForkMagnetism = 0.7f;
+
+        /// <summary>
+        /// How quickly the magnetism comes back after a fork (1/s): snapping it
+        /// back stiffened the spring by 43% in one frame, a load step mid lane change.
+        /// </summary>
+        public const float ForkMagnetismRecovery = 1f;
 
         // =====================================================================
         // Yaw
@@ -438,15 +448,10 @@ namespace Nightflow.Systems
         public static float GripLimit(float speed, float tireHealth, bool tiresFailed,
             float suspensionHealth, bool suspensionFailed, bool handbrake, bool autopilot)
         {
-            float tyres = tiresFailed
-                ? FailedTireGrip
-                : TireGripFloor + (1f - TireGripFloor) * math.saturate(tireHealth);
-            float suspension = suspensionFailed
-                ? FailedSuspensionGrip
-                : SuspensionGripFloor + (1f - SuspensionGripFloor) * math.saturate(suspensionHealth);
+            float share = GripShare(tireHealth, tiresFailed, suspensionHealth, suspensionFailed);
 
             float x = math.max(speed, 0f) / LiftSpeed;
-            float grip = GripBase * tyres * suspension / (1f + x * x);
+            float grip = GripBase * share / (1f + x * x);
 
             if (handbrake)
                 grip *= HandbrakeGripFactor;
@@ -454,6 +459,22 @@ namespace Nightflow.Systems
                 grip *= AutopilotGripFactor;
 
             return grip;
+        }
+
+        /// <summary>
+        /// Share of a healthy car's grip left by tyre and suspension wear
+        /// (1 = healthy, FailedTireGrip * FailedSuspensionGrip at worst).
+        /// </summary>
+        public static float GripShare(float tireHealth, bool tiresFailed,
+            float suspensionHealth, bool suspensionFailed)
+        {
+            float tyres = tiresFailed
+                ? FailedTireGrip
+                : TireGripFloor + (1f - TireGripFloor) * math.saturate(tireHealth);
+            float suspension = suspensionFailed
+                ? FailedSuspensionGrip
+                : SuspensionGripFloor + (1f - SuspensionGripFloor) * math.saturate(suspensionHealth);
+            return tyres * suspension;
         }
 
         /// <summary>Acceleration needed to follow a curve (m/s^2, sign of the curvature).</summary>
@@ -620,8 +641,8 @@ namespace Nightflow.Systems
 
         /// <summary>
         /// Lane magnetism inside a fork: eases from 1 to ForkMagnetism across
-        /// the fork so the car can drift toward a branch, and is 1 again as soon
-        /// as the car leaves it. m_fork(s) = smoothstep(1, ForkMagnetism, s / L_fork).
+        /// the fork so the car can drift toward a branch (StepForkMagnetism then
+        /// eases it back after the fork). m_fork(s) = smoothstep(1, ForkMagnetism, s / L_fork).
         /// </summary>
         public static float ForkMagnetismScale(bool atFork, float forkProgress)
         {
@@ -629,6 +650,22 @@ namespace Nightflow.Systems
                 return 1f;
             float s = math.saturate(math.isfinite(forkProgress) ? forkProgress : 0f);
             return math.lerp(1f, ForkMagnetism, s * s * (3f - 2f * s));
+        }
+
+        /// <summary>
+        /// One frame of the fork's magnetism reduction, as a deficit (0 = full
+        /// magnetism; the multiplier is 1 - deficit). Inside a fork it follows
+        /// ForkMagnetismScale (already smooth); after it, it eases away at
+        /// ForkMagnetismRecovery instead of snapping back.
+        /// </summary>
+        public static float StepForkMagnetism(float deficit, bool atFork, float forkProgress, float deltaTime)
+        {
+            if (!math.isfinite(deficit))
+                deficit = 0f;
+            float recovered = deficit * math.exp(-ForkMagnetismRecovery * math.max(deltaTime, 0f));
+            if (!atFork)
+                return recovered;
+            return math.max(1f - ForkMagnetismScale(true, forkProgress), recovered);
         }
 
         /// <summary>Barrier push back toward the road past the soft edge (m/s^2, not grip-limited).</summary>

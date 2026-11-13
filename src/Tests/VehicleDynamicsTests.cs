@@ -336,14 +336,23 @@ namespace Nightflow.Tests
             Assert.IsTrue(HoldLaneThroughGeneratedBend(120f, frameTime).LostControl);
         }
 
-        [Test]
-        public void SuspendedRunHoldSpeed_IsWellInsideTheAutopilotsGrip()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void SuspendedRunHoldSpeed_StaysBelowTheSqueal(bool tiresFailed)
         {
-            // The autopilot keeps a paused or idle run at up to
-            // SuspendedRunMaxSpeed; it must never be near a slide there
-            float v = GameFlowLogic.SuspendedRunMaxSpeed;
-            Assert.Less(HoldLaneThroughGeneratedBend(v, Dt, autopilot: true).MaxUsage, 0.7f);
-            Assert.Less(RunLaneChange(v, 0f, Dt, 3f, 1, autopilot: true).MaxUsage, 0.7f);
+            // The autopilot keeps a paused or idle run at its hold speed and
+            // dodges hazards with lane changes: even one made anywhere in the
+            // tightest generated bend, on failed tyres, must stay below the tyre
+            // squeal (usage 0.75), so nothing slides or squeals under the menu
+            float share = VehicleDynamics.GripShare(1f, tiresFailed, 1f, false);
+            float v = GameFlowLogic.SuspendedRunHoldSpeed(share);
+
+            Assert.Less(DriveGeneratedBend(v, Dt, true, -1f, 1, tiresFailed).MaxUsage, 0.5f);
+            float worst = 0f;
+            foreach (int dir in new[] { -1, 1 })
+                for (float at = 0f; at < 1200f / v; at += 0.25f)
+                    worst = math.max(worst, DriveGeneratedBend(v, Dt, true, at, dir, tiresFailed).MaxUsage);
+            Assert.Less(worst, 0.75f);
         }
 
         [TestCase(1f / 30f)]
@@ -707,6 +716,63 @@ namespace Nightflow.Tests
         }
 
         [Test]
+        public void GripShare_MatchesGripLimit()
+        {
+            Assert.AreEqual(1f, VehicleDynamics.GripShare(1f, false, 1f, false), 1e-6f);
+            Assert.AreEqual(VehicleDynamics.FailedTireGrip * VehicleDynamics.FailedSuspensionGrip,
+                VehicleDynamics.GripShare(1f, true, 1f, true), 1e-6f);
+            float share = VehicleDynamics.GripShare(0.4f, false, 0.6f, false);
+            Assert.AreEqual(Grip(80f) * share,
+                VehicleDynamics.GripLimit(80f, 0.4f, false, 0.6f, false, false, false), 1e-3f);
+        }
+
+        [Test]
+        public void ForkMagnetism_EasesBackAfterTheFork()
+        {
+            // Regression: the multiplier snapped from 0.7 to 1 at the fork exit
+            float deficit = 0f;
+            for (int i = 0; i <= 120; i++)
+                deficit = VehicleDynamics.StepForkMagnetism(deficit, true, i / 120f, Dt);
+            Assert.AreEqual(1f - VehicleDynamics.ForkMagnetism, deficit, 1e-4f);
+
+            float exit = VehicleDynamics.StepForkMagnetism(deficit, false, 0f, Dt);
+            Assert.Less(deficit - exit, 0.02f, "eases, never snaps");
+            Assert.Greater(deficit - exit, 0f);
+
+            for (int i = 0; i < 300; i++)
+                exit = VehicleDynamics.StepForkMagnetism(exit, false, 0f, Dt);
+            Assert.Less(exit, 0.01f, "recovered within ~5 s");
+
+            // Frame-rate independent, and NaN reads as no deficit
+            float slow = VehicleDynamics.StepForkMagnetism(0.3f, false, 0f, 1f / 30f);
+            float fast = VehicleDynamics.StepForkMagnetism(
+                VehicleDynamics.StepForkMagnetism(0.3f, false, 0f, 1f / 60f), false, 0f, 1f / 60f);
+            Assert.AreEqual(slow, fast, 1e-6f);
+            Assert.AreEqual(0f, VehicleDynamics.StepForkMagnetism(float.NaN, false, 0f, Dt), 1e-6f);
+        }
+
+        [TestCase(1f / 30f)]
+        [TestCase(1f / 60f)]
+        [TestCase(1f / 144f)]
+        public void LaneChange_EndingAtAForkExit_NoHarderThanAPlainChange(float frameTime)
+        {
+            foreach (float v in new[] { 90f, 100f, 110f })
+            {
+                var plain = RunLaneChange(v, 0f, frameTime, 3f, 1);
+                float worst = 0f;
+                bool lost = false;
+                for (float exitAt = 0.5f; exitAt < 1.2f; exitAt += 0.02f)
+                {
+                    var r = RunLaneChange(v, 0f, frameTime, 3f, 1, forkExitAt: exitAt);
+                    worst = math.max(worst, r.MaxUsage);
+                    lost |= r.LostControl;
+                }
+                Assert.LessOrEqual(worst, plain.MaxUsage + 0.04f, $"{v} m/s");
+                Assert.IsFalse(lost, $"{v} m/s");
+            }
+        }
+
+        [Test]
         public void ForkMagnetism_EasesToFloorAcrossTheForkAndEndsWithIt()
         {
             Assert.AreEqual(1f, VehicleDynamics.ForkMagnetismScale(false, 0.9f), 1e-6f);
@@ -787,7 +853,7 @@ namespace Nightflow.Tests
         /// </summary>
         private static LaneChangeResult RunLaneChange(float speed, float curvature, float frameTime,
             float seconds, int direction, float heldSteer = 0f, bool leanedAtStart = false,
-            int fromLane = 1, bool autopilot = false, float yieldRequest = 0f)
+            int fromLane = 1, bool autopilot = false, float yieldRequest = 0f, float forkExitAt = -1f)
         {
             float from = LaneCentre(fromLane);
             float to = LaneCentre(fromLane + direction);
@@ -811,9 +877,17 @@ namespace Nightflow.Tests
             float timer = 0f;
             bool changing = direction != 0;
             int frames = (int)math.round(seconds / frameTime);
+            float forkDeficit = 0f;
+            const float forkSeconds = 2f;
 
             for (int f = 0; f < frames; f++)
             {
+                // A fork ending forkExitAt seconds into the run (2 s long)
+                float now = f * frameTime;
+                bool atFork = forkExitAt >= 0f && now < forkExitAt && now >= forkExitAt - forkSeconds;
+                forkDeficit = VehicleDynamics.StepForkMagnetism(forkDeficit, atFork,
+                    (now - (forkExitAt - forkSeconds)) / forkSeconds, frameTime);
+
                 float target = to;
                 float targetVelocity = 0f;
                 float blend = 0f, rate = 0f;
@@ -854,7 +928,7 @@ namespace Nightflow.Tests
                 {
                     TargetOffset = target + lean + applied,
                     TargetVelocity = feed,
-                    Magnetism = magnetism,
+                    Magnetism = magnetism * (1f - forkDeficit),
                     CurveAccel = VehicleDynamics.CurveAcceleration(speed, curvature),
                     Grip = grip,
                     ForwardSpeed = speed,
@@ -955,20 +1029,53 @@ namespace Nightflow.Tests
         /// </summary>
         private static LaneChangeResult HoldLaneThroughGeneratedBend(float speed, float frameTime, bool autopilot = false)
         {
+            return DriveGeneratedBend(speed, frameTime, autopilot);
+        }
+
+        /// <summary>
+        /// HoldLaneThroughGeneratedBend, optionally with a lane change (lane 1
+        /// to 1 + direction) starting <paramref name="laneChangeAt"/> seconds in,
+        /// and optionally on failed tyres.
+        /// </summary>
+        private static LaneChangeResult DriveGeneratedBend(float speed, float frameTime, bool autopilot = false,
+            float laneChangeAt = -1f, int direction = 1, bool tiresFailed = false)
+        {
             TightestGeneratedBend(6, out var p0, out var t0, out var p1, out var t1);
 
             float magnetism = math.clamp(math.sqrt(speed / 40f), 0.75f, 1.25f) * (autopilot ? 1.5f : 1f);
-            float grip = VehicleDynamics.GripLimit(speed, 1f, false, 1f, false, false, autopilot);
-            float lane = LaneCentre(1);
+            float grip = VehicleDynamics.GripLimit(speed, 1f, tiresFailed, 1f, false, false, autopilot);
+            float from = LaneCentre(1);
+            float to = LaneCentre(1 + direction);
+            float duration = HazardPlacement.LaneChangeDuration(speed);
 
-            var lateral = new LateralState { Offset = lane };
+            var lateral = new LateralState { Offset = from };
             var drift = new DriftState();
-            var result = new LaneChangeResult { MinOffset = lane, MaxOffset = lane };
+            var result = new LaneChangeResult { MinOffset = from, MaxOffset = from };
 
             float z = p0[0].z;
+            float time = 0f, timer = 0f;
+            bool changing = false, changed = false;
             int segment = 0;
             while (segment < p0.Length)
             {
+                if (!changed && laneChangeAt >= 0f && time >= laneChangeAt)
+                {
+                    changing = true;
+                    changed = true;
+                }
+
+                float target = changed && !changing ? to : from;
+                float targetVelocity = 0f;
+                if (changing)
+                {
+                    float blend = VehicleDynamics.LaneBlend(timer, duration, out float rate);
+                    target = math.lerp(from, to, blend);
+                    targetVelocity = (to - from) * rate;
+                    timer += frameTime;
+                    if (timer >= duration)
+                        changing = false;
+                }
+
                 float t = math.saturate((z - p0[segment].z) / (p1[segment].z - p0[segment].z));
                 float curvature = SplineUtilities.EvaluateSignedCurvature(
                     p0[segment], t0[segment], p1[segment], t1[segment], t);
@@ -977,8 +1084,8 @@ namespace Nightflow.Tests
 
                 var input = new LateralInputs
                 {
-                    TargetOffset = lane,
-                    TargetVelocity = 0f,
+                    TargetOffset = target,
+                    TargetVelocity = targetVelocity,
                     Magnetism = magnetism,
                     CurveAccel = VehicleDynamics.CurveAcceleration(speed, curvature),
                     Grip = grip,
@@ -990,7 +1097,10 @@ namespace Nightflow.Tests
 
                 int n = VehicleDynamics.SubSteps(frameTime, out float h);
                 for (int i = 0; i < n; i++)
+                {
+                    input.TargetOffset = target + targetVelocity * (i * h);
                     VehicleDynamics.StepLateral(ref lateral, input, h);
+                }
 
                 var yaw = YawInput(speed, 0f, false);
                 yaw.LateralSpeed = lateral.Velocity;
@@ -1006,6 +1116,7 @@ namespace Nightflow.Tests
                     result.LostControl = true;
 
                 z += speed * forward.z * frameTime;
+                time += frameTime;
                 while (segment < p0.Length && z > p1[segment].z)
                     segment++;
             }

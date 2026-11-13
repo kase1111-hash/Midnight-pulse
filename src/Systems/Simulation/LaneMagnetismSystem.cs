@@ -35,7 +35,7 @@ namespace Nightflow.Systems
     /// - m_speed: sqrt(v/v_ref), clamped [0.75, 1.25]
     /// - m_handbrake: 0.25 while the handbrake is held (allows drift)
     /// - m_drift: 0.3 while drifting
-    /// - m_fork: eases to 0.7 across a fork, back to 1 after it
+    /// - m_fork: eases to 0.7 across a fork, and back to 1 at 1/s after it
     /// - m_damage: LaneFollower.MagnetStrength, reduced by side damage
     ///
     /// Grip: the curve (v²κ) plus a speed-weighted share of the spring load the
@@ -75,6 +75,9 @@ namespace Nightflow.Systems
         private float _changeYieldShare;
         private bool _wasChangingLanes;
 
+        // Fork magnetism deficit (0 = none), eased back after a fork
+        private float _forkDeficit;
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
@@ -82,6 +85,20 @@ namespace Nightflow.Systems
             int steps = VehicleDynamics.SubSteps(deltaTime, out float h);
             if (steps == 0)
                 return;
+
+            // The wreck is skipped below; whatever the car was leaning into,
+            // yielding to or recovering from belongs to the run that just ended,
+            // so the reset car settles straight into its lane
+            foreach (var _ in SystemAPI.Query<RefRO<CrashState>>().WithAll<PlayerVehicleTag, CrashedTag>())
+            {
+                _lean = 0f;
+                _avoid = 0f;
+                _avoidApplied = 0f;
+                _changeYieldShare = 0f;
+                _wasChangingLanes = false;
+                _forkDeficit = 0f;
+                break;
+            }
 
             foreach (var (laneFollower, velocity, input, driftState, steeringState, transform, entity) in
                 SystemAPI.Query<RefRW<LaneFollower>, RefRW<Velocity>, RefRO<PlayerInput>,
@@ -223,7 +240,9 @@ namespace Nightflow.Systems
                 float mSpeed = math.clamp(math.sqrt(math.max(speed, 1f) / ReferenceSpeed), 0.75f, 1.25f);
                 float mHandbrake = handbrake ? HandbrakeMultiplier : 1f;
                 float mDrift = drifting ? DriftMultiplier : 1f;
-                float mFork = VehicleDynamics.ForkMagnetismScale(environment.AtFork, environment.ForkProgress);
+                _forkDeficit = VehicleDynamics.StepForkMagnetism(_forkDeficit,
+                    environment.AtFork, environment.ForkProgress, deltaTime);
+                float mFork = 1f - _forkDeficit;
                 float magnetism = laneFollower.ValueRO.MagnetStrength * mAuto * mSpeed * mHandbrake * mDrift * mFork;
 
                 // =============================================================
