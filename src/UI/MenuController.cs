@@ -74,6 +74,12 @@ namespace Nightflow.UI
             pauseOverlay = root.Q<VisualElement>("pause-overlay");
             gameOverOverlay = root.Q<VisualElement>("gameover-overlay");
             fadeOverlay = root.Q<VisualElement>("fade-overlay");
+            if (fadeOverlay != null)
+            {
+                // The fade is visual only: never swallow clicks meant for the
+                // summary above it or the menu fading in beneath it
+                fadeOverlay.pickingMode = PickingMode.Ignore;
+            }
             mainMenuOverlay = root.Q<VisualElement>("main-menu-overlay");
             creditsOverlay = root.Q<VisualElement>("credits-overlay");
             modeSelectOverlay = root.Q<VisualElement>("mode-select-overlay");
@@ -435,17 +441,22 @@ namespace Nightflow.UI
                 gameOverOverlay.AddToClassList("hidden");
             }
 
-            // Fade overlay
+            // Fade overlay: follows the crash flow's alpha every frame. It starts
+            // hidden (display: none), so it has to be shown here or the fade to
+            // black never appears and the vehicle reset happens in plain view.
             if (fadeOverlay != null)
             {
                 if (state.OverlayAlpha > 0.01f)
                 {
-                    fadeOverlay.style.opacity = state.OverlayAlpha;
+                    fadeOverlay.RemoveFromClassList("hidden");
                     fadeOverlay.AddToClassList("active");
+                    fadeOverlay.style.opacity = state.OverlayAlpha;
                 }
-                else
+                else if (!fadeOverlay.ClassListContains("hidden"))
                 {
+                    fadeOverlay.style.opacity = 0f;
                     fadeOverlay.RemoveFromClassList("active");
+                    fadeOverlay.AddToClassList("hidden");
                 }
             }
         }
@@ -560,16 +571,26 @@ namespace Nightflow.UI
                 summaryFinalScore.text = summary.FinalScore.ToString("N0");
         }
 
+        /// <summary>Cover the screen in black (manual use; the crash flow drives its own fade).</summary>
         public void TriggerFadeIn()
         {
             if (fadeOverlay != null)
+            {
+                fadeOverlay.RemoveFromClassList("hidden");
                 fadeOverlay.AddToClassList("active");
+                fadeOverlay.style.opacity = 1f;
+            }
         }
 
+        /// <summary>Clear the black cover (manual use; the crash flow drives its own fade).</summary>
         public void TriggerFadeOut()
         {
             if (fadeOverlay != null)
+            {
+                fadeOverlay.style.opacity = 0f;
                 fadeOverlay.RemoveFromClassList("active");
+                fadeOverlay.AddToClassList("hidden");
+            }
         }
 
         #region Button Callbacks

@@ -65,8 +65,8 @@
    - Flash-in: 0.05s
    - Hold: 0.08s
    - Fade-out: 0.4s
-4. Quick fade to black
-5. Score summary (breakdown + save option)
+4. Quick fade to black (the fade covers the HUD and menus but sits under the summary panel)
+5. Score summary (breakdown + save option), shown on black
 6. Vehicle reset (no reload); the camera cuts to its chase position under the black so the fade-in reveals a settled view
 7. Autopilot resumes instantly, cruising at recovery speed
 

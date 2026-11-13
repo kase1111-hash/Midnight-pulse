@@ -564,7 +564,9 @@
     bottom: 0;
     background-color: black;
     opacity: 0;
-    transition-duration: 0.5s;
+    /* Opacity is driven every frame by the crash flow (GameState.FadeAlpha);
+       a transition here would restart each frame and lag the fade */
+    transition-duration: 0s;
 }
 
 .fade-overlay.active {

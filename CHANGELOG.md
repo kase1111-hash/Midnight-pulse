@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The HUD rebuilt its speed-tier dots and reformatted every label every frame; it now allocates nothing per frame (no GC hitches)
 
 #### Flow In and Out of Gameplay
+- The crash fade to black never appeared: the fade overlay starts `hidden` (`display: none`) and nothing ever showed it, so the summary popped over the live game and the vehicle reset happened in plain view. It is now shown while the crash flow runs, follows the flow's alpha exactly (its CSS transition restarted every frame and lagged ~0.5 s), sits under the summary panel instead of covering it, and never blocks clicks
 - The Space/Enter that started a run (or S/W used to navigate a menu, or the key that dismissed the summary) grabbed the wheel the moment the menu closed, starting the run with a handbrake drift or a brake. Takeover now needs a fresh input once every control has been released
 - Idle handoff waits 15 s (was 10 s): with the pace carrying the car and magnetism holding the lane, riding a clear straight needs no input and was mistaken for walking away
 - High scores from fast runs were silently dropped: save validation rejected any max speed above 100 m/s; the bound is now a plausibility limit (400 m/s)
