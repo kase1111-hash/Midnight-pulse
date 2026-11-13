@@ -11,21 +11,23 @@
 | Property | Specification |
 |----------|---------------|
 | Type | Third-person chase (low angle, slight lead look-at) |
-| Base FOV | 60 degrees |
-| Max FOV | 80 degrees |
-| FOV Coupling | Speed-driven |
+| Base FOV | 55 degrees |
+| Max FOV | 95 degrees (asymptote, +5 drifting) |
+| FOV Coupling | Speed-driven via `VehicleDynamics.SpeedFeel` (keeps building: there is no top speed) |
 
 ### Dynamic Behaviors
 
 | Behavior | Description |
 |----------|-------------|
-| Speed FOV | FOV scales with speed (baseFOV + speedFOVBonus) |
-| Pull-back | Camera distance increases at high speed |
+| Speed FOV | FOV widens with SpeedFeel (~76° at 180 km/h, ~88° at 360 km/h, still creeping up beyond) |
+| Pull-back | Camera distance increases with speed, plus a touch more while accelerating (less while braking) |
 | Height Increase | Camera height increases at high speed |
-| Yaw Follow | Camera follows vehicle yaw with damping |
+| Heading Follow | Camera follows the smoothed direction of travel, not the car's nose: during a slide or spin it keeps looking down the road and watches the car rotate |
+| No Speed Lag | The camera's offset from the car is smoothed, never its world position, so it doesn't fall further behind as the speed builds |
 | Drift Whip | Extra rotational follow during drift |
-| Motion Blur | Speed^2 intensity scaling |
+| Motion Blur | Speed^2 intensity scaling on SpeedFeel |
 | Look Ahead | Forward offset based on speed (max 15m) |
+| Reset Cut | When the wrecked car is reset under the crash fade, the camera cuts straight to its chase position |
 
 ### Impact & Feedback
 
@@ -35,23 +37,25 @@
 | Procedural Shake | Rough road, construction, suspension damage |
 | Damage Wobble | Accumulated damage |
 | Tunnel Squeeze | Entering tunnel segments |
-| Speed Shake | Subtle vibration at high speed |
+| Speed Shake | Subtle vibration that grows with speed |
+| Traction Shake | Grows as the tyres near their grip limit (with a slight roll) |
+| Crash Slow Motion | 0.3x on impact easing back to 1x (TimeScaleDriver) while the camera pulls out |
 
-All motion critically damped per axis.
+All motion exponentially damped per axis (frame-rate independent).
 
 ### Default Parameters
 
 | Parameter | Value |
 |-----------|-------|
-| Base FOV | 60 degrees |
-| Speed FOV Bonus | 20 degrees |
+| Base FOV | 55 degrees |
+| Max FOV | 95 degrees |
 | Base Height | 3 m |
 | Base Distance | 8 m |
 | Speed Height Bonus | 1.5 m |
 | Speed Distance Bonus | 4 m |
 | Max Look Ahead | 15 m |
-| Position Smooth Speed | 8 |
-| Rotation Smooth Speed | 5 |
+| Heading / Distance / Height / FOV response | 6 / 4 / 4 / 3 per s |
+| Rotation response | 10 per s |
 | Collision Shake Intensity | 0.5 |
 | Collision Shake Duration | 0.3 s |
 
