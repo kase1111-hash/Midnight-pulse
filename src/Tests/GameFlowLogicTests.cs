@@ -197,6 +197,83 @@ namespace Nightflow.Tests
         }
 
         [Test]
+        public void Pause_OpensAndResumes_WithCooldown()
+        {
+            var gs = new GameState();
+            Assert.IsTrue(GameFlowLogic.TogglePause(ref gs));
+            Assert.AreEqual(MenuState.Pause, gs.CurrentMenu);
+            Assert.IsTrue(gs.IsPaused);
+
+            Assert.IsTrue(GameFlowLogic.TogglePause(ref gs));
+            Assert.AreEqual(MenuState.None, gs.CurrentMenu);
+            Assert.AreEqual(GameConstants.PauseCooldownDuration, gs.PauseCooldown, 1e-5f);
+
+            // Cooldown: no new pause yet
+            Assert.IsFalse(GameFlowLogic.TogglePause(ref gs));
+            Assert.AreEqual(MenuState.None, gs.CurrentMenu);
+        }
+
+        [Test]
+        public void Pause_MidSlide_IsHeldAndASecondPressKeepsIt()
+        {
+            var gs = new GameState { PlayerLosingControl = true };
+            Assert.IsTrue(GameFlowLogic.TogglePause(ref gs));
+            Assert.IsTrue(gs.PauseRequested);
+            Assert.AreEqual(MenuState.None, gs.CurrentMenu);
+
+            // Regression: a second press used to cancel the held request
+            GameFlowLogic.TogglePause(ref gs);
+            Assert.IsTrue(gs.PauseRequested);
+
+            // Still sliding: stays held
+            GameFlowLogic.UpdateHeldPause(ref gs, true, Dt);
+            Assert.AreEqual(MenuState.None, gs.CurrentMenu);
+
+            // Back in hand: opens
+            GameFlowLogic.UpdateHeldPause(ref gs, false, Dt);
+            Assert.AreEqual(MenuState.Pause, gs.CurrentMenu);
+            Assert.IsFalse(gs.PauseRequested);
+        }
+
+        [Test]
+        public void Pause_HeldPauseJustOpened_IgnoresTheStraySecondPress()
+        {
+            var gs = new GameState { PlayerLosingControl = true };
+            GameFlowLogic.TogglePause(ref gs);
+            gs.PlayerLosingControl = false;
+            GameFlowLogic.UpdateHeldPause(ref gs, false, Dt);
+            Assert.AreEqual(MenuState.Pause, gs.CurrentMenu);
+
+            // A press right after it opened must not resume it...
+            Assert.IsFalse(GameFlowLogic.TogglePause(ref gs));
+            Assert.AreEqual(MenuState.Pause, gs.CurrentMenu);
+
+            // ...but one after the guard does
+            for (int i = 0; i < 60; i++)
+                GameFlowLogic.UpdateHeldPause(ref gs, false, Dt);
+            Assert.IsTrue(GameFlowLogic.TogglePause(ref gs));
+            Assert.AreEqual(MenuState.None, gs.CurrentMenu);
+        }
+
+        [Test]
+        public void Pause_HeldRequest_DroppedByACrashOrAnotherMenu()
+        {
+            var crashed = new GameState { PauseRequested = true, CrashPhase = CrashFlowPhase.Impact };
+            GameFlowLogic.UpdateHeldPause(ref crashed, false, Dt);
+            Assert.IsFalse(crashed.PauseRequested);
+            Assert.AreNotEqual(MenuState.Pause, crashed.CurrentMenu);
+
+            var menu = new GameState { PauseRequested = true, CurrentMenu = MenuState.MainMenu };
+            GameFlowLogic.UpdateHeldPause(ref menu, false, Dt);
+            Assert.IsFalse(menu.PauseRequested);
+            Assert.AreEqual(MenuState.MainMenu, menu.CurrentMenu);
+
+            // No pause during the crash flow at all
+            var flow = new GameState { CrashPhase = CrashFlowPhase.Summary };
+            Assert.IsFalse(GameFlowLogic.TogglePause(ref flow));
+        }
+
+        [Test]
         public void SummaryDismiss_ControlHeldFromTheCrash_MustBeReleasedFirst()
         {
             // GameStateSystem gates the summary's input dismissal with

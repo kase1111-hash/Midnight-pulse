@@ -55,8 +55,8 @@
 - Menu overlay during pause
 - The simulation never stops: while the pause menu (or any other menu) is open the autopilot drives; the first control input after resuming hands the wheel back
 - A paused run keeps its speed: the autopilot holds the run's speed underneath the menu (up to 360 km/h, well inside its grip) instead of easing down, so resuming picks the momentum up where it was left
-- Pause cannot catch a slide: asked for while the car is past its grip limit or well off line, the pause waits until the car is back in hand (a second press cancels it; a crash drops it)
-- Main Menu from the pause menu abandons the run: the car is repaired under a quick fade, and the first input after Start begins a fresh run
+- Pause cannot catch a slide: asked for while the car is past its grip limit or well off line, the pause is held (the HUD shows `PAUSE QUEUED`; pressing again keeps it held) and opens once the car is back in hand; a crash drops it. A press in the half second after a held pause opens is ignored, so the second press of an impatient double-tap never resumes it straight away
+- The pause menu offers RESUME, RESTART, SETTINGS, MAIN MENU and QUIT. MAIN MENU abandons the run: the car is repaired under a quick fade, and the first input after Start begins a fresh run
 
 ---
 
@@ -92,8 +92,8 @@ No loading screens.
 
 ### Behavior
 - Lane-following with magnetism
-- Medium speed (40 m/s target)
-- Avoids hazards
+- Cruises at 20-35 m/s in attract mode; holds a suspended run's own speed (up to 100 m/s) under the pause menu or after an idle handoff
+- Avoids hazards: changes lanes for a serious threat anywhere in range, and for anything at all (loose tyres and cones too) it would reach within 1.6 s, toward any neighbour with under half the threat; slows for hazards close ahead
 - Maintains visual flow
 - Menu overlay stays active
 
@@ -101,7 +101,7 @@ No loading screens.
 - Any player input disables autopilot (ignored while a menu is open)
 - Immediate control handoff
 - If no run is active (boot, post-crash) the first input starts a fresh scoring run; if a run was suspended by idling it resumes with its score intact
-- The autopilot never scores, never takes structural damage and never crashes, so the self-playing loop runs unattended
+- The autopilot never scores, never takes structural damage or component wear and never crashes, so the self-playing loop runs unattended and a paused or idle run is never handed back damaged
 
 ---
 

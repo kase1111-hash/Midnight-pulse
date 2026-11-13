@@ -397,7 +397,7 @@ namespace Nightflow.UI
 
         private void UpdateWarningIndicator(UIState state)
         {
-            bool showWarning = state.WarningPriority > 0;
+            bool showWarning = state.WarningPriority > 0 || state.PausePending;
 
             if (warningIndicator != null)
             {
@@ -406,7 +406,9 @@ namespace Nightflow.UI
                 if (showWarning && warningText != null)
                 {
                     string text;
-                    if (state.WarningPriority >= 3)
+                    if (state.PausePending)
+                        text = "PAUSE QUEUED";   // acknowledged: opens once the car is back in hand
+                    else if (state.WarningPriority >= 3)
                         text = "EMERGENCY VEHICLE";
                     else if (state.TractionWarning)
                         text = state.TractionUsage > 1f ? "LOSING GRIP" : "TRACTION LIMIT";

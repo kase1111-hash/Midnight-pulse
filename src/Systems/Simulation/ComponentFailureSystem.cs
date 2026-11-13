@@ -43,10 +43,10 @@ namespace Nightflow.Systems
         {
             float deltaTime = SystemAPI.Time.DeltaTime;
 
-            foreach (var (damage, health, failureState, config, collision, crashState) in
+            foreach (var (damage, health, failureState, config, collision, crashState, autopilot) in
                 SystemAPI.Query<RefRO<DamageState>, RefRW<ComponentHealth>,
                                RefRW<ComponentFailureState>, RefRO<ComponentDamageConfig>,
-                               RefRO<CollisionEvent>, RefRW<CrashState>>()
+                               RefRO<CollisionEvent>, RefRW<CrashState>, RefRO<Autopilot>>()
                     .WithAll<PlayerVehicleTag>()
                     .WithNone<CrashedTag>())
             {
@@ -56,8 +56,10 @@ namespace Nightflow.Systems
                     failureState.ValueRW.TimeSinceLastFailure += deltaTime;
                 }
 
-                // Skip if no recent collision
-                if (!collision.ValueRO.Occurred)
+                // Skip if no recent collision. The autopilot takes the bump but
+                // wears nothing (as in DamageSystem): attract mode, a paused or
+                // an idle run must never hand the player failed components
+                if (!collision.ValueRO.Occurred || autopilot.ValueRO.Enabled)
                     continue;
 
                 // =============================================================

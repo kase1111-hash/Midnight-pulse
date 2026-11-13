@@ -139,7 +139,7 @@ namespace Nightflow.Systems.UI
         /// Toggle the performance stats display.
         /// Call from settings or debug input handler.
         /// </summary>
-        public static void ToggleDisplay(ref SystemState state)
+        public void ToggleDisplay(ref SystemState state)
         {
             foreach (var stats in SystemAPI.Query<RefRW<PerformanceStats>>())
             {
@@ -151,7 +151,7 @@ namespace Nightflow.Systems.UI
         /// <summary>
         /// Toggle extended stats display (memory, system timings).
         /// </summary>
-        public static void ToggleExtended(ref SystemState state)
+        public void ToggleExtended(ref SystemState state)
         {
             foreach (var stats in SystemAPI.Query<RefRW<PerformanceStats>>())
             {
@@ -163,7 +163,7 @@ namespace Nightflow.Systems.UI
         /// <summary>
         /// Reset min/max frame time tracking.
         /// </summary>
-        public static void ResetMinMax(ref SystemState state)
+        public void ResetMinMax(ref SystemState state)
         {
             foreach (var stats in SystemAPI.Query<RefRW<PerformanceStats>>())
             {

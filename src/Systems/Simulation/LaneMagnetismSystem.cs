@@ -69,6 +69,12 @@ namespace Nightflow.Systems
         private float _lean;
         private float _avoid;
 
+        // The yield as applied to the target last frame, and how much of it a
+        // lane change in flight was still applying (it fades with the blend)
+        private float _avoidApplied;
+        private float _changeYieldShare;
+        private bool _wasChangingLanes;
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
@@ -150,14 +156,16 @@ namespace Nightflow.Systems
                 float targetVelocity = 0f;
 
                 bool changingLanes = steeringState.ValueRO.ChangingLanes;
+                float blend = 0f;
+                float blendRate = 0f;
                 if (changingLanes)
                 {
                     // An aborted change runs the same blend backwards to CurrentLane
-                    float blend = VehicleDynamics.LaneBlend(
+                    blend = VehicleDynamics.LaneBlend(
                         steeringState.ValueRO.LaneChangeTimer,
                         steeringState.ValueRO.LaneChangeDuration,
                         steeringState.ValueRO.LaneChangeAborting,
-                        out float blendRate);
+                        out blendRate);
 
                     targetLateral = math.lerp(currentLaneOffset, targetLaneOffset, blend);
                     targetVelocity = (targetLaneOffset - currentLaneOffset) * blendRate;
@@ -176,11 +184,32 @@ namespace Nightflow.Systems
                 _lean = VehicleDynamics.LeanAt(leanStart, desiredLean, deltaTime);
 
                 // Emergency vehicle avoidance nudges the target to make room,
-                // rate-limited and kept on the road (position only, as above)
+                // rate-limited and kept on the road (position only, as above).
+                // A lane change takes the yield over: it fades out with the
+                // blend, and when the change ends the state keeps exactly what
+                // was still applied (none after a completed change, all of it
+                // after an aborted one), so the target never jumps
+                if (!changingLanes && _wasChangingLanes)
+                    _avoid *= _changeYieldShare;
+                _wasChangingLanes = changingLanes;
+
                 float halfRoadWidth = currentSegment.NumLanes * GameConstants.LaneWidth * 0.5f;
-                float avoidStart = _avoid;
+                float avoidStart = _avoidApplied;
                 _avoid = VehicleDynamics.StepAvoidance(_avoid, detection.ValueRO.AvoidanceOffset,
                     targetLateral + _lean, halfRoadWidth, deltaTime);
+
+                // The spring's velocity target: the blend's rate plus the yield
+                // fading with it (both smooth); the position path below moves the
+                // blend at its rate and the applied yield along its own path
+                float targetVelocityFeed = targetVelocity;
+                _avoidApplied = _avoid;
+                if (changingLanes)
+                {
+                    _avoidApplied = VehicleDynamics.YieldDuringLaneChange(_avoid, blend, blendRate,
+                        out float fadeVelocity);
+                    _changeYieldShare = 1f - blend;
+                    targetVelocityFeed += fadeVelocity;
+                }
 
                 // =============================================================
                 // Magnetism modulation
@@ -251,8 +280,8 @@ namespace Nightflow.Systems
 
                 var lateralInput = new LateralInputs
                 {
-                    TargetOffset = targetLateral + _lean + _avoid,
-                    TargetVelocity = targetVelocity,
+                    TargetOffset = targetLateral + _lean + _avoidApplied,
+                    TargetVelocity = targetVelocityFeed,
                     Magnetism = magnetism,
                     CurveAccel = VehicleDynamics.CurveAcceleration(speed, curvature),
                     Grip = grip,
@@ -269,7 +298,7 @@ namespace Nightflow.Systems
                     // frame and four 120 Hz frames give the spring the same target
                     lateralInput.TargetOffset = targetLateral + targetVelocity * (i * h)
                         + VehicleDynamics.LeanAt(leanStart, desiredLean, (i + 1) * h)
-                        + math.lerp(avoidStart, _avoid, (i + 1) / (float)steps);
+                        + math.lerp(avoidStart, _avoidApplied, (i + 1) / (float)steps);
                     VehicleDynamics.StepLateral(ref lateral, lateralInput, h);
                 }
 

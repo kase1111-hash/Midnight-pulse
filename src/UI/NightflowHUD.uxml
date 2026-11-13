@@ -321,6 +321,7 @@
             <ui:Button name="resume-button" text="RESUME" class="menu-button" />
             <ui:Button name="restart-button" text="RESTART" class="menu-button" />
             <ui:Button name="settings-button" text="SETTINGS" class="menu-button" />
+            <ui:Button name="pause-menu-button" text="MAIN MENU" class="menu-button" />
             <ui:Button name="quit-button" text="QUIT" class="menu-button" />
         </ui:VisualElement>
     </ui:VisualElement>

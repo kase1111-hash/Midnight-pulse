@@ -161,18 +161,7 @@ namespace Nightflow.Systems
             // The autopilot under the pause menu has far more grip than the
             // player, so a pause asked for mid-slide waits until the car is back
             // in hand (a crash or another menu drops it)
-            if (gameState.ValueRO.PauseRequested)
-            {
-                if (gameState.ValueRO.CrashPhase != CrashFlowPhase.None ||
-                    gameState.ValueRO.CurrentMenu != MenuState.None)
-                {
-                    gameState.ValueRW.PauseRequested = false;
-                }
-                else if (!losingControl)
-                {
-                    ScreenFlowSystem.OpenPause(ref gameState.ValueRW);
-                }
-            }
+            GameFlowLogic.UpdateHeldPause(ref gameState.ValueRW, losingControl, deltaTime);
 
             // =============================================================
             // Pilot Handoff (autopilot <-> player)

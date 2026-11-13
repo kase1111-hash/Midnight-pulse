@@ -46,7 +46,7 @@ namespace Nightflow.Systems.UI
                     }
                     else
                     {
-                        notifications[i] = notif;
+                        notifications.ElementAt(i) = notif;
                     }
                 }
             }

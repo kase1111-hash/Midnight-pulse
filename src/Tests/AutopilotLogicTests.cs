@@ -108,6 +108,45 @@ namespace Nightflow.Tests
         }
 
         [Test]
+        public void LaneEscape_SeriousThreat_LeavesAtAnyDistance()
+        {
+            // A crashed car far up the lane: same rule as ChooseEscapeDirection
+            Assert.AreEqual(1, AutopilotLogic.LaneEscape(Threats(0f, 0.6f, 0f, 0f), 1, 4, 200f, 30f, 0.5f));
+        }
+
+        [Test]
+        public void LaneEscape_MinorHazardClose_DodgesIt()
+        {
+            // Regression: a loose tyre (severity 0.2) never got past the 0.1
+            // escape margin, so the autopilot drove over every one of them
+            float threat = AutopilotLogic.HazardThreat(0.2f, 40f, 100f);
+            Assert.AreEqual(1, AutopilotLogic.LaneEscape(Threats(0f, threat, 0f, 0f), 1, 4, 40f, 30f, 0.5f));
+        }
+
+        [Test]
+        public void LaneEscape_MinorHazardFar_NotYet()
+        {
+            // 100 m at 30 m/s is ~3.3 s away: keep the lane for now
+            float threat = AutopilotLogic.HazardThreat(0.2f, 100f, 200f);
+            Assert.AreEqual(0, AutopilotLogic.LaneEscape(Threats(0f, threat, 0f, 0f), 1, 4, 100f, 30f, 0.5f));
+        }
+
+        [Test]
+        public void LaneEscape_MinorHazardEverywhere_Stays()
+        {
+            // No neighbour has under half our threat: hold the lane
+            float threat = AutopilotLogic.HazardThreat(0.2f, 40f, 100f);
+            Assert.AreEqual(0, AutopilotLogic.LaneEscape(Threats(threat, threat, threat, 0f), 1, 4, 40f, 30f, 0.5f));
+        }
+
+        [Test]
+        public void LaneEscape_ClearLane_Stays()
+        {
+            Assert.AreEqual(0, AutopilotLogic.LaneEscape(Threats(0f, 0f, 0f, 0f), 1, 4, 10f, 30f, 0.5f));
+            Assert.AreEqual(0, AutopilotLogic.LaneEscape(Threats(0f, 0f, 0f, 0f), -1, 4, 10f, 30f, 0.5f));
+        }
+
+        [Test]
         public void Escape_InvalidLane_Stays()
         {
             Assert.AreEqual(0, AutopilotLogic.ChooseEscapeDirection(Threats(0f, 0f, 0f, 0f), -1, 4));

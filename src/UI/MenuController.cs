@@ -114,11 +114,14 @@ namespace Nightflow.UI
             var resumeButton = root.Q<Button>("resume-button");
             var restartButtonPause = root.Q<Button>("restart-button");
             var settingsButton = root.Q<Button>("settings-button");
+            var mainMenuButtonPause = root.Q<Button>("pause-menu-button");
             var quitButtonPause = root.Q<Button>("quit-button");
 
             if (resumeButton != null) resumeButton.clicked += OnResumeClicked;
             if (restartButtonPause != null) restartButtonPause.clicked += OnRestartClicked;
             if (settingsButton != null) settingsButton.clicked += OnSettingsClicked;
+            // Leaves the run for the title screen (abandoned under a quick fade)
+            if (mainMenuButtonPause != null) mainMenuButtonPause.clicked += OnMainMenuClicked;
             if (quitButtonPause != null) quitButtonPause.clicked += OnQuitClicked;
 
             // Game over buttons

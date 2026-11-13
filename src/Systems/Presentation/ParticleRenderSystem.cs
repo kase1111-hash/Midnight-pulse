@@ -151,7 +151,9 @@ namespace Nightflow.Systems.Presentation
             // Collect particles from all emitters
             Entities
                 .WithoutBurst()
-                .ForEach((in ParticleEmitter emitter, DynamicBuffer<Particle> particles) =>
+                // By-value parameters must come before in/ref ones: Entities.ForEach
+                // only binds lambdas shaped like its generated delegates
+                .ForEach((DynamicBuffer<Particle> particles, in ParticleEmitter emitter) =>
                 {
                     switch (emitter.Type)
                     {

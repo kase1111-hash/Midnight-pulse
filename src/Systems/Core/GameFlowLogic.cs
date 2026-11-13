@@ -186,6 +186,106 @@ namespace Nightflow.Systems
             return sliding || math.abs(slipAngle) > PauseSlipLimit;
         }
 
+        /// <summary>
+        /// After a held pause opens on its own, a pause/resume press this soon
+        /// (s) is ignored: it was a second press of the same request, not a
+        /// request to resume the pause that just opened.
+        /// </summary>
+        public const float HeldPauseResumeGuard = 0.5f;
+
+        /// <summary>
+        /// The pause key. Opens the pause menu (cooldown permitting) or resumes
+        /// from it. While the car is getting away from the driver the request is
+        /// held instead (a latch: pressing again keeps it held) and
+        /// UpdateHeldPause opens it once the car is back in hand. Returns true
+        /// when GameState changed.
+        /// </summary>
+        public static bool TogglePause(ref GameState gameState)
+        {
+            // Can't pause during crash flow
+            if (gameState.CrashPhase != CrashFlowPhase.None)
+                return false;
+
+            bool paused = gameState.CurrentMenu == MenuState.Pause;
+
+            // Only the pause menu toggles here (other menus have their own back actions)
+            if (!paused && gameState.CurrentMenu != MenuState.None)
+                return false;
+
+            if (paused)
+            {
+                if (gameState.PauseResumeGuard > 0f)
+                    return false;
+                ResumeFromPause(ref gameState);
+                return true;
+            }
+
+            // Check cooldown
+            if (gameState.PauseCooldown > 0f)
+                return false;
+
+            if (gameState.PlayerLosingControl)
+            {
+                if (gameState.PauseRequested)
+                    return false;
+                gameState.PauseRequested = true;
+                return true;
+            }
+
+            OpenPause(ref gameState, false);
+            return true;
+        }
+
+        /// <summary>
+        /// Opens the pause menu. <paramref name="held"/>: a held request is
+        /// opening on its own, so a stray second press is ignored for a moment.
+        /// </summary>
+        public static void OpenPause(ref GameState gameState, bool held)
+        {
+            gameState.CurrentMenu = MenuState.Pause;
+            gameState.MenuVisible = true;
+            gameState.IsPaused = true;
+            gameState.PauseRequested = false;
+            gameState.PauseResumeGuard = held ? HeldPauseResumeGuard : 0f;
+        }
+
+        /// <summary>Closes the pause menu and starts the pause cooldown.</summary>
+        public static void ResumeFromPause(ref GameState gameState)
+        {
+            if (gameState.CurrentMenu != MenuState.Pause)
+                return;
+
+            gameState.CurrentMenu = MenuState.None;
+            gameState.MenuVisible = false;
+            gameState.IsPaused = false;
+            gameState.TimeScale = 1f;
+            gameState.PauseCooldown = GameConstants.PauseCooldownDuration;
+            gameState.PauseResumeGuard = 0f;
+        }
+
+        /// <summary>
+        /// One frame of a held pause request: dropped by a crash or another
+        /// menu, opened as soon as the car is back in hand. Also runs down the
+        /// resume guard.
+        /// </summary>
+        public static void UpdateHeldPause(ref GameState gameState, bool losingControl, float deltaTime)
+        {
+            if (gameState.PauseResumeGuard > 0f)
+                gameState.PauseResumeGuard = math.max(0f, gameState.PauseResumeGuard - math.max(deltaTime, 0f));
+
+            if (!gameState.PauseRequested)
+                return;
+
+            if (gameState.CrashPhase != CrashFlowPhase.None || gameState.CurrentMenu != MenuState.None)
+            {
+                gameState.PauseRequested = false;
+                return;
+            }
+
+            if (!losingControl)
+                OpenPause(ref gameState, true);
+        }
+
         // =====================================================================
         // Crash flow
         // =====================================================================

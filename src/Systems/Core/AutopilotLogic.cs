@@ -21,6 +21,12 @@ namespace Nightflow.Systems
         /// <summary>An escape lane must be at least this much safer than staying.</summary>
         public const float EscapeMargin = 0.1f;
 
+        /// <summary>
+        /// Any hazard in the lane this close (seconds of travel) is dodged,
+        /// however minor: a loose tyre or a cone costs ~30% of the impact speed.
+        /// </summary>
+        public const float LeaveLaneSeconds = 1.6f;
+
         /// <summary>How fast the autopilot eases its speed down after a fast handoff (m/s^2).</summary>
         public const float ComfortDecel = 4f;
 
@@ -124,13 +130,19 @@ namespace Nightflow.Systems
         /// </summary>
         public static int ChooseEscapeDirection(float4 laneThreat, int lane, int laneCount)
         {
+            return ChooseEscapeDirection(laneThreat, lane, laneCount, EscapeMargin);
+        }
+
+        /// <summary>ChooseEscapeDirection with an explicit safety margin.</summary>
+        public static int ChooseEscapeDirection(float4 laneThreat, int lane, int laneCount, float margin)
+        {
             int lanes = math.min(laneCount, MaxLanes);
             if (lane < 0 || lane >= lanes)
                 return 0;
 
             float own = laneThreat[lane];
             int bestDir = 0;
-            float bestThreat = own - EscapeMargin;
+            float bestThreat = own - margin;
             float bestCentreDist = float.MaxValue;
             float centre = (lanes - 1) * 0.5f;
 
@@ -155,6 +167,34 @@ namespace Nightflow.Systems
             }
 
             return bestDir;
+        }
+
+        /// <summary>
+        /// Which way to change lanes for what is ahead in the driving lane
+        /// (-1 left, +1 right, 0 stay): a serious threat anywhere in range, or
+        /// any hazard at all the car would reach within LeaveLaneSeconds, for
+        /// which any neighbour with under half the threat will do. Minor hazards
+        /// are worth the lane change too: each hit costs ~30% of the impact
+        /// speed, and attract mode (or a paused run) should look like it is
+        /// driving, not bumping over loose tyres.
+        /// </summary>
+        public static int LaneEscape(float4 laneThreat, int lane, int laneCount,
+            float nearestHazardDistance, float speed, float threatThreshold)
+        {
+            if (lane < 0 || lane >= MaxLanes)
+                return 0;
+
+            float own = laneThreat[lane];
+            if (!(own > 0f))
+                return 0;
+
+            if (own > threatThreshold)
+                return ChooseEscapeDirection(laneThreat, lane, laneCount);
+
+            if (nearestHazardDistance < math.max(speed, 0f) * LeaveLaneSeconds)
+                return ChooseEscapeDirection(laneThreat, lane, laneCount, own * 0.5f);
+
+            return 0;
         }
     }
 }

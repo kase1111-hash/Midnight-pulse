@@ -590,7 +590,32 @@ namespace Nightflow.Systems
             float desired = math.clamp(baseTarget + requested, -outer, outer) - baseTarget;
 
             float step = AvoidanceRate * math.max(deltaTime, 0f);
-            return current + math.clamp(desired - current, -step, step);
+            float next = current + math.clamp(desired - current, -step, step);
+
+            // The yield unwinds at its rate, but the base target can move
+            // outward faster (a lane change toward the edge): the total target
+            // stays inside the soft edge (and continuous) all the same
+            return math.clamp(baseTarget + next, -outer, outer) - baseTarget;
+        }
+
+        /// <summary>
+        /// The emergency yield during a lane change: the change itself moves the
+        /// car, so the yield fades out with the lane-change blend and the car
+        /// ends the change exactly in its new lane (or, run backwards by an
+        /// abort, hands the yield back). Returns the share to add to the lane
+        /// target; <paramref name="fadeVelocity"/> is its rate, which is smooth
+        /// (the blend's rate starts and ends at zero), so it is fed to the
+        /// spring with the blend's own velocity and the damper never sees the
+        /// target stop dead against the road edge.
+        /// </summary>
+        /// <param name="avoid">Yield state (StepAvoidance).</param>
+        /// <param name="blend">Lane-change blend toward TargetLane (LaneBlend).</param>
+        /// <param name="blendRate">Its rate of change (1/s).</param>
+        /// <param name="fadeVelocity">Rate of the returned share (m/s).</param>
+        public static float YieldDuringLaneChange(float avoid, float blend, float blendRate, out float fadeVelocity)
+        {
+            fadeVelocity = -avoid * blendRate;
+            return avoid * (1f - blend);
         }
 
         /// <summary>

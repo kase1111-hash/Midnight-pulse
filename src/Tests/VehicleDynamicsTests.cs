@@ -639,6 +639,63 @@ namespace Nightflow.Tests
         }
 
         [Test]
+        public void Avoidance_LaneChangeTowardTheEdge_TotalStaysInsideAndContinuous()
+        {
+            // Regression: a yield already applied toward the edge unwound at its
+            // rate while a lane change moved the base target into the edge lane,
+            // so the total target ran past the soft edge
+            float halfRoad = GameConstants.RoadWidth * 0.5f;
+            float limit = halfRoad * VehicleDynamics.EdgeSoftZoneRatio - VehicleDynamics.AvoidanceEdgeMargin;
+            float avoid = 2.2f;
+            float previousTotal = LaneCentre(2) + avoid;
+            for (int i = 0; i <= 60; i++)
+            {
+                float blend = VehicleDynamics.LaneBlend(i * Dt, 1f, out _);
+                float baseTarget = math.lerp(LaneCentre(2), LaneCentre(3), blend);
+                avoid = VehicleDynamics.StepAvoidance(avoid, 2.2f, baseTarget, halfRoad, Dt);
+                float total = baseTarget + avoid;
+
+                Assert.LessOrEqual(total, limit + 1e-4f, $"frame {i}");
+                Assert.Less(math.abs(total - previousTotal), 0.2f, $"frame {i}: target jumped");
+                previousTotal = total;
+            }
+        }
+
+        [Test]
+        public void YieldDuringLaneChange_FadesWithTheBlend()
+        {
+            Assert.AreEqual(2f, VehicleDynamics.YieldDuringLaneChange(2f, 0f, 0f, out float v0), 1e-6f);
+            Assert.AreEqual(0f, v0, 1e-6f);
+            Assert.AreEqual(1f, VehicleDynamics.YieldDuringLaneChange(2f, 0.5f, 1.5f, out float vMid), 1e-6f);
+            Assert.AreEqual(-3f, vMid, 1e-6f);
+            Assert.AreEqual(0f, VehicleDynamics.YieldDuringLaneChange(2f, 1f, 0f, out _), 1e-6f);
+        }
+
+        [TestCase(1f / 30f)]
+        [TestCase(1f / 60f)]
+        [TestCase(1f / 144f)]
+        public void Yield_LaneChangeIntoTheEdgeLane_NoHarderThanAPlainChange(float frameTime)
+        {
+            // Regression: yielding toward the edge for an ambulance and then
+            // moving over into the edge lane ran the target into the soft edge
+            // while the spring still chased the lane change's speed (usage 1.5
+            // at 100 m/s against 0.87 for the same change on its own)
+            float halfRoad = GameConstants.RoadWidth * 0.5f;
+            float limit = halfRoad * VehicleDynamics.EdgeSoftZoneRatio - VehicleDynamics.AvoidanceEdgeMargin;
+            foreach (float v in new[] { 90f, 100f, 110f })
+            {
+                var plain = RunLaneChange(v, 0f, frameTime, 3f, 1, fromLane: 2);
+                var yielding = RunLaneChange(v, 0f, frameTime, 3f, 1, fromLane: 2, yieldRequest: 2.2f);
+
+                Assert.LessOrEqual(yielding.MaxUsage, plain.MaxUsage + 0.05f, $"{v} m/s");
+                Assert.IsFalse(yielding.LostControl, $"{v} m/s");
+                Assert.LessOrEqual(yielding.MaxTarget, limit + 1e-3f, $"{v} m/s");
+                Assert.AreEqual(LaneCentre(3) + VehicleDynamics.StepAvoidance(0f, 2.2f, LaneCentre(3), halfRoad, 10f),
+                    yielding.Lateral.Offset, 0.05f, $"{v} m/s: settles in the edge lane");
+            }
+        }
+
+        [Test]
         public void Avoidance_NoRequest_NeverMovesTheTarget()
         {
             // A lean already outside the limit is left alone, and NaN reads as 0
@@ -677,6 +734,7 @@ namespace Nightflow.Tests
             public LateralState Lateral;
             public float MaxUsage;
             public float MinOffset;
+            public float MaxTarget;
             public float MaxOffset;
             public bool LostControl;
         }
@@ -729,7 +787,7 @@ namespace Nightflow.Tests
         /// </summary>
         private static LaneChangeResult RunLaneChange(float speed, float curvature, float frameTime,
             float seconds, int direction, float heldSteer = 0f, bool leanedAtStart = false,
-            int fromLane = 1, bool autopilot = false)
+            int fromLane = 1, bool autopilot = false, float yieldRequest = 0f)
         {
             float from = LaneCentre(fromLane);
             float to = LaneCentre(fromLane + direction);
@@ -738,9 +796,17 @@ namespace Nightflow.Tests
             float grip = VehicleDynamics.GripLimit(speed, 1f, false, 1f, false, false, autopilot);
             float lean = leanedAtStart ? VehicleDynamics.InLaneOffset(heldSteer) : 0f;
 
-            var lateral = new LateralState { Offset = from + lean };
+            // An emergency yield already settled before the change starts
+            float halfRoad = GameConstants.RoadWidth * 0.5f;
+            float avoid = 0f;
+            for (int i = 0; i < 600; i++)
+                avoid = VehicleDynamics.StepAvoidance(avoid, yieldRequest, from + lean, halfRoad, 1f / 60f);
+            float applied = avoid, yieldShare = 1f;
+            bool wasChanging = false;
+
+            var lateral = new LateralState { Offset = from + lean + avoid };
             var drift = new DriftState();
-            var result = new LaneChangeResult { MinOffset = lateral.Offset, MaxOffset = lateral.Offset };
+            var result = new LaneChangeResult { MinOffset = lateral.Offset, MaxOffset = lateral.Offset, MaxTarget = lateral.Offset };
 
             float timer = 0f;
             bool changing = direction != 0;
@@ -750,9 +816,11 @@ namespace Nightflow.Tests
             {
                 float target = to;
                 float targetVelocity = 0f;
+                float blend = 0f, rate = 0f;
+                bool changingThisFrame = changing;
                 if (changing)
                 {
-                    float blend = VehicleDynamics.LaneBlend(timer, duration, out float rate);
+                    blend = VehicleDynamics.LaneBlend(timer, duration, out rate);
                     target = math.lerp(from, to, blend);
                     targetVelocity = (to - from) * rate;
                     timer += frameTime;
@@ -766,10 +834,26 @@ namespace Nightflow.Tests
                 float leanStart = lean;
                 lean = VehicleDynamics.LeanAt(leanStart, desiredLean, frameTime);
 
+                // Emergency yield, as LaneMagnetismSystem applies it: a lane
+                // change takes it over (fades with the blend, rate fed)
+                if (!changingThisFrame && wasChanging)
+                    avoid *= yieldShare;
+                wasChanging = changingThisFrame;
+                float appliedStart = applied;
+                avoid = VehicleDynamics.StepAvoidance(avoid, yieldRequest, target + lean, halfRoad, frameTime);
+                applied = avoid;
+                float feed = targetVelocity;
+                if (changingThisFrame)
+                {
+                    applied = VehicleDynamics.YieldDuringLaneChange(avoid, blend, rate, out float fade);
+                    yieldShare = 1f - blend;
+                    feed += fade;
+                }
+
                 var input = new LateralInputs
                 {
-                    TargetOffset = target + lean,
-                    TargetVelocity = targetVelocity,
+                    TargetOffset = target + lean + applied,
+                    TargetVelocity = feed,
                     Magnetism = magnetism,
                     CurveAccel = VehicleDynamics.CurveAcceleration(speed, curvature),
                     Grip = grip,
@@ -783,7 +867,9 @@ namespace Nightflow.Tests
                 for (int i = 0; i < n; i++)
                 {
                     input.TargetOffset = target + targetVelocity * (i * h)
-                        + VehicleDynamics.LeanAt(leanStart, desiredLean, (i + 1) * h);
+                        + VehicleDynamics.LeanAt(leanStart, desiredLean, (i + 1) * h)
+                        + math.lerp(appliedStart, applied, (i + 1) / (float)n);
+                    result.MaxTarget = math.max(result.MaxTarget, input.TargetOffset);
                     VehicleDynamics.StepLateral(ref lateral, input, h);
                 }
 

@@ -171,8 +171,12 @@ namespace Nightflow.Systems
                 // Lane Change Decision
                 // =============================================================
 
+                // Leave the lane for a serious threat, or for anything at all it
+                // would otherwise run over in the next couple of seconds
                 bool shouldChangeLane = false;
-                if (hazardThreat > LaneChangeThreshold && _laneChangeTimer <= 0 && escapeDirection != 0)
+                int laneEscape = AutopilotLogic.LaneEscape(laneThreat, myLane, laneCount,
+                    nearestHazardDist, currentSpeed, LaneChangeThreshold);
+                if (laneEscape != 0 && _laneChangeTimer <= 0)
                 {
                     shouldChangeLane = true;
                     _laneChangeTimer = LaneChangeCooldown;
@@ -228,7 +232,7 @@ namespace Nightflow.Systems
                 {
                     // Request lane change through steering state (same blocked-lane checks as the player)
                     steeringState.ValueRW.LaneChangeRequested = true;
-                    steeringState.ValueRW.LaneChangeDirection = escapeDirection;
+                    steeringState.ValueRW.LaneChangeDirection = laneEscape;
                 }
 
                 // No handbrake during autopilot

@@ -80,7 +80,7 @@ Critically damped spring toward the lane target (and the lane-change blend's vel
 | Edge stiffness | 60 |
 | Soft zone | 85% of half the road width |
 | Analog in-lane lean | up to 0.9 m below the lane-change threshold, eased at 6/s |
-| Emergency yield | moves at most 1.5 m/s, never aims within 0.5 m of the soft edge |
+| Emergency yield | moves at most 1.5 m/s, never aims within 0.5 m of the soft edge; a lane change takes it over (it fades with the blend, its rate fed to the spring) |
 | Magnetism strength | 1.0 (side damage reduces it) |
 
 ---

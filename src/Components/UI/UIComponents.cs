@@ -51,6 +51,7 @@ namespace Nightflow.Components
         // Tyre load (TractionState.Usage): 1 = at the grip limit, above = sliding
         public float TractionUsage;
         public bool TractionWarning;    // Near the limit (with hysteresis so it doesn't flicker)
+        public bool PausePending;       // Pause asked for mid-slide: opens once the car is back in hand
         public bool WarningFlash;
         public float EmergencyDistance;
         public float EmergencyETA;
@@ -146,6 +147,11 @@ namespace Nightflow.Components
         // is held in PauseRequested and opens once the car is back in hand.
         public bool PlayerLosingControl;
         public bool PauseRequested;
+
+        // Seconds during which the pause key is ignored after a held pause
+        // opened on its own (a second press of the same request must not
+        // immediately resume it). See GameFlowLogic.TogglePause.
+        public float PauseResumeGuard;
     }
 
     /// <summary>
