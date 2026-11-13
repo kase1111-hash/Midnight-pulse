@@ -39,6 +39,7 @@ namespace Nightflow.Systems
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateBefore(typeof(SteeringSystem))]   // its lane-change request is consumed the same frame
     public partial struct AutopilotSystem : ISystem
     {
         // Speed control. The cruise target is Autopilot.TargetSpeed: the
@@ -69,8 +70,9 @@ namespace Nightflow.Systems
         private bool _wasEnabled;
 
         // Lane change asked for last frame (0 = none), and whether one was
-        // under way: a request consumed without a change starting was turned
-        // down, and the cooldown starts with the change itself
+        // under way: SteeringSystem consumes a request the frame it is made,
+        // so one followed by no change was turned down; the cooldown starts
+        // with the change itself
         private int _requestedDirection;
         private bool _wasChangingLanes;
 
@@ -108,12 +110,6 @@ namespace Nightflow.Systems
 
                 if (!autopilot.ValueRO.Enabled)
                 {
-                    // A request still waiting for SteeringSystem was ours, not the player's
-                    if (_requestedDirection != 0 && steeringState.ValueRO.LaneChangeRequested)
-                    {
-                        steeringState.ValueRW.LaneChangeRequested = false;
-                        steeringState.ValueRW.LaneChangeDirection = 0;
-                    }
                     _wasEnabled = false;
                     _smoothedSteer = 0f;
                     _requestedDirection = 0;
@@ -217,8 +213,8 @@ namespace Nightflow.Systems
                 }
                 _wasChangingLanes = changingLanes;
 
-                // Last frame's request was consumed without a change starting:
-                // SteeringSystem found that lane blocked
+                // Last frame's request was consumed (SteeringSystem runs right
+                // after us) without a change starting: that lane was blocked
                 int refusedDirection = !changingLanes && !steeringState.ValueRO.LaneChangeRequested
                     ? _requestedDirection
                     : 0;
@@ -260,16 +256,16 @@ namespace Nightflow.Systems
                 // =============================================================
 
                 // Lane magnetism (x1.5 for the autopilot) keeps the car centred in
-                // its lane; steering here only leans toward the way out while a
-                // hazard closes in (also while a lane change waits for a gap),
-                // and always stays below the lane-change threshold so the car
-                // never weaves on its own. The lean points where it is asking
-                // to go, so a change that starts hands it over the usual way
-                int leanDirection = wantsLaneChange ? laneEscape : escapeDirection;
+                // its lane; steering here only leans toward the clearer
+                // neighbour while a real threat closes in, and always stays
+                // below the lane-change threshold so the car never weaves on its
+                // own. The lean also holds while a lane change waits for a gap,
+                // steady even while the two sides are asked for in turn (a
+                // change that starts either way eases it out)
                 float leanTarget = 0f;
-                if (hazardThreat > 0.2f && !changingLanes && leanDirection != 0)
+                if (hazardThreat > 0.2f && !changingLanes && escapeDirection != 0)
                 {
-                    leanTarget = leanDirection * hazardThreat * HazardAvoidanceStrength;
+                    leanTarget = escapeDirection * hazardThreat * HazardAvoidanceStrength;
                 }
                 leanTarget = math.clamp(leanTarget, -MaxLeanSteer, MaxLeanSteer);
 

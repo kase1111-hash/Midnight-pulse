@@ -93,7 +93,7 @@ No loading screens.
 ### Behavior
 - Lane-following with magnetism
 - Cruises at 20-35 m/s in attract mode; holds a suspended run's own speed (up to 85 m/s, times the square root of the car's grip share) under the pause menu or after an idle handoff
-- Avoids hazards: changes lanes for a serious threat anywhere in range, and for anything at all (loose tyres and cones too) it would reach within 1.6 s, toward any neighbour with under half the threat; a lane the steering system finds blocked (traffic alongside) is asked for again every frame, trying the other side in turn, while it leans toward the gap; at most one change every 1.6 s; slows for hazards close ahead
+- Avoids hazards: changes lanes for a serious threat anywhere in range, and for anything at all (loose tyres and cones too) it would reach within 1.6 s, toward any neighbour with under half the threat; a lane the steering system finds blocked (traffic alongside) is asked for again every frame, trying the other side in turn; at most one change every 1.6 s; leans inside its lane toward the clearer side as a serious threat closes in (also while it waits for a gap); slows for hazards close ahead
 - Calm lane changes: as quick as the player's well below its hold speed (attract mode), the full second near it, so even a worn car's dodges stay below the tyre squeal
 - Maintains visual flow
 - Menu overlay stays active
