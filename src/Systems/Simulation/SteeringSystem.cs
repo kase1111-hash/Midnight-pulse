@@ -25,7 +25,8 @@ namespace Nightflow.Systems
     /// - Not already transitioning
     ///
     /// Transition: λ(t) = 3t² - 2t³ (smoothstep)
-    /// Duration: T = clamp(T_base × (v/v_ref), T_min, T_max)
+    /// Duration: T = clamp(T_base × (v/v_ref), T_min, T_max); a change the
+    /// autopilot requests takes AutopilotLogic.LaneChangeDuration
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -202,12 +203,14 @@ namespace Nightflow.Systems
                     // through the same blocked-lane safety check.
 
                     bool wantsChange = false;
+                    bool requested = false;
                     int direction = 0;
 
                     if (steeringState.ValueRO.LaneChangeRequested)
                     {
                         direction = math.clamp(steeringState.ValueRO.LaneChangeDirection, -1, 1);
                         wantsChange = direction != 0;
+                        requested = true;
                         steeringState.ValueRW.LaneChangeRequested = false;
                         steeringState.ValueRW.LaneChangeDirection = 0;
                     }
@@ -226,8 +229,15 @@ namespace Nightflow.Systems
                         if (targetLane >= 0 && targetLane < NumLanes)
                         {
                             // Speed-aware duration per spec: T = clamp(T_base × (v / v_ref), T_min, T_max)
-                            // Higher speed → longer duration (harder to change lanes at speed)
-                            float duration = HazardPlacement.LaneChangeDuration(mySpeed);
+                            // Higher speed → longer duration (harder to change lanes at speed).
+                            // The autopilot's requests take its own calmer time near the
+                            // speed its tyres can hold (T_max, so a worn car never squeals)
+                            float duration = requested
+                                ? AutopilotLogic.LaneChangeDuration(mySpeed, GameFlowLogic.SuspendedRunHoldSpeed(
+                                    VehicleDynamics.GripShare(
+                                        health.Tires, failures.HasFailed(ComponentFailures.Tires),
+                                        health.Suspension, failures.HasFailed(ComponentFailures.Suspension))))
+                                : HazardPlacement.LaneChangeDuration(mySpeed);
 
                             // Check if lane is blocked
                             bool isBlocked = IsLaneBlocked(myZ, mySpeed, duration, targetLane, ref blockers);

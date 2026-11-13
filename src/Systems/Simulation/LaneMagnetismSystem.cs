@@ -202,25 +202,36 @@ namespace Nightflow.Systems
 
                 // Emergency vehicle avoidance nudges the target to make room,
                 // rate-limited and kept on the road (position only, as above).
-                // A lane change takes the yield over: it fades out with the
-                // blend, and when the change ends the state keeps exactly what
-                // was still applied (none after a completed change, all of it
-                // after an aborted one), so the target never jumps
+                // A lane change in flight owns the car's sideways motion: the
+                // yield holds still until it ends (still moving, its rate would
+                // add to the change's and ask for more lateral speed than the
+                // tyres give). A change the way the yield points takes it over:
+                // it fades out with the blend, and when the change ends the
+                // state keeps exactly what was still applied (none after a
+                // completed change, all of it after an aborted one), so the
+                // target never jumps. A yield pointing back at the lane being
+                // left stays applied: fading it would add its width to the
+                // change, and it sits on the inner side of the new lane, so it
+                // can never reach the edge
                 if (!changingLanes && _wasChangingLanes)
                     _avoid *= _changeYieldShare;
                 _wasChangingLanes = changingLanes;
 
                 float halfRoadWidth = currentSegment.NumLanes * GameConstants.LaneWidth * 0.5f;
                 float avoidStart = _avoidApplied;
-                _avoid = VehicleDynamics.StepAvoidance(_avoid, detection.ValueRO.AvoidanceOffset,
-                    targetLateral + _lean, halfRoadWidth, deltaTime);
+                if (!changingLanes)
+                {
+                    _avoid = VehicleDynamics.StepAvoidance(_avoid, detection.ValueRO.AvoidanceOffset,
+                        targetLateral + _lean, halfRoadWidth, deltaTime);
+                }
 
                 // The spring's velocity target: the blend's rate plus the yield
                 // fading with it (both smooth); the position path below moves the
                 // blend at its rate and the applied yield along its own path
                 float targetVelocityFeed = targetVelocity;
                 _avoidApplied = _avoid;
-                if (changingLanes)
+                _changeYieldShare = 1f;
+                if (changingLanes && VehicleDynamics.LaneChangeTakesYield(_avoid, targetLaneOffset - currentLaneOffset))
                 {
                     _avoidApplied = VehicleDynamics.YieldDuringLaneChange(_avoid, blend, blendRate,
                         out float fadeVelocity);

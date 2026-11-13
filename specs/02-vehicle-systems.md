@@ -291,7 +291,7 @@ k_slip <- k_slip x (1 + 0.6 x D_rear)
 - Hazard avoidance (looks max(80 m, 2.5 s) ahead; lane changes go through the same blocked-lane check as the player's)
 - Traffic evasion
 - Visual flow maintenance
-- Perfect tyres (2x grip): attract mode never slides
+- 2x grip (damage still applies): attract mode never slides, and with its hold speed and calm lane changes a paused run's dodges stay below the tyre squeal
 
 ### Override
 - Any player input disables autopilot

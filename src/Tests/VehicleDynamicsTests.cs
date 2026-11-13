@@ -336,23 +336,67 @@ namespace Nightflow.Tests
             Assert.IsTrue(HoldLaneThroughGeneratedBend(120f, frameTime).LostControl);
         }
 
-        [TestCase(false)]
-        [TestCase(true)]
-        public void SuspendedRunHoldSpeed_StaysBelowTheSqueal(bool tiresFailed)
+        // Wear a car can carry and keep running: a part fails at health 0.1,
+        // the engine always fails before the suspension, and a third failure
+        // (failed tyres and suspension come with a failed engine) ends the run
+        private static readonly float[] RunningGripShares =
         {
-            // The autopilot keeps a paused or idle run at its hold speed and
-            // dodges hazards with lane changes: even one made anywhere in the
-            // tightest generated bend, on failed tyres, must stay below the tyre
-            // squeal (usage 0.75), so nothing slides or squeals under the menu
-            float share = VehicleDynamics.GripShare(1f, tiresFailed, 1f, false);
-            float v = GameFlowLogic.SuspendedRunHoldSpeed(share);
+            1f,
+            VehicleDynamics.GripShare(0.11f, false, 0.11f, false),
+            VehicleDynamics.GripShare(0.11f, false, 1f, true),
+            VehicleDynamics.GripShare(1f, true, 1f, false),
+            VehicleDynamics.GripShare(1f, true, 0.11f, false),
+        };
 
-            Assert.Less(DriveGeneratedBend(v, Dt, true, -1f, 1, tiresFailed).MaxUsage, 0.5f);
+        private static float WorstAutopilotDodge(float v, float share)
+        {
             float worst = 0f;
             foreach (int dir in new[] { -1, 1 })
                 for (float at = 0f; at < 1200f / v; at += 0.25f)
-                    worst = math.max(worst, DriveGeneratedBend(v, Dt, true, at, dir, tiresFailed).MaxUsage);
-            Assert.Less(worst, 0.75f);
+                    worst = math.max(worst, DriveGeneratedBend(v, Dt, true, at, dir, share).MaxUsage);
+            return worst;
+        }
+
+        [TestCaseSource(nameof(RunningGripShares))]
+        public void SuspendedRunHoldSpeed_StaysBelowTheSqueal(float share)
+        {
+            // The autopilot keeps a paused or idle run at its hold speed (or
+            // below it, the speed it was paused at) and dodges hazards with lane
+            // changes: even one made anywhere in the tightest generated bend
+            // must stay below the tyre squeal (usage 0.75), so nothing slides or
+            // squeals under the menu. Regression: its changes took the player's
+            // shorter time below ~67 m/s and squealed on failed tyres at ~50
+            float hold = GameFlowLogic.SuspendedRunHoldSpeed(share);
+            Assert.Less(DriveGeneratedBend(hold, Dt, true, -1f, 1, share).MaxUsage, 0.5f);
+
+            foreach (float v in new[] { 40f, 45f, 50f, 55f, hold })
+            {
+                if (v <= hold)
+                    Assert.Less(WorstAutopilotDodge(v, share), 0.75f, $"share {share}, {v} m/s");
+            }
+        }
+
+        [TestCaseSource(nameof(RunningGripShares))]
+        public void AutopilotSettlingAFastRun_DodgesNeverSlide(float share)
+        {
+            // Paused faster than its hold speed, the autopilot sheds the excess
+            // at SettleDecel and keeps dodging meanwhile (running over the
+            // hazard would cost far more): even a dodge in the worst place in
+            // the tightest generated bend, right after the handoff, stays clear
+            // of the squeal from 1.05x the hold speed and never slides from 1.2x
+            float hold = GameFlowLogic.SuspendedRunHoldSpeed(share);
+            Assert.Less(WorstDodgeWhileSettling(hold * 1.05f, share), 0.75f, $"share {share}");
+            Assert.Less(WorstDodgeWhileSettling(hold * 1.2f, share), 1f, $"share {share}");
+        }
+
+        private static float WorstDodgeWhileSettling(float fromSpeed, float share)
+        {
+            float worst = 0f;
+            for (float handoff = 0f; handoff < 1200f / fromSpeed; handoff += 1f)
+                foreach (float after in new[] { 0f, 0.5f, 1f })
+                    foreach (int dir in new[] { -1, 1 })
+                        worst = math.max(worst, SettleThroughGeneratedBend(fromSpeed, share, handoff, handoff + after, dir));
+            return worst;
         }
 
         [TestCase(1f / 30f)]
@@ -704,6 +748,57 @@ namespace Nightflow.Tests
             }
         }
 
+        [TestCase(1f / 30f)]
+        [TestCase(1f / 60f)]
+        [TestCase(1f / 144f)]
+        public void Yield_LaneChangeAgainstTheYield_NoHarderThanAPlainChange(float frameTime)
+        {
+            // Regression: a change toward the emergency vehicle's side (the
+            // yield pointing back at the lane being left) faded that yield too,
+            // so the target crossed the lane plus the yield in one change and
+            // slid from 60 m/s (usage 1.03 against 0.42 for the same change).
+            // The yield now stays applied and the car keeps it in the new lane
+            foreach (float v in new[] { 60f, 80f, 100f })
+            {
+                var plain = RunLaneChange(v, 0f, frameTime, 3f, 1);
+                var against = RunLaneChange(v, 0f, frameTime, 3f, 1, yieldRequest: -2.2f);
+
+                Assert.LessOrEqual(against.MaxUsage, plain.MaxUsage + 0.05f, $"{v} m/s");
+                Assert.IsFalse(against.LostControl, $"{v} m/s");
+                Assert.AreEqual(LaneCentre(2) - 2.2f, against.Lateral.Offset, 0.05f,
+                    $"{v} m/s: keeps yielding in the new lane");
+            }
+        }
+
+        [TestCase(1f / 30f)]
+        [TestCase(1f / 60f)]
+        [TestCase(1f / 144f)]
+        public void Yield_StillMovingWhenALaneChangeStarts_NoHarderThanAPlainChange(float frameTime)
+        {
+            // Regression: an emergency vehicle switching sides flips the yield,
+            // which crosses over at its rate; a change started meanwhile the
+            // way it was moving added that rate to its own lateral speed and
+            // slid from 60 m/s (usage 0.9 even with the autopilot's grip at 85)
+            foreach (float v in new[] { 60f, 80f, 100f })
+            {
+                var plain = RunLaneChange(v, 0f, frameTime, 3f, -1);
+                var crossing = RunLaneChange(v, 0f, frameTime, 3f, -1, yieldRequest: -2.7f, yieldBefore: 1.3f);
+
+                Assert.LessOrEqual(crossing.MaxUsage, plain.MaxUsage + 0.05f, $"{v} m/s");
+                Assert.IsFalse(crossing.LostControl, $"{v} m/s");
+            }
+        }
+
+        [Test]
+        public void LaneChangeTakesYield_OnlyOnePointingTheWayItGoes()
+        {
+            Assert.IsTrue(VehicleDynamics.LaneChangeTakesYield(2f, 3.6f));
+            Assert.IsTrue(VehicleDynamics.LaneChangeTakesYield(-2f, -3.6f));
+            Assert.IsFalse(VehicleDynamics.LaneChangeTakesYield(-2f, 3.6f));
+            Assert.IsFalse(VehicleDynamics.LaneChangeTakesYield(0f, 3.6f));
+            Assert.IsFalse(VehicleDynamics.LaneChangeTakesYield(float.NaN, 3.6f));
+        }
+
         [Test]
         public void Avoidance_NoRequest_NeverMovesTheTarget()
         {
@@ -853,20 +948,26 @@ namespace Nightflow.Tests
         /// </summary>
         private static LaneChangeResult RunLaneChange(float speed, float curvature, float frameTime,
             float seconds, int direction, float heldSteer = 0f, bool leanedAtStart = false,
-            int fromLane = 1, bool autopilot = false, float yieldRequest = 0f, float forkExitAt = -1f)
+            int fromLane = 1, bool autopilot = false, float yieldRequest = 0f, float forkExitAt = -1f,
+            float yieldBefore = float.NaN)
         {
             float from = LaneCentre(fromLane);
             float to = LaneCentre(fromLane + direction);
-            float duration = HazardPlacement.LaneChangeDuration(speed);
+            float duration = autopilot
+                ? AutopilotLogic.LaneChangeDuration(speed, GameFlowLogic.SuspendedRunHoldSpeed(1f))
+                : HazardPlacement.LaneChangeDuration(speed);
             float magnetism = math.clamp(math.sqrt(speed / 40f), 0.75f, 1.25f) * (autopilot ? 1.5f : 1f);
             float grip = VehicleDynamics.GripLimit(speed, 1f, false, 1f, false, false, autopilot);
             float lean = leanedAtStart ? VehicleDynamics.InLaneOffset(heldSteer) : 0f;
 
-            // An emergency yield already settled before the change starts
+            // An emergency yield already settled before the change starts (at
+            // yieldBefore when given: the request has just changed to
+            // yieldRequest, and the yield is on its way)
             float halfRoad = GameConstants.RoadWidth * 0.5f;
             float avoid = 0f;
+            float settledRequest = float.IsNaN(yieldBefore) ? yieldRequest : yieldBefore;
             for (int i = 0; i < 600; i++)
-                avoid = VehicleDynamics.StepAvoidance(avoid, yieldRequest, from + lean, halfRoad, 1f / 60f);
+                avoid = VehicleDynamics.StepAvoidance(avoid, settledRequest, from + lean, halfRoad, 1f / 60f);
             float applied = avoid, yieldShare = 1f;
             bool wasChanging = false;
 
@@ -908,16 +1009,20 @@ namespace Nightflow.Tests
                 float leanStart = lean;
                 lean = VehicleDynamics.LeanAt(leanStart, desiredLean, frameTime);
 
-                // Emergency yield, as LaneMagnetismSystem applies it: a lane
-                // change takes it over (fades with the blend, rate fed)
+                // Emergency yield, as LaneMagnetismSystem applies it: it holds
+                // still during a lane change; a change the way it points takes
+                // it over (fades with the blend, rate fed); one pointing back
+                // at the old lane stays applied
                 if (!changingThisFrame && wasChanging)
                     avoid *= yieldShare;
                 wasChanging = changingThisFrame;
                 float appliedStart = applied;
-                avoid = VehicleDynamics.StepAvoidance(avoid, yieldRequest, target + lean, halfRoad, frameTime);
+                if (!changingThisFrame)
+                    avoid = VehicleDynamics.StepAvoidance(avoid, yieldRequest, target + lean, halfRoad, frameTime);
                 applied = avoid;
+                yieldShare = 1f;
                 float feed = targetVelocity;
-                if (changingThisFrame)
+                if (changingThisFrame && VehicleDynamics.LaneChangeTakesYield(avoid, to - from))
                 {
                     applied = VehicleDynamics.YieldDuringLaneChange(avoid, blend, rate, out float fade);
                     yieldShare = 1f - blend;
@@ -1033,20 +1138,113 @@ namespace Nightflow.Tests
         }
 
         /// <summary>
+        /// The autopilot through the tightest generated bend at
+        /// <paramref name="fromSpeed"/> until <paramref name="handoff"/>
+        /// seconds in, then bringing a run paused above its hold speed down to
+        /// it as AutopilotSystem does (EaseTargetSpeed with SettleDecel, its
+        /// pedals, StepForwardSpeed with no pace), with a dodge (its own lane
+        /// change, lane 1 to 1 + direction) at <paramref name="laneChangeAt"/>.
+        /// Returns the worst tyre usage.
+        /// </summary>
+        private static float SettleThroughGeneratedBend(float fromSpeed, float gripShare, float handoff,
+            float laneChangeAt, int direction)
+        {
+            TightestGeneratedBend(6, out var p0, out var t0, out var p1, out var t1);
+
+            float hold = GameFlowLogic.SuspendedRunHoldSpeed(gripShare);
+            float speed = fromSpeed, eased = fromSpeed;
+            float from = LaneCentre(1);
+            float to = LaneCentre(1 + direction);
+            var lateral = new LateralState { Offset = from };
+            float maxUsage = 0f;
+
+            float z = p0[0].z;
+            float time = 0f, timer = 0f, duration = 1f;
+            bool changing = false, changed = false;
+            int segment = 0;
+            while (segment < p0.Length)
+            {
+                if (time >= handoff)
+                {
+                    eased = AutopilotLogic.EaseTargetSpeed(eased, hold, speed, hold, Dt);
+                    AutopilotLogic.SpeedControl(speed, eased, out float throttle, out float brake);
+                    speed = VehicleDynamics.StepForwardSpeed(speed, 0f, GameConstants.MinForwardSpeed,
+                        throttle, brake, 1f, 1f, Dt);
+                }
+
+                if (!changed && time >= laneChangeAt)
+                {
+                    changing = true;
+                    changed = true;
+                    duration = AutopilotLogic.LaneChangeDuration(speed, hold);
+                }
+
+                float target = changed && !changing ? to : from;
+                float targetVelocity = 0f;
+                if (changing)
+                {
+                    float blend = VehicleDynamics.LaneBlend(timer, duration, out float rate);
+                    target = math.lerp(from, to, blend);
+                    targetVelocity = (to - from) * rate;
+                    timer += Dt;
+                    if (timer >= duration)
+                        changing = false;
+                }
+
+                float t = math.saturate((z - p0[segment].z) / (p1[segment].z - p0[segment].z));
+                float curvature = SplineUtilities.EvaluateSignedCurvature(
+                    p0[segment], t0[segment], p1[segment], t1[segment], t);
+                SplineUtilities.BuildFrameAtT(p0[segment], t0[segment], p1[segment], t1[segment], t,
+                    out float3 _, out float3 forward, out float3 _, out float3 _);
+
+                var input = new LateralInputs
+                {
+                    TargetOffset = target,
+                    TargetVelocity = targetVelocity,
+                    Magnetism = math.clamp(math.sqrt(speed / 40f), 0.75f, 1.25f) * 1.5f,
+                    CurveAccel = VehicleDynamics.CurveAcceleration(speed, curvature),
+                    Grip = VehicleDynamics.GripLimit(speed, 1f, false, 1f, false, false, true) * gripShare,
+                    ForwardSpeed = speed,
+                    HalfRoadWidth = GameConstants.RoadWidth * 0.5f,
+                    SlipCoupling = 0f,
+                    Yaw = 0f
+                };
+
+                int n = VehicleDynamics.SubSteps(Dt, out float h);
+                for (int i = 0; i < n; i++)
+                {
+                    input.TargetOffset = target + targetVelocity * (i * h);
+                    VehicleDynamics.StepLateral(ref lateral, input, h);
+                }
+
+                maxUsage = math.max(maxUsage, lateral.Usage);
+                z += speed * forward.z * Dt;
+                time += Dt;
+                while (segment < p0.Length && z > p1[segment].z)
+                    segment++;
+            }
+
+            return maxUsage;
+        }
+
+        /// <summary>
         /// HoldLaneThroughGeneratedBend, optionally with a lane change (lane 1
-        /// to 1 + direction) starting <paramref name="laneChangeAt"/> seconds in,
-        /// and optionally on failed tyres.
+        /// to 1 + direction) starting <paramref name="laneChangeAt"/> seconds in
+        /// (the autopilot's take AutopilotLogic.LaneChangeDuration), and
+        /// optionally on a worn car (VehicleDynamics.GripShare).
         /// </summary>
         private static LaneChangeResult DriveGeneratedBend(float speed, float frameTime, bool autopilot = false,
-            float laneChangeAt = -1f, int direction = 1, bool tiresFailed = false)
+            float laneChangeAt = -1f, int direction = 1, float gripShare = 1f)
         {
             TightestGeneratedBend(6, out var p0, out var t0, out var p1, out var t1);
 
             float magnetism = math.clamp(math.sqrt(speed / 40f), 0.75f, 1.25f) * (autopilot ? 1.5f : 1f);
-            float grip = VehicleDynamics.GripLimit(speed, 1f, tiresFailed, 1f, false, false, autopilot);
+            float grip = VehicleDynamics.GripLimit(speed, 1f, false, 1f, false, false, autopilot) * gripShare;
             float from = LaneCentre(1);
             float to = LaneCentre(1 + direction);
-            float duration = HazardPlacement.LaneChangeDuration(speed);
+            float duration = autopilot
+                ? AutopilotLogic.LaneChangeDuration(speed, GameFlowLogic.SuspendedRunHoldSpeed(gripShare))
+                : HazardPlacement.LaneChangeDuration(speed);
 
             var lateral = new LateralState { Offset = from };
             var drift = new DriftState();

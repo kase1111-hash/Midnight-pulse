@@ -147,6 +147,75 @@ namespace Nightflow.Tests
         }
 
         [Test]
+        public void LaneEscape_RefusedSide_TriesTheOtherWhenItIsAWayOutToo()
+        {
+            // Regression: a request the steering system turned down (traffic in
+            // that lane) was never made again, so the car hit what it dodged.
+            // Both neighbours clear: the two are asked for in turn
+            float threat = AutopilotLogic.HazardThreat(0.3f, 40f, 100f);
+            var both = Threats(0f, threat, 0f, 0f);
+            Assert.AreEqual(1, AutopilotLogic.LaneEscape(both, 1, 4, 40f, 30f, 0.5f, 0));
+            Assert.AreEqual(-1, AutopilotLogic.LaneEscape(both, 1, 4, 40f, 30f, 0.5f, 1));
+            Assert.AreEqual(1, AutopilotLogic.LaneEscape(both, 1, 4, 40f, 30f, 0.5f, -1));
+
+            // The other side is no way out (as bad, or the road edge): keep asking for this one
+            Assert.AreEqual(1, AutopilotLogic.LaneEscape(Threats(threat, threat, 0f, 0f), 1, 4, 40f, 30f, 0.5f, 1));
+            Assert.AreEqual(1, AutopilotLogic.LaneEscape(Threats(threat, 0f, 0f, 0f), 0, 4, 40f, 30f, 0.5f, 1));
+
+            // Serious threats use the same rule with the usual margin
+            Assert.AreEqual(-1, AutopilotLogic.LaneEscape(Threats(0f, 0.9f, 0f, 0f), 1, 4, 200f, 30f, 0.5f, 1));
+            Assert.AreEqual(1, AutopilotLogic.LaneEscape(Threats(0.85f, 0.9f, 0f, 0f), 1, 4, 200f, 30f, 0.5f, 1));
+        }
+
+        [Test]
+        public void LaneChangeDuration_QuickWellBelowTheHoldCalmNearIt()
+        {
+            float hold = 85f;
+            float full = HazardPlacement.LaneChangeMaxDuration;
+
+            // Well below the hold speed (attract mode): as quick as the player's
+            Assert.AreEqual(HazardPlacement.LaneChangeDuration(25f), AutopilotLogic.LaneChangeDuration(25f, hold), 1e-6f);
+            Assert.AreEqual(HazardPlacement.LaneChangeDuration(hold * AutopilotLogic.QuickChangeShare),
+                AutopilotLogic.LaneChangeDuration(hold * AutopilotLogic.QuickChangeShare, hold), 1e-5f);
+
+            // Near it and above, the full second. Regression: a car on failed
+            // tyres (hold ~63 m/s) held at 50 m/s dodged with the player's
+            // 0.75 s change and squealed
+            Assert.AreEqual(full, AutopilotLogic.LaneChangeDuration(hold * AutopilotLogic.CalmChangeShare, hold), 1e-6f);
+            Assert.AreEqual(full, AutopilotLogic.LaneChangeDuration(hold, hold), 1e-6f);
+            Assert.AreEqual(full, AutopilotLogic.LaneChangeDuration(hold * 1.5f, hold), 1e-6f);
+            float failedTyresHold = GameFlowLogic.SuspendedRunHoldSpeed(VehicleDynamics.GripShare(1f, true, 1f, false));
+            Assert.AreEqual(full, AutopilotLogic.LaneChangeDuration(50f, failedTyresHold), 1e-6f);
+
+            // Never shorter at a higher speed
+            float previous = 0f;
+            for (float v = 0f; v <= 200f; v += 0.5f)
+            {
+                float d = AutopilotLogic.LaneChangeDuration(v, hold);
+                Assert.GreaterOrEqual(d, previous - 1e-6f, $"{v} m/s");
+                previous = d;
+            }
+
+            // Bad input still gives a lane change the steering system can run
+            foreach (float d in new[] { AutopilotLogic.LaneChangeDuration(float.NaN, hold),
+                                        AutopilotLogic.LaneChangeDuration(100f, float.NaN) })
+            {
+                Assert.GreaterOrEqual(d, HazardPlacement.LaneChangeMinDuration);
+                Assert.LessOrEqual(d, full);
+            }
+        }
+
+        [Test]
+        public void LaneChangeCooldown_NeverOutlastsTheLookAhead()
+        {
+            // A hazard found in the new lane can still be dodged once the
+            // cooldown is over, and the look-ahead is inside what it can see
+            Assert.LessOrEqual(AutopilotLogic.LaneChangeCooldown, AutopilotLogic.LeaveLaneSeconds);
+            Assert.LessOrEqual(AutopilotLogic.LeaveLaneSeconds, AutopilotLogic.DetectionSeconds);
+            Assert.Greater(AutopilotLogic.LeaveLaneSeconds, HazardPlacement.LaneChangeMaxDuration);
+        }
+
+        [Test]
         public void Escape_InvalidLane_Stays()
         {
             Assert.AreEqual(0, AutopilotLogic.ChooseEscapeDirection(Threats(0f, 0f, 0f, 0f), -1, 4));
@@ -211,6 +280,42 @@ namespace Nightflow.Tests
             // Easing up toward a faster goal ignores the car speed too
             Assert.AreEqual(AutopilotLogic.EaseTargetSpeed(20f, 35f, 1f / 60f),
                 AutopilotLogic.EaseTargetSpeed(20f, 35f, 18f, 1f / 60f), 1e-6f);
+        }
+
+        [Test]
+        public void EaseTargetSpeed_AboveTheHold_SettlesFasterThenEasesOn()
+        {
+            // A run paused at 110 m/s with an 85 m/s hold: SettleDecel down to
+            // the hold, ComfortDecel below it (the car keeps pace with the target)
+            float eased = 110f;
+            for (int i = 0; i < 60; i++)
+                eased = AutopilotLogic.EaseTargetSpeed(eased, 35f, eased, 85f, 1f / 60f);
+            Assert.AreEqual(110f - AutopilotLogic.SettleDecel, eased, 1e-3f);
+
+            // Crossing the hold inside one frame splits it between the two rates
+            float crossing = AutopilotLogic.EaseTargetSpeed(86f, 35f, 86f, 85f, 0.5f);
+            float settleTime = 1f / AutopilotLogic.SettleDecel;
+            Assert.AreEqual(85f - AutopilotLogic.ComfortDecel * (0.5f - settleTime), crossing, 1e-4f);
+
+            // ...so it is the same at any frame rate
+            float slow = 100f, fast = 100f;
+            for (int i = 0; i < 30 * 6; i++)
+                slow = AutopilotLogic.EaseTargetSpeed(slow, 35f, slow, 85f, 1f / 30f);
+            for (int i = 0; i < 144 * 6; i++)
+                fast = AutopilotLogic.EaseTargetSpeed(fast, 35f, fast, 85f, 1f / 144f);
+            Assert.AreEqual(fast, slow, 1e-2f);
+
+            // At or below the hold, and on the way up, it is the comfort ease
+            Assert.AreEqual(AutopilotLogic.EaseTargetSpeed(80f, 35f, 80f, 1f / 60f),
+                AutopilotLogic.EaseTargetSpeed(80f, 35f, 80f, 85f, 1f / 60f), 1e-6f);
+            Assert.AreEqual(AutopilotLogic.EaseTargetSpeed(20f, 35f, 20f, 1f / 60f),
+                AutopilotLogic.EaseTargetSpeed(20f, 35f, 20f, 85f, 1f / 60f), 1e-6f);
+
+            // Never below the goal, never from above a car something else slowed,
+            // and bad input reads as the goal
+            Assert.AreEqual(85f, AutopilotLogic.EaseTargetSpeed(110f, 85f, 110f, 85f, 10f), 1e-5f);
+            Assert.LessOrEqual(AutopilotLogic.EaseTargetSpeed(110f, 85f, 60f, 85f, 1f / 60f), 85f);
+            Assert.AreEqual(85f, AutopilotLogic.EaseTargetSpeed(float.NaN, 85f, 100f, 85f, 1f / 60f), 1e-6f);
         }
 
         [Test]

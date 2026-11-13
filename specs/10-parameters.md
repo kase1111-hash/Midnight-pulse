@@ -58,8 +58,9 @@ Cruising at the pace: ~195 km/h after 2 min, ~265 km/h after 3 min, ~340 km/h af
 | Worn / failed tyres | 70% / 55% |
 | Worn / failed suspension | 90% / 80% |
 | Handbrake grip | 35% |
-| Autopilot grip | 200% of the car's own (with the hold speed below, attract mode never slides) |
-| Suspended-run hold speed | 85 m/s × √(grip share) (~63 m/s on failed tyres), never below 35 m/s |
+| Autopilot grip | 200% of the car's own (with the hold speed below and its calm lane changes, its dodges stay below the tyre squeal) |
+| Suspended-run hold speed | 85 m/s × √(grip share) (~63 m/s on failed tyres), never below 35 m/s; a run paused faster is brought down at 8 m/s² (the comfort rate below it is 4 m/s²) |
+| Autopilot lane change | the player's duration below 60% of the hold speed, easing to 1 s by 75% of it; asked again every frame while the lane is blocked; cooldown 1.6 s from the start of a change |
 | Traction warning | usage 0.85 (off below 0.75) |
 | Survivable slip | any below 35 m/s, easing to 0.85 rad (~49°) at 75 m/s and above |
 
@@ -81,7 +82,7 @@ Critically damped spring toward the lane target (and the lane-change blend's vel
 | Edge stiffness | 60 |
 | Soft zone | 85% of half the road width |
 | Analog in-lane lean | up to 0.9 m below the lane-change threshold, eased at 6/s |
-| Emergency yield | moves at most 1.5 m/s, never aims within 0.5 m of the soft edge; a lane change takes it over (it fades with the blend, its rate fed to the spring) |
+| Emergency yield | moves at most 1.5 m/s, never aims within 0.5 m of the soft edge; holds still while a lane change is in flight; a change the way it points takes it over (it fades with the blend, its rate fed to the spring), one pointing back at the old lane stays applied |
 | Magnetism strength | 1.0 (side damage reduces it) |
 
 ---

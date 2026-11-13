@@ -113,8 +113,10 @@ namespace Nightflow.Components
 
         /// <summary>
         /// Programmatic lane change request (set by AutopilotSystem).
-        /// Consumed by SteeringSystem, which applies the same blocked-lane
-        /// checks as a steering-triggered change.
+        /// Consumed by SteeringSystem the next time it runs, which applies the
+        /// same blocked-lane checks as a steering-triggered change and gives it
+        /// the autopilot's lane-change time; a refused request is simply made
+        /// again by AutopilotSystem the next frame.
         /// </summary>
         public bool LaneChangeRequested;
 

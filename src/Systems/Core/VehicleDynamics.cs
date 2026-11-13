@@ -198,9 +198,14 @@ namespace Nightflow.Systems
         public const float HandbrakeGripFactor = 0.35f;
 
         /// <summary>
-        /// The autopilot's grip on top of the car's own (damage still applies):
-        /// with its speed held to GameFlowLogic.SuspendedRunHoldSpeed it stays
-        /// clear of the squeal threshold, so attract mode never slides.
+        /// The autopilot's grip on top of the car's own (damage still applies).
+        /// With its speed held to GameFlowLogic.SuspendedRunHoldSpeed and its
+        /// own calm lane changes (AutopilotLogic.LaneChangeDuration), even a
+        /// dodge in the tightest generated bend stays clear of the squeal, at
+        /// any held speed and any damage a running car can have. A run paused
+        /// faster than that is shed at AutopilotLogic.SettleDecel; until then a
+        /// dodge in a tight bend can briefly chirp the tyres (running over the
+        /// hazard instead would cost far more).
         /// </summary>
         public const float AutopilotGripFactor = 2f;
 
@@ -620,14 +625,31 @@ namespace Nightflow.Systems
         }
 
         /// <summary>
-        /// The emergency yield during a lane change: the change itself moves the
-        /// car, so the yield fades out with the lane-change blend and the car
-        /// ends the change exactly in its new lane (or, run backwards by an
-        /// abort, hands the yield back). Returns the share to add to the lane
-        /// target; <paramref name="fadeVelocity"/> is its rate, which is smooth
-        /// (the blend's rate starts and ends at zero), so it is fed to the
-        /// spring with the blend's own velocity and the damper never sees the
-        /// target stop dead against the road edge.
+        /// Whether a lane change takes the emergency yield over
+        /// (YieldDuringLaneChange): only a yield pointing the way the change
+        /// goes, which the change itself carries out (into the edge lane it
+        /// would otherwise run the target into the soft edge). A yield pointing
+        /// back at the lane being left stays applied: faded, it would add its
+        /// width to the change, asking for more lateral speed than the tyres
+        /// give, and it lies on the inner side of the new lane, clear of the edge.
+        /// </summary>
+        /// <param name="avoid">Yield state (StepAvoidance, m, + = right).</param>
+        /// <param name="changeOffset">TargetLane offset minus CurrentLane offset (m).</param>
+        public static bool LaneChangeTakesYield(float avoid, float changeOffset)
+        {
+            return avoid * changeOffset > 0f;
+        }
+
+        /// <summary>
+        /// The emergency yield during a lane change that takes it over
+        /// (LaneChangeTakesYield): the change itself moves the car, so the
+        /// yield fades out with the lane-change blend and the car ends the
+        /// change exactly in its new lane (or, run backwards by an abort, hands
+        /// the yield back). Returns the share to add to the lane target;
+        /// <paramref name="fadeVelocity"/> is its rate, which is smooth (the
+        /// blend's rate starts and ends at zero), so it is fed to the spring
+        /// with the blend's own velocity and the damper never sees the target
+        /// stop dead against the road edge.
         /// </summary>
         /// <param name="avoid">Yield state (StepAvoidance).</param>
         /// <param name="blend">Lane-change blend toward TargetLane (LaneBlend).</param>

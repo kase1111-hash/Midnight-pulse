@@ -24,11 +24,39 @@ namespace Nightflow.Systems
         /// <summary>
         /// Any hazard in the lane this close (seconds of travel) is dodged,
         /// however minor: a loose tyre or a cone costs ~30% of the impact speed.
+        /// Leaves time to wait for a gap after a lane change of up to
+        /// HazardPlacement.LaneChangeMaxDuration.
         /// </summary>
         public const float LeaveLaneSeconds = 1.6f;
 
+        /// <summary>
+        /// Minimum time between the starts of two lane changes (s). It runs
+        /// from the start of a change, not from the request: a request the
+        /// steering system turns down (blocked lane) is simply made again the
+        /// next frame. It never outlasts the look-ahead, so a hazard found in
+        /// the new lane can still be dodged.
+        /// </summary>
+        public const float LaneChangeCooldown = LeaveLaneSeconds;
+
+        /// <summary>
+        /// Below this share of its hold speed the autopilot changes lanes as
+        /// quickly as the player: the lane spring barely loads the tyres there.
+        /// </summary>
+        public const float QuickChangeShare = 0.6f;
+
+        /// <summary>From this share of its hold speed its changes take the full HazardPlacement.LaneChangeMaxDuration.</summary>
+        public const float CalmChangeShare = 0.75f;
+
         /// <summary>How fast the autopilot eases its speed down after a fast handoff (m/s^2).</summary>
         public const float ComfortDecel = 4f;
+
+        /// <summary>
+        /// How fast it sheds speed above its hold speed (m/s^2): a run paused
+        /// faster than its tyres let it hold. Every second up there is one in
+        /// which a dodge in a tight bend could chirp the tyres, and a hazard
+        /// hit costs more, so it settles at twice the comfort rate.
+        /// </summary>
+        public const float SettleDecel = 8f;
 
         /// <summary>How fast the autopilot eases its speed up (m/s^2).</summary>
         public const float ComfortAccel = 2.5f;
@@ -76,10 +104,54 @@ namespace Nightflow.Systems
             return EaseTargetSpeed(current, goal, deltaTime);
         }
 
+        /// <summary>
+        /// EaseTargetSpeed (with the car's speed) that sheds whatever lies
+        /// above <paramref name="holdSpeed"/> at SettleDecel, then eases on
+        /// at ComfortDecel; frame-rate independent across the hand-over.
+        /// </summary>
+        public static float EaseTargetSpeed(float current, float goal, float carSpeed, float holdSpeed, float deltaTime)
+        {
+            if (!math.isfinite(current) || !(goal < current))
+                return EaseTargetSpeed(current, goal, carSpeed, deltaTime);
+
+            current = math.min(current, math.max(carSpeed, goal));
+            float dt = math.max(deltaTime, 0f);
+            float settleTo = math.max(goal, holdSpeed);
+            if (current > settleTo)
+            {
+                float settleTime = (current - settleTo) / SettleDecel;
+                if (dt <= settleTime)
+                    return current - SettleDecel * dt;
+                dt -= settleTime;
+                current = settleTo;
+            }
+            return math.max(goal, current - ComfortDecel * dt);
+        }
+
         /// <summary>Hazard look-ahead (m): a fixed range or a few seconds of road, whichever is longer.</summary>
         public static float DetectionRange(float speed, float minRange)
         {
             return math.max(minRange, math.max(speed, 0f) * DetectionSeconds);
+        }
+
+        /// <summary>
+        /// Seconds a lane change the autopilot asks for takes (SteeringSystem
+        /// uses this for requested changes), set by how close the car is to
+        /// <paramref name="holdSpeed"/>, the most its tyres let it hold. Well
+        /// below it, as quick as the player's (HazardPlacement.LaneChangeDuration).
+        /// From CalmChangeShare of it, the full HazardPlacement.LaneChangeMaxDuration:
+        /// the player's quicker change there asks for more lateral speed than
+        /// the tyres give while gripping, the lane spring winds up, and a
+        /// damaged car held at ~50 m/s would squeal.
+        /// </summary>
+        /// <param name="speed">Forward speed (m/s).</param>
+        /// <param name="holdSpeed">The car's suspended-run hold speed (GameFlowLogic.SuspendedRunHoldSpeed).</param>
+        public static float LaneChangeDuration(float speed, float holdSpeed)
+        {
+            float v = math.max(speed, 0f);
+            float share = v / math.max(holdSpeed, 1f);
+            return math.lerp(HazardPlacement.LaneChangeDuration(v), HazardPlacement.LaneChangeMaxDuration,
+                math.saturate((share - QuickChangeShare) / (CalmChangeShare - QuickChangeShare)));
         }
 
         /// <summary>
@@ -181,6 +253,19 @@ namespace Nightflow.Systems
         public static int LaneEscape(float4 laneThreat, int lane, int laneCount,
             float nearestHazardDistance, float speed, float threatThreshold)
         {
+            return LaneEscape(laneThreat, lane, laneCount, nearestHazardDistance, speed, threatThreshold, 0);
+        }
+
+        /// <summary>
+        /// LaneEscape after the steering system turned down
+        /// <paramref name="refusedDirection"/> (that lane is blocked, by
+        /// traffic for instance, which the threat table does not see): the
+        /// other side is tried this time if it is a way out too, so with both
+        /// blocked the two are asked for in turn until one opens. 0 = none.
+        /// </summary>
+        public static int LaneEscape(float4 laneThreat, int lane, int laneCount,
+            float nearestHazardDistance, float speed, float threatThreshold, int refusedDirection)
+        {
             if (lane < 0 || lane >= MaxLanes)
                 return 0;
 
@@ -188,13 +273,23 @@ namespace Nightflow.Systems
             if (!(own > 0f))
                 return 0;
 
+            float margin;
             if (own > threatThreshold)
-                return ChooseEscapeDirection(laneThreat, lane, laneCount);
+                margin = EscapeMargin;
+            else if (nearestHazardDistance < math.max(speed, 0f) * LeaveLaneSeconds)
+                margin = own * 0.5f;
+            else
+                return 0;
 
-            if (nearestHazardDistance < math.max(speed, 0f) * LeaveLaneSeconds)
-                return ChooseEscapeDirection(laneThreat, lane, laneCount, own * 0.5f);
+            int escape = ChooseEscapeDirection(laneThreat, lane, laneCount, margin);
+            if (escape == 0 || escape != refusedDirection)
+                return escape;
 
-            return 0;
+            int other = lane - escape;
+            int lanes = math.min(laneCount, MaxLanes);
+            if (other >= 0 && other < lanes && laneThreat[other] < own - margin)
+                return -escape;
+            return escape;
         }
     }
 }
