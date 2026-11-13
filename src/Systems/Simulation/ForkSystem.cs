@@ -18,7 +18,10 @@ namespace Nightflow.Systems
     /// - At fork point: θ_L = -θ_fork, θ_R = +θ_fork
     /// - Gradual separation: S_fork(t) += R(t) × (d_fork × t²)
     /// - Unchosen path despawns after commit
-    /// - Fork magnetism reduction: m_fork(s) = smoothstep(1, 0.7, s/L_fork)
+    /// - Fork magnetism reduction: m_fork(s) = smoothstep(1, 0.7, s/L_fork),
+    ///   applied per frame by LaneMagnetismSystem from EnvironmentState
+    ///   (AtFork, ForkProgress), so it ends with the fork and never compounds
+    ///   into the persistent LaneFollower.MagnetStrength
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -27,12 +30,11 @@ namespace Nightflow.Systems
     {
         // Fork parameters
         private const float CommitThreshold = 0.7f;        // Progress before commitment
-        private const float MagnetismReduction = 0.7f;     // Reduced magnetism at fork
         private const float LaneDecisionThreshold = 0.5f;  // Lane index threshold for L/R
 
-        // Saved base magnet strength to avoid cumulative reduction each frame
-        private float _savedMagnetStrength;
-        private bool _inFork;
+        // Extra camera follow distance at full fork progress (m): a level the
+        // camera eases back from after the fork, not a per-frame increment
+        private const float ForkCameraPullBack = 2f;
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -86,21 +88,8 @@ namespace Nightflow.Systems
                         envState.ValueRW.CurrentFork = entity;
                     }
 
-                    // Apply magnetism reduction during fork
-                    // m_fork(s) = smoothstep(1, 0.7, s/L_fork)
-                    float magnetReduction = Smoothstep(1f, MagnetismReduction, forkProgress);
-
-                    foreach (var laneFollower in SystemAPI.Query<RefRW<LaneFollower>>()
-                        .WithAll<PlayerVehicleTag>())
-                    {
-                        // Save base strength on fork entry to avoid cumulative reduction
-                        if (!_inFork)
-                        {
-                            _savedMagnetStrength = laneFollower.ValueRO.MagnetStrength;
-                            _inFork = true;
-                        }
-                        laneFollower.ValueRW.MagnetStrength = _savedMagnetStrength * magnetReduction;
-                    }
+                    // Magnetism reduction during the fork (m_fork) is applied by
+                    // LaneMagnetismSystem from AtFork/ForkProgress above
 
                     // =============================================================
                     // Determine Branch and Commit
@@ -138,7 +127,6 @@ namespace Nightflow.Systems
                 else if (playerZ > segmentEnd && forkData.ValueRO.Committed)
                 {
                     // Player has passed the fork - clear fork state
-                    _inFork = false;
                     foreach (var envState in SystemAPI.Query<RefRW<EnvironmentState>>()
                         .WithAll<PlayerVehicleTag>())
                     {
@@ -157,22 +145,25 @@ namespace Nightflow.Systems
             // =============================================================
 
             bool atFork = false;
-            float forkProgress = 0f;
+            float cameraForkProgress = 0f;
             foreach (var envState in SystemAPI.Query<RefRO<EnvironmentState>>().WithAll<PlayerVehicleTag>())
             {
                 atFork = envState.ValueRO.AtFork;
-                forkProgress = envState.ValueRO.ForkProgress;
+                cameraForkProgress = envState.ValueRO.ForkProgress;
                 break;
             }
 
             if (atFork)
             {
                 // Slight camera pull-back at fork to show options
-                // (CameraState is a singleton on the camera entity, not the player)
+                // (CameraState is a singleton on the camera entity, not the player).
+                // Request a level, not a per-frame increment: progress only rises
+                // through the fork, so the offset is exactly progress * pull-back
+                // at any frame rate, and CameraSystem's decay eases it back after
                 foreach (var cameraState in SystemAPI.Query<RefRW<CameraState>>())
                 {
-                    float forkPullback = forkProgress * 2f;
-                    cameraState.ValueRW.DistanceOffset += forkPullback * 0.1f;
+                    cameraState.ValueRW.DistanceOffset = math.max(
+                        cameraState.ValueRO.DistanceOffset, cameraForkProgress * ForkCameraPullBack);
                 }
             }
 
@@ -183,16 +174,6 @@ namespace Nightflow.Systems
             {
                 ecb.Dispose();
             }
-        }
-
-        /// <summary>
-        /// Smoothstep interpolation.
-        /// </summary>
-        private float Smoothstep(float from, float to, float t)
-        {
-            t = math.saturate(t);
-            float smooth = t * t * (3f - 2f * t);
-            return math.lerp(from, to, smooth);
         }
     }
 }

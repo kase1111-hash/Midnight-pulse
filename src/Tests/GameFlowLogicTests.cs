@@ -170,6 +170,49 @@ namespace Nightflow.Tests
                 GameFlowLogic.AutopilotTargetSpeedFor(GameConstants.MaxForwardSpeed), 0.001f);
         }
 
+        [Test]
+        public void AutopilotTargetSpeed_SuspendedRun_KeepsTheRunsSpeed()
+        {
+            // A paused or idle run keeps its momentum under the autopilot...
+            Assert.AreEqual(80f, GameFlowLogic.AutopilotTargetSpeedFor(80f, true), 0.001f);
+            // ...up to the hold cap...
+            Assert.AreEqual(GameFlowLogic.SuspendedRunMaxSpeed,
+                GameFlowLogic.AutopilotTargetSpeedFor(150f, true), 0.001f);
+            // ...never below the recovery cruise
+            Assert.AreEqual(GameConstants.AutopilotRecoverySpeed,
+                GameFlowLogic.AutopilotTargetSpeedFor(5f, true), 0.001f);
+            // With no run underneath it settles into the comfort band
+            Assert.AreEqual(GameFlowLogic.AutopilotComfortMaxSpeed,
+                GameFlowLogic.AutopilotTargetSpeedFor(80f, false), 0.001f);
+        }
+
+        [Test]
+        public void LosingControl_SlidingOrNoseWellOff()
+        {
+            Assert.IsTrue(GameFlowLogic.LosingControl(true, 0f));
+            Assert.IsTrue(GameFlowLogic.LosingControl(false, GameFlowLogic.PauseSlipLimit + 0.05f));
+            Assert.IsTrue(GameFlowLogic.LosingControl(false, -(GameFlowLogic.PauseSlipLimit + 0.05f)));
+            Assert.IsFalse(GameFlowLogic.LosingControl(false, 0.05f));
+            Assert.IsFalse(GameFlowLogic.LosingControl(false, float.NaN));
+        }
+
+        [Test]
+        public void SummaryDismiss_ControlHeldFromTheCrash_MustBeReleasedFirst()
+        {
+            // GameStateSystem gates the summary's input dismissal with
+            // TakeoverIntent, blocked outside the Summary phase
+            bool armed = false;
+
+            // Throttle held through impact, shake and fade
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(true, true, ref armed));
+            // Still held when the summary shows: ignored, stays disarmed
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(true, false, ref armed));
+            Assert.IsFalse(armed);
+            // Released, then pressed again: dismisses
+            Assert.IsFalse(GameFlowLogic.TakeoverIntent(false, false, ref armed));
+            Assert.IsTrue(GameFlowLogic.TakeoverIntent(true, false, ref armed));
+        }
+
         #endregion
 
         #region Crash Flow

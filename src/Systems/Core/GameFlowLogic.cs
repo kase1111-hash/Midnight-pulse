@@ -143,8 +143,48 @@ namespace Nightflow.Systems
             return math.clamp(currentSpeed, GameConstants.AutopilotRecoverySpeed, AutopilotComfortMaxSpeed);
         }
 
+        /// <summary>
+        /// Autopilot cruise target on handoff. With a run suspended underneath
+        /// it (pause menu, idle) the autopilot keeps the run's momentum, up to
+        /// SuspendedRunMaxSpeed, so the player picks the run up where they left
+        /// it and a pause can never be used to shed speed; with no run it
+        /// settles into the comfort band.
+        /// </summary>
+        public static float AutopilotTargetSpeedFor(float currentSpeed, bool runSuspended)
+        {
+            if (!runSuspended)
+                return AutopilotTargetSpeedFor(currentSpeed);
+
+            return math.clamp(currentSpeed, GameConstants.AutopilotRecoverySpeed, SuspendedRunMaxSpeed);
+        }
+
         /// <summary>Upper bound of the speed the autopilot will hold on handoff (m/s).</summary>
         public const float AutopilotComfortMaxSpeed = 35f;
+
+        /// <summary>
+        /// Fastest a suspended run is held under the autopilot (m/s, ~360 km/h):
+        /// well inside the autopilot's own grip on the generated road.
+        /// </summary>
+        public const float SuspendedRunMaxSpeed = 100f;
+
+        // =====================================================================
+        // Pause
+        // =====================================================================
+
+        /// <summary>Slip angle (rad) beyond which the car counts as getting away from the driver.</summary>
+        public const float PauseSlipLimit = 0.2f;
+
+        /// <summary>
+        /// Whether the player's car is getting away from them (tyres past the
+        /// limit, or the nose well off the direction of travel). A pause asked
+        /// for now waits until the car is back in hand: the autopilot drives
+        /// under the pause menu with far more grip, and must not catch a slide
+        /// the driver lost.
+        /// </summary>
+        public static bool LosingControl(bool sliding, float slipAngle)
+        {
+            return sliding || math.abs(slipAngle) > PauseSlipLimit;
+        }
 
         // =====================================================================
         // Crash flow

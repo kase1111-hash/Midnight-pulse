@@ -59,7 +59,12 @@ namespace Nightflow.Systems.Presentation
             {
                 playerSpeed = math.length(velocity.ValueRO.Linear); // m/s
                 playerPos = transform.ValueRO.Position;
-                playerForward = math.forward(transform.ValueRO.Rotation);
+
+                // Streak along the direction of travel, the way the camera
+                // faces, not the body: a sliding or spinning car would
+                // otherwise sweep the streaks across a camera looking down the road
+                playerForward = math.normalizesafe(velocity.ValueRO.Linear,
+                    math.forward(transform.ValueRO.Rotation));
                 break;
             }
 

@@ -42,7 +42,7 @@ The car goes light as it gets faster (no downforce holds it down) while corners 
 - the alignment that keeps the nose in line fades: `1 / (1 + 4 x excess)`
 - the rear steps out toward the load: `6 x excess x v/40` rad/s^2
 
-Brake, counter-steer or stop asking for more and the tyres bite again (a **slide save** pays a risk bonus). Let the slip angle pass the survivable limit (unlimited below 35 m/s, easing to 0.85 rad at 75 m/s and above) and the run ends: `LOST CONTROL`. The tightest corners (R = 300 m) start to slide at ~85 m/s; lane changes on a straight at ~110 m/s; handbrake drifts are survivable up to ~55 m/s. The HUD warns `TRACTION LIMIT` / `LOSING GRIP`, the tyres squeal, the camera shakes and the image fringes as usage nears 1.
+Brake, counter-steer or stop asking for more and the tyres bite again (a **slide save** pays a risk bonus). Let the slip angle pass the survivable limit (unlimited below 35 m/s, easing to 0.85 rad at 75 m/s and above) and the run ends: `LOST CONTROL`. The generated road's tightest bends (R = 300 m only for a metre or two at segment joins) start to slide at ~97 m/s and spin out without a correction at ~120 m/s; lane changes on a straight slide from ~108 m/s and spin out at ~140 m/s; handbrake drifts are survivable up to ~55 m/s. The HUD warns `TRACTION LIMIT` / `LOSING GRIP`, the tyres squeal, the camera shakes and the image fringes as usage nears 1.
 
 ### Speed Tiers
 

@@ -460,10 +460,10 @@ namespace Nightflow.Systems
             // =============================================================
 
             float distToPlayer = math.distance(myPos, playerPos);
-            float dz = myPos.z - playerPos.z; // Positive = ahead of player
+            float dzPlayer = myPos.z - playerPos.z; // Positive = ahead of player
 
             float playerScore = 1f;
-            if (lane == playerLane && math.abs(dz) < LookAheadDistance)
+            if (lane == playerLane && math.abs(dzPlayer) < LookAheadDistance)
             {
                 // Avoid crowding player's lane
                 playerScore = math.clamp(distToPlayer / (GameConstants.LaneWidth * 5f), 0.3f, 1f);

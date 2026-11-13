@@ -39,6 +39,15 @@ namespace Nightflow.Systems
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
+            // A crashed car takes no new impulses: clear the crash-frame impulse
+            // so presentation (camera recoil, impact audio) sees it for one
+            // frame only instead of re-applying it every frame of the crash
+            foreach (var impulse in SystemAPI.Query<RefRW<ImpulseData>>()
+                         .WithAll<PlayerVehicleTag, CrashedTag>())
+            {
+                impulse.ValueRW.Magnitude = 0f;
+            }
+
             foreach (var (collision, impulse, velocity, driftState) in
                 SystemAPI.Query<RefRW<CollisionEvent>, RefRW<ImpulseData>,
                                RefRW<Velocity>, RefRW<DriftState>>()

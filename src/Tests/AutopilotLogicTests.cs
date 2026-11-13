@@ -150,6 +150,31 @@ namespace Nightflow.Tests
         }
 
         [Test]
+        public void EaseTargetSpeed_CarAlreadySlowed_NeverChasesBackUp()
+        {
+            // Regression: RESTART from the pause menu resets the car to 20 m/s in
+            // place under an engaged autopilot whose working target was still ~86
+            float eased = AutopilotLogic.EaseTargetSpeed(86f, 20f, 20f, 1f / 60f);
+            Assert.LessOrEqual(eased, 20f + 1e-4f);
+            AutopilotLogic.SpeedControl(20f, eased, out float throttle, out _);
+            Assert.AreEqual(0f, throttle, 1e-6f);
+        }
+
+        [Test]
+        public void EaseTargetSpeed_CarAlongsideTheEase_Unchanged()
+        {
+            // A normal fast handoff: the braking car sits just above the eased
+            // target, so the car speed changes nothing
+            float withCar = AutopilotLogic.EaseTargetSpeed(80f, 35f, 80.4f, 1f / 60f);
+            float without = AutopilotLogic.EaseTargetSpeed(80f, 35f, 1f / 60f);
+            Assert.AreEqual(without, withCar, 1e-6f);
+
+            // Easing up toward a faster goal ignores the car speed too
+            Assert.AreEqual(AutopilotLogic.EaseTargetSpeed(20f, 35f, 1f / 60f),
+                AutopilotLogic.EaseTargetSpeed(20f, 35f, 18f, 1f / 60f), 1e-6f);
+        }
+
+        [Test]
         public void DetectionRange_LooksSecondsAheadAtSpeed()
         {
             Assert.AreEqual(Range, AutopilotLogic.DetectionRange(20f, Range), 1e-5f);

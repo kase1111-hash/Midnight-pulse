@@ -24,15 +24,19 @@ namespace Nightflow.Systems
     ///
     /// Target x_t: lane centre, blended with smoothstep during a lane change,
     /// plus the smoothed analog in-lane lean (steering below the lane-change
-    /// threshold) and the emergency-vehicle avoidance offset. The spring tracks
-    /// the target's velocity too, so lane changes follow the blend without lag.
+    /// threshold) and the rate-limited emergency-vehicle yield. The spring
+    /// tracks the lane-change blend's velocity too, so lane changes follow it
+    /// without lag; the lean and the yield move the target's position only, so
+    /// switching them on or off (a lane change starting with the key held, an
+    /// emergency vehicle leaving the cone) never steps the spring's damper.
     ///
     /// Magnetism modulation m:
     /// - m_auto: 1.5 during autopilot (stronger centering)
     /// - m_speed: sqrt(v/v_ref), clamped [0.75, 1.25]
     /// - m_handbrake: 0.25 while the handbrake is held (allows drift)
     /// - m_drift: 0.3 while drifting
-    /// - m_damage: LaneFollower.MagnetStrength, reduced by side damage and forks
+    /// - m_fork: eases to 0.7 across a fork, back to 1 after it
+    /// - m_damage: LaneFollower.MagnetStrength, reduced by side damage
     ///
     /// Grip: the curve (v²κ) plus a speed-weighted share of the spring load the
     /// tyres. Past the limit the car runs wide of the lane and
@@ -54,10 +58,6 @@ namespace Nightflow.Systems
         private const float HandbrakeMultiplier = 0.25f;
         private const float DriftMultiplier = 0.3f;
 
-        // Analog in-lane lean follows the stick with a short lag (1/s), so
-        // crossing the lane-change threshold never makes the target jump
-        private const float LeanResponse = 6f;
-
         // Ride height above the road surface and how quickly the car settles onto it
         private const float RideHeight = 0.5f;            // m
         private const float RideHeightResponse = 10f;     // 1/s
@@ -65,8 +65,9 @@ namespace Nightflow.Systems
         // Drift slip degradation (rear damage, tyres, suspension)
         private const float RearSlipPenalty = 0.6f;
 
-        // Single player car: smoothed in-lane lean (m)
+        // Single player car: smoothed in-lane lean and emergency yield (m)
         private float _lean;
+        private float _avoid;
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
@@ -86,6 +87,9 @@ namespace Nightflow.Systems
                 // Read-only companions fetched by entity to keep the query at 6 types
                 var autopilot = SystemAPI.GetComponentRO<Autopilot>(entity);
                 var detection = SystemAPI.GetComponentRO<EmergencyDetection>(entity);
+                var environment = SystemAPI.HasComponent<EnvironmentState>(entity)
+                    ? SystemAPI.GetComponent<EnvironmentState>(entity)
+                    : default;
 
                 float playerZ = transform.ValueRO.Position.z;
 
@@ -162,16 +166,21 @@ namespace Nightflow.Systems
                 // Steering leans the car inside its lane (up to InLaneOffsetMax
                 // at the lane-change threshold, holding there beyond it, e.g.
                 // into a blocked lane or at the road edge); smoothed so it hands
-                // over to a lane change (or back) without the target jumping
+                // over to a lane change (or back) without the target jumping.
+                // Position only: its rate steps whenever the lean switches on or
+                // off, and fed to the spring's damper that step would kick the
+                // tyres (a held-key lane change would slide ~20 m/s early)
                 float steer = input.ValueRO.Steer;
                 float desiredLean = !changingLanes ? VehicleDynamics.InLaneOffset(steer) : 0f;
-                float previousLean = _lean;
-                _lean = math.lerp(_lean, desiredLean, VehicleDynamics.Damp(LeanResponse, deltaTime));
-                targetLateral += _lean;
-                targetVelocity += deltaTime > 0f ? (_lean - previousLean) / deltaTime : 0f;
+                float leanStart = _lean;
+                _lean = VehicleDynamics.LeanAt(leanStart, desiredLean, deltaTime);
 
-                // Emergency vehicle avoidance nudges the target to make room
-                targetLateral += detection.ValueRO.AvoidanceOffset;
+                // Emergency vehicle avoidance nudges the target to make room,
+                // rate-limited and kept on the road (position only, as above)
+                float halfRoadWidth = currentSegment.NumLanes * GameConstants.LaneWidth * 0.5f;
+                float avoidStart = _avoid;
+                _avoid = VehicleDynamics.StepAvoidance(_avoid, detection.ValueRO.AvoidanceOffset,
+                    targetLateral + _lean, halfRoadWidth, deltaTime);
 
                 // =============================================================
                 // Magnetism modulation
@@ -185,7 +194,8 @@ namespace Nightflow.Systems
                 float mSpeed = math.clamp(math.sqrt(math.max(speed, 1f) / ReferenceSpeed), 0.75f, 1.25f);
                 float mHandbrake = handbrake ? HandbrakeMultiplier : 1f;
                 float mDrift = drifting ? DriftMultiplier : 1f;
-                float magnetism = laneFollower.ValueRO.MagnetStrength * mAuto * mSpeed * mHandbrake * mDrift;
+                float mFork = VehicleDynamics.ForkMagnetismScale(environment.AtFork, environment.ForkProgress);
+                float magnetism = laneFollower.ValueRO.MagnetStrength * mAuto * mSpeed * mHandbrake * mDrift * mFork;
 
                 // =============================================================
                 // Grip (tyres, suspension, handbrake, speed)
@@ -241,21 +251,26 @@ namespace Nightflow.Systems
 
                 var lateralInput = new LateralInputs
                 {
-                    TargetOffset = targetLateral,
+                    TargetOffset = targetLateral + _lean + _avoid,
                     TargetVelocity = targetVelocity,
                     Magnetism = magnetism,
                     CurveAccel = VehicleDynamics.CurveAcceleration(speed, curvature),
                     Grip = grip,
                     ForwardSpeed = speed,
-                    HalfRoadWidth = currentSegment.NumLanes * GameConstants.LaneWidth * 0.5f,
+                    HalfRoadWidth = halfRoadWidth,
                     SlipCoupling = slipCoupling,
                     Yaw = driftState.ValueRO.YawOffset
                 };
 
                 for (int i = 0; i < steps; i++)
                 {
+                    // The lane blend moves at its rate; the lean and the yield
+                    // follow their exact paths through the frame, so one 30 fps
+                    // frame and four 120 Hz frames give the spring the same target
+                    lateralInput.TargetOffset = targetLateral + targetVelocity * (i * h)
+                        + VehicleDynamics.LeanAt(leanStart, desiredLean, (i + 1) * h)
+                        + math.lerp(avoidStart, _avoid, (i + 1) / (float)steps);
                     VehicleDynamics.StepLateral(ref lateral, lateralInput, h);
-                    lateralInput.TargetOffset += lateralInput.TargetVelocity * h;
                 }
 
                 // =============================================================

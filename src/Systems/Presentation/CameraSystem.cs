@@ -26,8 +26,11 @@ namespace Nightflow.Systems
     ///   braking lets it close in, and a fine shake grows with speed and with
     ///   the tyres working near their grip limit.
     /// - Every smoothing step is frame-rate independent (exponential damping).
-    /// - When the vehicle is reset under the crash fade the camera cuts
-    ///   straight to its chase position, so the fade-in reveals a settled view.
+    /// - Whenever the vehicle is reset under the black (after a crash, on
+    ///   RESTART from the pause menu, when a run is left for the main menu) the
+    ///   camera cuts straight to its chase position, so the fade-in reveals a
+    ///   settled view.
+    /// - Impact recoil is one kick per collision, decaying exponentially.
     ///
     /// From spec:
     /// - Base FOV 55°, widening with speed
@@ -189,10 +192,12 @@ namespace Nightflow.Systems
                 break;
             }
 
-            // Get impulse for recoil
-            foreach (var impulse in SystemAPI.Query<RefRO<ImpulseData>>().WithAll<PlayerVehicleTag>())
+            // Get impulse for recoil: one kick on the frame of the collision
+            // (CollisionSystem raises Occurred for that frame only)
+            foreach (var (impulse, collision) in
+                SystemAPI.Query<RefRO<ImpulseData>, RefRO<CollisionEvent>>().WithAll<PlayerVehicleTag>())
             {
-                if (impulse.ValueRO.Magnitude > 0.1f)
+                if (collision.ValueRO.Occurred && impulse.ValueRO.Magnitude > 0.1f)
                 {
                     impulseMagnitude = impulse.ValueRO.Magnitude;
                     impulseDirection = impulse.ValueRO.Direction;
@@ -219,8 +224,13 @@ namespace Nightflow.Systems
                 ? math.normalize(travelVelocity)
                 : carForward;
 
-            // Cut on the first frame and when the wreck is reset under the fade
-            bool cut = !_initialized || (_wasCrashed && !isCrashed);
+            // Cut on the first frame, when the wreck is reset, and through the
+            // black Reset phase of any vehicle reset (RESTART from the pause
+            // menu or leaving a run for the main menu reset a car that never
+            // crashed, so the crashed edge alone would miss them)
+            bool resetUnderBlack = SystemAPI.TryGetSingleton<GameState>(out GameState flow)
+                && flow.CrashPhase == CrashFlowPhase.Reset;
+            bool cut = !_initialized || (_wasCrashed && !isCrashed) || resetUnderBlack;
             _initialized = true;
             _wasCrashed = isCrashed;
 
@@ -331,7 +341,7 @@ namespace Nightflow.Systems
                   + TractionShakeMax * tractionEdge;
             float shakeX = (math.sin(_shakeTime * 31.7f) * 0.6f + math.sin(_shakeTime * 57.3f) * 0.4f) * shakeAmp;
             float shakeY = (math.sin(_shakeTime * 43.1f) * 0.5f + math.sin(_shakeTime * 71.9f) * 0.5f) * shakeAmp;
-            float shakeRoll = math.sin(_shakeTime * 23.3f) * TractionShakeRoll * tractionEdge;
+            float shakeRoll = isCrashed ? 0f : math.sin(_shakeTime * 23.3f) * TractionShakeRoll * tractionEdge;
 
             // =============================================================
             // Update Camera State

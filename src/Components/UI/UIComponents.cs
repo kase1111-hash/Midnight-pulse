@@ -131,6 +131,21 @@ namespace Nightflow.Components
         // key still held from a menu (Space, S, W...) never starts a run with a
         // handbrake or brake the player didn't mean. See GameFlowLogic.TakeoverIntent.
         public bool TakeoverArmed;
+
+        // Same rule for leaving the crash summary with a driving control: a
+        // throttle or steer still held from the crash must be released first.
+        public bool DismissArmed;
+
+        // Mirrored by GameStateSystem every frame: a scoring run is in progress
+        // but the autopilot has the wheel (pause menu, idle). Leaving for the
+        // main menu abandons it.
+        public bool RunSuspended;
+
+        // Mirrored by GameStateSystem every frame: the player's car is getting
+        // away from them (GameFlowLogic.LosingControl). A pause asked for then
+        // is held in PauseRequested and opens once the car is back in hand.
+        public bool PlayerLosingControl;
+        public bool PauseRequested;
     }
 
     /// <summary>

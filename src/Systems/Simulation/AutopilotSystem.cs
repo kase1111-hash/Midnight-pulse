@@ -26,14 +26,18 @@ namespace Nightflow.Systems
     /// (it never steers against the road centre), lane changes go through the
     /// same request/blocked-lane path as the player's, and speed changes ease
     /// in at comfortable rates. Taking the wheel from a fast player it eases
-    /// down from that speed instead of braking hard, so the handoff is seamless.
+    /// down from that speed instead of braking hard, so the handoff is seamless;
+    /// while the player's run is suspended underneath (pause menu, idle) it
+    /// keeps the run's speed instead, so resuming never loses momentum.
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct AutopilotSystem : ISystem
     {
-        // Speed control
-        private const float MaxAutopilotSpeed = 35f;    // m/s (~126 km/h)
+        // Speed control. The cruise target is Autopilot.TargetSpeed: the
+        // comfort band (20-35 m/s) in attract mode, or the run's own speed
+        // (up to GameFlowLogic.SuspendedRunMaxSpeed) while a paused or idle
+        // run waits underneath
         private const float MinAutopilotSpeed = 15f;    // m/s (~54 km/h)
 
         // Steering: a small lean toward the way out of a hazard, always below
@@ -179,15 +183,19 @@ namespace Nightflow.Systems
                 // =============================================================
 
                 // Cruise target, slowed for emergencies and hazards close ahead
-                float goalSpeed = autopilot.ValueRO.TargetSpeed * emergencySpeedMod;
+                float cruiseSpeed = math.clamp(autopilot.ValueRO.TargetSpeed,
+                    MinAutopilotSpeed, GameFlowLogic.SuspendedRunMaxSpeed);
+                float goalSpeed = cruiseSpeed * emergencySpeedMod;
                 if (hazardThreat > 0.3f && nearestHazardDist < detectionRange * 0.5f)
                 {
                     goalSpeed *= 1f - hazardThreat * 0.4f;
                 }
-                goalSpeed = math.clamp(goalSpeed, MinAutopilotSpeed, MaxAutopilotSpeed);
+                goalSpeed = math.clamp(goalSpeed, MinAutopilotSpeed, cruiseSpeed);
 
-                // Ease the working target toward the goal at comfortable rates
-                _easedSpeed = AutopilotLogic.EaseTargetSpeed(_easedSpeed, goalSpeed, deltaTime);
+                // Ease the working target toward the goal at comfortable rates,
+                // never from above a car that something else already slowed
+                // (RESTART resets the car in place without disengaging us)
+                _easedSpeed = AutopilotLogic.EaseTargetSpeed(_easedSpeed, goalSpeed, currentSpeed, deltaTime);
 
                 AutopilotLogic.SpeedControl(currentSpeed, _easedSpeed, out float throttle, out float brake);
                 input.ValueRW.Throttle = throttle;

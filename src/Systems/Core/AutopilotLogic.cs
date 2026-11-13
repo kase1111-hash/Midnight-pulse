@@ -55,6 +55,21 @@ namespace Nightflow.Systems
                 : math.min(goal, current + ComfortAccel * dt);
         }
 
+        /// <summary>
+        /// EaseTargetSpeed for a car that may already have been slowed by
+        /// something else (the in-place reset on RESTART, a knock): while easing
+        /// down, the working target never sits above the car, or SpeedControl
+        /// would floor the throttle to chase a speed the car no longer has.
+        /// </summary>
+        public static float EaseTargetSpeed(float current, float goal, float carSpeed, float deltaTime)
+        {
+            if (math.isfinite(current) && goal < current)
+            {
+                current = math.min(current, math.max(carSpeed, goal));
+            }
+            return EaseTargetSpeed(current, goal, deltaTime);
+        }
+
         /// <summary>Hazard look-ahead (m): a fixed range or a few seconds of road, whichever is longer.</summary>
         public static float DetectionRange(float speed, float minRange)
         {

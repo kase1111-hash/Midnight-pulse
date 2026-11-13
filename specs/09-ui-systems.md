@@ -54,6 +54,9 @@
 - Cooldown visible to player
 - Menu overlay during pause
 - The simulation never stops: while the pause menu (or any other menu) is open the autopilot drives; the first control input after resuming hands the wheel back
+- A paused run keeps its speed: the autopilot holds the run's speed underneath the menu (up to 360 km/h, well inside its grip) instead of easing down, so resuming picks the momentum up where it was left
+- Pause cannot catch a slide: asked for while the car is past its grip limit or well off line, the pause waits until the car is back in hand (a second press cancels it; a crash drops it)
+- Main Menu from the pause menu abandons the run: the car is repaired under a quick fade, and the first input after Start begins a fresh run
 
 ---
 
@@ -66,7 +69,7 @@
    - Hold: 0.08s
    - Fade-out: 0.4s
 4. Quick fade to black (the fade covers the HUD and menus but sits under the summary panel)
-5. Score summary (breakdown + save option), shown on black
+5. Score summary (breakdown + save option), shown on black; a driving control still held from the crash must be released before it can dismiss the summary
 6. Vehicle reset (no reload); the camera cuts to its chase position under the black so the fade-in reveals a settled view
 7. Autopilot resumes instantly, cruising at recovery speed
 
@@ -75,7 +78,7 @@ No loading screens.
 ### Taking the wheel
 - The first control input while the autopilot drives (no menu open) starts the run
 - A key still held when a menu closes or the summary is dismissed (Space/Enter to start, S/W to navigate) must be released first, so starting a run never fires a handbrake or brake the player didn't mean
-- The run's pace starts at the autopilot's cruise (90 km/h), so the takeover itself never jolts the car
+- The run's pace starts at 90 km/h, just above the autopilot's 72 km/h recovery cruise, and momentum pulls the car up to it at no more than 3 m/s², so the takeover itself never jolts the car
 
 ---
 

@@ -135,8 +135,11 @@ namespace Nightflow.Systems
 
                     // Traction: warn as the tyres near their grip limit, so the
                     // loss of control the momentum is building toward is readable
+                    // (not once the car is lost: the crash sequence says that)
                     float tractionUsage = 0f;
-                    foreach (var traction in SystemAPI.Query<RefRO<TractionState>>().WithAll<PlayerVehicleTag>())
+                    foreach (var traction in SystemAPI.Query<RefRO<TractionState>>()
+                                 .WithAll<PlayerVehicleTag>()
+                                 .WithNone<CrashedTag>())
                     {
                         tractionUsage = traction.ValueRO.Usage;
                         break;

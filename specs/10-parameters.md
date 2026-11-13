@@ -38,7 +38,7 @@ Complete reference of all tuning values and defaults. Source files are noted for
 | Pull toward the pace | 0.8/s of the gap, max 3 m/s² |
 | Throttle boost | 7 / (1 + v / 25) m/s² (never zero) |
 | Brake | 25 m/s² |
-| Momentum floor (brake limit) | 70% of the pace |
+| Momentum floor (brake limit) | 70% of the pace (a held brake trails it as it rises) |
 | Redline mode | pace climb ×1.3, throttle boost ×1.6 |
 | Freeflow mode | no pace climb, no floor |
 | Collision speed penalty | 30% of impact speed |
@@ -62,7 +62,7 @@ Cruising at the pace: ~195 km/h after 2 min, ~265 km/h after 3 min, ~340 km/h af
 | Traction warning | usage 0.85 (off below 0.75) |
 | Survivable slip | any below 35 m/s, easing to 0.85 rad (~49°) at 75 m/s and above |
 
-Where it bites: the tightest corners (R = 300 m) slide at ~85 m/s and spin out without a correction at ~90 m/s; lane changes on a straight start to slide at ~110 m/s; handbrake drifts are survivable up to ~55 m/s.
+Where it bites: the generated road's tightest bends (the generator caps the curvature at R = 300 m, but only reaches it for a metre or two at each segment join; segment middles are ~R 7.5 km) start to slide at ~97 m/s and spin out without a correction at ~120 m/s; lane changes on a straight start to slide at ~108 m/s and spin out at ~140 m/s; handbrake drifts are survivable up to ~55 m/s. (A sustained R = 300 m arc, which the generator never builds, would slide at ~85 m/s.)
 
 ---
 
@@ -70,7 +70,7 @@ Where it bites: the tightest corners (R = 300 m) slide at ~85 m/s and spin out w
 
 > **Source:** `src/Systems/Simulation/LaneMagnetismSystem.cs`, `src/Systems/Core/VehicleDynamics.cs`
 
-Critically damped spring toward the lane target (and its velocity, so lane changes don't lag), integrated in sub-steps of at most 1/120 s so it behaves the same at any frame rate.
+Critically damped spring toward the lane target (and the lane-change blend's velocity, so lane changes don't lag), integrated in sub-steps of at most 1/120 s so it behaves the same at any frame rate. The in-lane lean and the emergency yield move the target's position only (their rate is never fed to the spring's damper).
 
 | Parameter | Value |
 |-----------|-------|
@@ -79,8 +79,9 @@ Critically damped spring toward the lane target (and its velocity, so lane chang
 | Max lateral speed | 6 m/s (10 m/s sliding, 15 m/s drifting) |
 | Edge stiffness | 60 |
 | Soft zone | 85% of half the road width |
-| Analog in-lane lean | up to 0.9 m below the lane-change threshold |
-| Magnetism strength | 1.0 (side damage and forks reduce it) |
+| Analog in-lane lean | up to 0.9 m below the lane-change threshold, eased at 6/s |
+| Emergency yield | moves at most 1.5 m/s, never aims within 0.5 m of the soft edge |
+| Magnetism strength | 1.0 (side damage reduces it) |
 
 ---
 
@@ -96,7 +97,7 @@ Critically damped spring toward the lane target (and its velocity, so lane chang
 | Min duration | 0.45 s |
 | Max duration | 1.0 s |
 | Lane width | 3.6 m |
-| Fork magnetism | 70% (strength of lane pull at road forks) |
+| Fork magnetism | eases to 70% across a fork, back to 100% after it |
 | Lane change cooldown | 0.2 s |
 | Blocking window ahead | 12 m + closing speed × lane-change time |
 | Blocking window behind | 10 m + closing speed × 1.5 s |
@@ -126,7 +127,7 @@ Critically damped spring toward the lane target (and its velocity, so lane chang
 
 > **Source:** `src/Systems/Presentation/CameraSystem.cs`
 
-Speed-driven values follow `SpeedFeel(v) = 1 − exp(−max(0, v − 12) / 50)` (~0.5 at 50 m/s, ~0.8 at 90 m/s, still creeping toward 1), so FOV, pull-back, blur, speed lines and audio keep building with no top speed. The camera follows the smoothed direction of travel (not the car's nose), smooths its offset rather than its world position (no speed-proportional lag), and cuts to its chase position when the car is reset under the crash fade. All smoothing is exponential (frame-rate independent).
+Speed-driven values follow `SpeedFeel(v) = 1 − exp(−max(0, v − 12) / 50)` (~0.5 at 50 m/s, ~0.8 at 90 m/s, still creeping toward 1), so FOV, pull-back, blur, speed lines and audio keep building with no top speed. The camera follows the smoothed direction of travel (not the car's nose), smooths its offset rather than its world position (no speed-proportional lag), and cuts to its chase position whenever the car is reset under the black (crash, RESTART, leaving a run for the menu). All smoothing is exponential (frame-rate independent).
 
 | Parameter | Value |
 |-----------|-------|

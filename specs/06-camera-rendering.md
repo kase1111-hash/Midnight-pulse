@@ -27,13 +27,13 @@
 | Drift Whip | Extra rotational follow during drift |
 | Motion Blur | Speed^2 intensity scaling on SpeedFeel |
 | Look Ahead | Forward offset based on speed (max 15m) |
-| Reset Cut | When the wrecked car is reset under the crash fade, the camera cuts straight to its chase position |
+| Reset Cut | Whenever the car is reset under the black (after a crash, RESTART from the pause menu, leaving a run for the main menu), the camera cuts straight to its chase position |
 
 ### Impact & Feedback
 
 | Effect | Trigger |
 |--------|---------|
-| Impact Recoil | Collision impulse |
+| Impact Recoil | Collision impulse: one kick per collision, decaying exponentially |
 | Procedural Shake | Rough road, construction, suspension damage |
 | Damage Wobble | Accumulated damage |
 | Tunnel Squeeze | Entering tunnel segments |

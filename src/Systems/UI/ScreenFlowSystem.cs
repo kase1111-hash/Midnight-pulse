@@ -108,6 +108,7 @@ namespace Nightflow.Systems.UI
             gameState.CrashPhase = CrashFlowPhase.Impact;
             gameState.CrashPhaseTimer = 0f;
             gameState.AutopilotQueued = queueAutopilot;
+            gameState.PauseRequested = false;
 
             // A crash closes any pause menu; the summary is the only overlay now
             if (gameState.CurrentMenu == MenuState.Pause)
@@ -166,7 +167,11 @@ namespace Nightflow.Systems.UI
         /// <summary>
         /// Toggle the pause menu if the cooldown allows. Pausing never stops the
         /// car: GameStateSystem hands the wheel to the autopilot while any menu
-        /// is open, and gives it back on the first control input after resume.
+        /// is open (holding the run's speed), and gives it back on the first
+        /// control input after resume. Asked for while the car is getting away
+        /// from the driver, the pause is held and opens once it is back in hand
+        /// (or is dropped if the slide ends in a crash). Returns true when
+        /// GameState changed.
         /// </summary>
         public static bool TryTogglePause(ref GameState gameState)
         {
@@ -188,14 +193,26 @@ namespace Nightflow.Systems.UI
             {
                 ResumeFromPause(ref gameState);
             }
+            else if (gameState.PlayerLosingControl)
+            {
+                // A second press cancels the held request
+                gameState.PauseRequested = !gameState.PauseRequested;
+            }
             else
             {
-                gameState.CurrentMenu = MenuState.Pause;
-                gameState.MenuVisible = true;
-                gameState.IsPaused = true;
+                OpenPause(ref gameState);
             }
 
             return true;
+        }
+
+        /// <summary>Opens the pause menu (no checks).</summary>
+        public static void OpenPause(ref GameState gameState)
+        {
+            gameState.CurrentMenu = MenuState.Pause;
+            gameState.MenuVisible = true;
+            gameState.IsPaused = true;
+            gameState.PauseRequested = false;
         }
 
         /// <summary>

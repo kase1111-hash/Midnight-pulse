@@ -226,6 +226,19 @@ namespace Nightflow.Systems
                 drift.IsDrifting = false;
                 vel.Angular = drift.YawRate;
 
+                // The tyre load dies away with the slide: lane magnetism (its
+                // only live writer) skips crashed cars, and a load frozen at the
+                // crash value would hold the skid squeal, the grip warning and
+                // the traction fringe through the whole crash sequence
+                if (SystemAPI.HasComponent<TractionState>(entity))
+                {
+                    var traction = SystemAPI.GetComponent<TractionState>(entity);
+                    traction.Usage *= math.exp(-CrashLateralDamping * deltaTime);
+                    traction.Sliding = false;
+                    traction.SlideTime = 0f;
+                    SystemAPI.SetComponent(entity, traction);
+                }
+
                 FindTrackFrame(ref state, transform.ValueRO.Position.z,
                     out float3 forward, out float3 right, out float3 up,
                     out float3 roadCentre, out float halfRoadWidth);

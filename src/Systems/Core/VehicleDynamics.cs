@@ -13,7 +13,8 @@
 //   t = seconds the player has been driving this run, d = metres driven.
 //   Off the pedals the car is pulled up to the pace; throttle adds a boost
 //   that shrinks with speed but never reaches zero; the brake trims speed but
-//   never below MomentumFloorRatio * pace. Nothing slows the car on its own
+//   never below MomentumFloorRatio * pace (held, it trails that floor as the
+//   pace climbs). Nothing slows the car on its own
 //   (no drag), so every run keeps getting faster until the driver can't hold
 //   it: ~195 km/h after 2 min, ~340 km/h after 4 min, ~500 km/h after 6 min.
 //
@@ -26,8 +27,10 @@
 //   for more. Past usage 1 the tyres let go: the car runs wide, the rear steps
 //   out and the nose stops following the road. Catch it (brake, counter-steer,
 //   stop asking for more) and the tyres bite again; let the slip angle pass
-//   LostControlSlip(v) and the run is over. Tightest corners (R = 300 m) start
-//   to slide at ~85 m/s; lane changes on a straight at ~110 m/s.
+//   LostControlSlip(v) and the run is over. The generated road's tightest
+//   bends (R = 300 m for only a metre or two at segment joins) start to slide
+//   at ~97 m/s and spin out at ~120 m/s; lane changes on a straight slide from
+//   ~108 m/s and spin out at ~140 m/s (see the GeneratedBend_* tests).
 //
 // Every integrator here is frame-rate independent: callers split a frame into
 // SubSteps() of at most MaxSubStep, and damping uses exact exponentials. A
@@ -228,6 +231,12 @@ namespace Nightflow.Systems
         /// <summary>How far analog steering below the lane-change threshold leans the car (m).</summary>
         public const float InLaneOffsetMax = 0.9f;
 
+        /// <summary>
+        /// How quickly the in-lane lean follows the stick (1/s), so crossing the
+        /// lane-change threshold never makes the lane target jump.
+        /// </summary>
+        public const float LeanResponse = 6f;
+
         /// <summary>Lateral speed limit while the tyres grip (m/s).</summary>
         public const float MaxGripLateralSpeed = 6f;
 
@@ -248,6 +257,15 @@ namespace Nightflow.Systems
 
         /// <summary>Soft edge as a share of half the road width.</summary>
         public const float EdgeSoftZoneRatio = 0.85f;
+
+        /// <summary>Fastest the emergency-vehicle yield offset may move (m/s).</summary>
+        public const float AvoidanceRate = 1.5f;
+
+        /// <summary>The yield never aims closer than this to the soft edge (m).</summary>
+        public const float AvoidanceEdgeMargin = 0.5f;
+
+        /// <summary>Lane magnetism at the end of a fork (m_fork), so the car can pick a branch.</summary>
+        public const float ForkMagnetism = 0.7f;
 
         // =====================================================================
         // Yaw
@@ -367,7 +385,9 @@ namespace Nightflow.Systems
         /// <summary>
         /// One frame of forward speed. Below the pace the car is pulled up to it;
         /// throttle adds a boost on top; the brake trims toward the floor but no
-        /// lower; nothing ever pulls the car down on its own.
+        /// lower, and while it is held the car is still pulled up to the floor
+        /// (which keeps rising with the pace), so holding the brake can never
+        /// freeze the run's speed; nothing ever pulls the car down on its own.
         /// </summary>
         /// <param name="speed">Current forward speed (m/s).</param>
         /// <param name="pace">Run pace (m/s); 0 disables the pull (autopilot, free speed).</param>
@@ -384,11 +404,14 @@ namespace Nightflow.Systems
             bool braking = brake > PedalDeadzone;
             float next = speed;
 
-            // Momentum pulls the car up to the pace, never past it on its own
-            if (!braking && speed < pace)
+            // Momentum pulls the car up to the pace, never past it on its own.
+            // On the brake it still pulls up to the floor: the floor rises with
+            // the pace, so a held brake trails it instead of freezing the speed
+            float pullTarget = braking ? math.min(floor, pace) : pace;
+            if (speed < pullTarget)
             {
-                float pull = math.min(PaceCatchUpMaxAccel, (pace - speed) * PaceCatchUpRate) * powerModifier;
-                next = math.min(pace, speed + pull * dt);
+                float pull = math.min(PaceCatchUpMaxAccel, (pullTarget - speed) * PaceCatchUpRate) * powerModifier;
+                next = math.min(pullTarget, speed + pull * dt);
             }
 
             if (throttle > PedalDeadzone)
@@ -496,6 +519,17 @@ namespace Nightflow.Systems
         }
 
         /// <summary>
+        /// In-lane lean after easing for time t from <paramref name="start"/>
+        /// toward <paramref name="desired"/> (exact exponential, LeanResponse).
+        /// </summary>
+        public static float LeanAt(float start, float desired, float t)
+        {
+            if (!math.isfinite(start))
+                start = desired;
+            return desired + (start - desired) * math.exp(-LeanResponse * math.max(t, 0f));
+        }
+
+        /// <summary>
         /// Smoothstep lane-change blend (0 = old lane, 1 = new lane) and its rate
         /// of change (1/s) at this point of the change.
         /// </summary>
@@ -523,6 +557,53 @@ namespace Nightflow.Systems
                 blendRate = -blendRate;
             }
             return blend;
+        }
+
+        /// <summary>
+        /// One frame of the emergency-vehicle yield offset (m, + = right) added
+        /// to the lane target. EmergencyVehicleSystem recomputes its request from
+        /// scratch every frame, so it jumps when the vehicle enters or leaves the
+        /// detection cone, crosses behind the car, or a steer key overrides it;
+        /// here it moves at no more than AvoidanceRate, and it never pushes the
+        /// target past the road's soft edge (the barrier is not grip-limited, so
+        /// a target beyond it would hold a constant load on the tyres). Feed the
+        /// result to the lane target's position only: a velocity feed-forward
+        /// would turn every rate change into a spike on the spring's damper.
+        /// </summary>
+        /// <param name="current">Offset applied last frame (m).</param>
+        /// <param name="requested">EmergencyDetection.AvoidanceOffset this frame (m).</param>
+        /// <param name="baseTarget">Lane target before the yield (lane blend plus lean, m).</param>
+        /// <param name="halfRoadWidth">Half the road width (m).</param>
+        /// <param name="deltaTime">Frame time (s).</param>
+        public static float StepAvoidance(float current, float requested, float baseTarget,
+            float halfRoadWidth, float deltaTime)
+        {
+            if (!math.isfinite(current))
+                current = 0f;
+            if (!math.isfinite(requested))
+                requested = 0f;
+
+            // Stay inside the soft edge, but never pull a target that already
+            // sits outside it (a lean at the edge lane) further in on our own
+            float limit = math.max(halfRoadWidth * EdgeSoftZoneRatio - AvoidanceEdgeMargin, 0f);
+            float outer = math.max(limit, math.abs(baseTarget));
+            float desired = math.clamp(baseTarget + requested, -outer, outer) - baseTarget;
+
+            float step = AvoidanceRate * math.max(deltaTime, 0f);
+            return current + math.clamp(desired - current, -step, step);
+        }
+
+        /// <summary>
+        /// Lane magnetism inside a fork: eases from 1 to ForkMagnetism across
+        /// the fork so the car can drift toward a branch, and is 1 again as soon
+        /// as the car leaves it. m_fork(s) = smoothstep(1, ForkMagnetism, s / L_fork).
+        /// </summary>
+        public static float ForkMagnetismScale(bool atFork, float forkProgress)
+        {
+            if (!atFork)
+                return 1f;
+            float s = math.saturate(math.isfinite(forkProgress) ? forkProgress : 0f);
+            return math.lerp(1f, ForkMagnetism, s * s * (3f - 2f * s));
         }
 
         /// <summary>Barrier push back toward the road past the soft edge (m/s^2, not grip-limited).</summary>
