@@ -46,6 +46,9 @@ namespace Nightflow.Systems
         // A wreck's sideways slide dies out quickly (1/s) instead of stopping dead
         private const float CrashLateralDamping = 4f;
 
+        // The barrier stops a sliding wreck this far inside the road edge (m)
+        private const float WreckBarrierInset = 1f;
+
         // How quickly the body follows the track frame + yaw (1/s)
         private const float RotationResponse = 20f;
         private const float CrashRotationResponse = 5f;
@@ -181,7 +184,7 @@ namespace Nightflow.Systems
                 // =============================================================
 
                 FindTrackFrame(ref state, transform.ValueRO.Position.z,
-                    out float3 forward, out float3 right, out float3 up);
+                    out float3 forward, out float3 right, out float3 up, out _, out _);
 
                 // Forward movement along spline direction
                 // (lateral movement handled by LaneMagnetismSystem)
@@ -224,7 +227,19 @@ namespace Nightflow.Systems
                 vel.Angular = drift.YawRate;
 
                 FindTrackFrame(ref state, transform.ValueRO.Position.z,
-                    out float3 forward, out float3 right, out float3 up);
+                    out float3 forward, out float3 right, out float3 up,
+                    out float3 roadCentre, out float halfRoadWidth);
+
+                // The barrier stops a sliding wreck: no further outward motion
+                // once it reaches the road edge (lane magnetism, which holds a
+                // live car on the road, skips crashed cars)
+                float roadOffset = math.dot(transform.ValueRO.Position - roadCentre, right);
+                if (halfRoadWidth > 0f &&
+                    math.abs(roadOffset) >= halfRoadWidth - WreckBarrierInset &&
+                    roadOffset * vel.Lateral > 0f)
+                {
+                    vel.Lateral = 0f;
+                }
 
                 transform.ValueRW.Position += (forward * vel.Forward + right * vel.Lateral) * deltaTime;
 
@@ -256,16 +271,20 @@ namespace Nightflow.Systems
         }
 
         /// <summary>
-        /// Frenet frame of the track spline at the given Z. Falls back to the
-        /// world axes when no segment covers that Z (segment gap while the
-        /// generator catches up), so the car always has a forward direction.
+        /// Frenet frame of the track spline at the given Z, plus the road's
+        /// centre point there and half its width. Falls back to the world axes
+        /// (and a zero width) when no segment covers that Z (segment gap while
+        /// the generator catches up), so the car always has a forward direction.
         /// </summary>
         private void FindTrackFrame(ref SystemState state, float playerZ,
-            out float3 forward, out float3 right, out float3 up)
+            out float3 forward, out float3 right, out float3 up,
+            out float3 roadCentre, out float halfRoadWidth)
         {
             forward = new float3(0, 0, 1);
             right = new float3(1, 0, 0);
             up = new float3(0, 1, 0);
+            roadCentre = float3.zero;
+            halfRoadWidth = 0f;
 
             foreach (var (segment, spline) in
                 SystemAPI.Query<RefRO<TrackSegment>, RefRO<HermiteSpline>>()
@@ -279,11 +298,11 @@ namespace Nightflow.Systems
 
                     float t = math.saturate((playerZ - segment.ValueRO.StartZ) / length);
 
-                    float3 tangent = SplineUtilities.EvaluateTangent(
+                    SplineUtilities.BuildFrameAtT(
                         spline.ValueRO.P0, spline.ValueRO.T0,
-                        spline.ValueRO.P1, spline.ValueRO.T1, t);
-
-                    SplineUtilities.BuildFrenetFrame(tangent, out forward, out right, out up);
+                        spline.ValueRO.P1, spline.ValueRO.T1, t,
+                        out roadCentre, out forward, out right, out up);
+                    halfRoadWidth = segment.ValueRO.NumLanes * GameConstants.LaneWidth * 0.5f;
                     break;
                 }
             }

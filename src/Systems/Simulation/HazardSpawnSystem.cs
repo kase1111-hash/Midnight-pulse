@@ -178,6 +178,12 @@ namespace Nightflow.Systems
                 float spawnMin = math.max(MinSpawnDistance, math.max(playerSpeed, 0f) * SpawnLeadSeconds);
                 float spawnMax = spawnMin + (MaxSpawnDistance - MinSpawnDistance);
 
+                // ...but never past the road generated so far (unreachable in
+                // practice: grip runs out long before ~375 m/s)
+                float trackHorizon = (GameConstants.SegmentsAhead - 0.5f) * GameConstants.SegmentLength;
+                spawnMax = math.min(spawnMax, trackHorizon);
+                spawnMin = math.min(spawnMin, spawnMax - SpawnCheckInterval);
+
                 // Initialize furthest spawned if needed
                 if (_furthestSpawnedZ < playerPos.z + spawnMin)
                 {

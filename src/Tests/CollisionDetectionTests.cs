@@ -390,7 +390,7 @@ namespace Nightflow.Tests
 
         [TestCase(0f, 0f, 30f, 0f, 0f, -1f, 30f)]    // Head-on
         [TestCase(10f, 0f, 0f, -1f, 0f, 0f, 10f)]     // Side impact from left
-        [TestCase(0f, 0f, -20f, 0f, 0f, 1f, 0f)]      // Moving away
+        [TestCase(0f, 0f, 20f, 0f, 0f, 1f, 0f)]       // Moving away (hazard behind, normal points at the player)
         [TestCase(0f, 0f, 0f, 0f, 0f, -1f, 0f)]       // Stationary
         public void ImpactSpeed_ParametrizedCases(
             float vx, float vy, float vz, float nx, float ny, float nz, float expected)

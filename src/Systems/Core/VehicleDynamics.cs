@@ -30,7 +30,8 @@
 //   to slide at ~85 m/s; lane changes on a straight at ~110 m/s.
 //
 // Every integrator here is frame-rate independent: callers split a frame into
-// SubSteps() of at most MaxSubStep, and damping uses exact exponentials.
+// SubSteps() of at most MaxSubStep, and damping uses exact exponentials. A
+// hitch longer than MaxSubSteps * MaxSubStep only integrates that long.
 // ============================================================================
 
 using Unity.Mathematics;
@@ -320,7 +321,12 @@ namespace Nightflow.Systems
         /// <summary>Largest integration step (s).</summary>
         public const float MaxSubStep = 1f / 120f;
 
-        /// <summary>Sub-step cap; longer frames are clamped (the car runs in slow motion through a hitch).</summary>
+        /// <summary>
+        /// Sub-step cap: a frame longer than MaxSubSteps * MaxSubStep (a hitch)
+        /// integrates lateral and yaw motion for only that long, so the springs
+        /// never see one huge unstable step (forward motion still covers the
+        /// whole frame).
+        /// </summary>
         public const int MaxSubSteps = 16;
 
         private const float TwoPi = 2f * math.PI;
@@ -501,6 +507,24 @@ namespace Nightflow.Systems
             return s * s * (3f - 2f * s);
         }
 
+        /// <summary>
+        /// Lane-change blend toward TargetLane, run backwards while the change is
+        /// being aborted. SteeringSystem mirrors the timer on an abort
+        /// (timer' = duration - timer), and because smoothstep is symmetric
+        /// (1 - λ(1 - s) == λ(s)) the blend, and so the car's lateral target,
+        /// carries on from exactly where it was, back to the original lane.
+        /// </summary>
+        public static float LaneBlend(float timer, float duration, bool aborting, out float blendRate)
+        {
+            float blend = LaneBlend(timer, duration, out blendRate);
+            if (aborting)
+            {
+                blend = 1f - blend;
+                blendRate = -blendRate;
+            }
+            return blend;
+        }
+
         /// <summary>Barrier push back toward the road past the soft edge (m/s^2, not grip-limited).</summary>
         public static float EdgeAcceleration(float offset, float halfRoadWidth)
         {
@@ -656,7 +680,8 @@ namespace Nightflow.Systems
 
         /// <summary>
         /// Splits a frame into equal integration steps of at most MaxSubStep.
-        /// Frames longer than MaxSubSteps * MaxSubStep are clamped.
+        /// Frames longer than MaxSubSteps * MaxSubStep are clamped to that
+        /// length (see MaxSubSteps).
         /// </summary>
         /// <returns>Number of steps (0 for a non-positive frame).</returns>
         public static int SubSteps(float deltaTime, out float step)

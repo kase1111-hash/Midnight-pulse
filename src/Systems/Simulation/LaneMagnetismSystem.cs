@@ -148,21 +148,23 @@ namespace Nightflow.Systems
                 bool changingLanes = steeringState.ValueRO.ChangingLanes;
                 if (changingLanes)
                 {
+                    // An aborted change runs the same blend backwards to CurrentLane
                     float blend = VehicleDynamics.LaneBlend(
                         steeringState.ValueRO.LaneChangeTimer,
                         steeringState.ValueRO.LaneChangeDuration,
+                        steeringState.ValueRO.LaneChangeAborting,
                         out float blendRate);
+
                     targetLateral = math.lerp(currentLaneOffset, targetLaneOffset, blend);
                     targetVelocity = (targetLaneOffset - currentLaneOffset) * blendRate;
                 }
 
-                // Analog steering below the lane-change threshold leans the car
-                // inside its lane; smoothed so it hands over to a lane change
-                // (or back) without the target jumping
+                // Steering leans the car inside its lane (up to InLaneOffsetMax
+                // at the lane-change threshold, holding there beyond it, e.g.
+                // into a blocked lane or at the road edge); smoothed so it hands
+                // over to a lane change (or back) without the target jumping
                 float steer = input.ValueRO.Steer;
-                float desiredLean = !changingLanes && math.abs(steer) < VehicleDynamics.LaneChangeSteerThreshold
-                    ? VehicleDynamics.InLaneOffset(steer)
-                    : 0f;
+                float desiredLean = !changingLanes ? VehicleDynamics.InLaneOffset(steer) : 0f;
                 float previousLean = _lean;
                 _lean = math.lerp(_lean, desiredLean, VehicleDynamics.Damp(LeanResponse, deltaTime));
                 targetLateral += _lean;

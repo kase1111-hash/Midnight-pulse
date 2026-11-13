@@ -170,22 +170,26 @@ namespace Nightflow.Systems
                     if (counterSteer && t < 0.5f)
                     {
                         // Abort: run the same blend backwards from where the car
-                        // is. Swapping the lanes and mirroring the timer keeps the
-                        // lateral target continuous (smoothstep is symmetric:
-                        // lerp(b, a, λ(1-t)) == lerp(a, b, λ(t))), so the car
-                        // reverses smoothly instead of snapping back
-                        int fromLane = laneFollower.ValueRO.CurrentLane;
+                        // is (LaneMagnetismSystem blends with 1 - λ while
+                        // aborting). Mirroring the timer keeps the lateral target
+                        // continuous (smoothstep is symmetric: 1 - λ(1-t) == λ(t)),
+                        // so the car reverses smoothly instead of snapping back,
+                        // and the lanes are left alone so CurrentLane never names
+                        // a lane the car didn't reach
+                        steeringState.ValueRW.LaneChangeAborting = !steeringState.ValueRO.LaneChangeAborting;
                         steeringState.ValueRW.LaneChangeDir = -dir;
                         steeringState.ValueRW.LaneChangeTimer = duration * (1f - t);
-                        laneFollower.ValueRW.CurrentLane = laneFollower.ValueRO.TargetLane;
-                        laneFollower.ValueRW.TargetLane = fromLane;
                     }
                     else if (t >= 1f)
                     {
-                        // Lane change complete
+                        // Lane change complete; an aborted one ends where it started
                         steeringState.ValueRW.ChangingLanes = false;
                         steeringState.ValueRW.LaneChangeTimer = 0f;
-                        laneFollower.ValueRW.CurrentLane = laneFollower.ValueRO.TargetLane;
+                        if (steeringState.ValueRO.LaneChangeAborting)
+                            laneFollower.ValueRW.TargetLane = laneFollower.ValueRO.CurrentLane;
+                        else
+                            laneFollower.ValueRW.CurrentLane = laneFollower.ValueRO.TargetLane;
+                        steeringState.ValueRW.LaneChangeAborting = false;
                     }
                 }
                 else
@@ -232,6 +236,7 @@ namespace Nightflow.Systems
                             {
                                 // Start lane change
                                 steeringState.ValueRW.ChangingLanes = true;
+                                steeringState.ValueRW.LaneChangeAborting = false;
                                 steeringState.ValueRW.LaneChangeTimer = 0f;
                                 steeringState.ValueRW.LaneChangeDuration = duration;
                                 steeringState.ValueRW.LaneChangeDir = direction;

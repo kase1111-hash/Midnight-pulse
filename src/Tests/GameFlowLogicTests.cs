@@ -78,8 +78,10 @@ namespace Nightflow.Tests
 
             Assert.AreEqual(PilotDecision.EngageForIdle, decision);
             float elapsed = frames * Dt;
+            // The timer accumulates in float, so it can land one frame late
+            // (900 x 1/60 sums to 14.99994): allow two frames of slack
             Assert.GreaterOrEqual(elapsed, GameConstants.IdleTimeoutForAutopilot - Dt);
-            Assert.LessOrEqual(elapsed, GameConstants.IdleTimeoutForAutopilot + Dt);
+            Assert.LessOrEqual(elapsed, GameConstants.IdleTimeoutForAutopilot + 2f * Dt);
             Assert.AreEqual(0f, idle, "idle timer resets when autopilot engages");
         }
 

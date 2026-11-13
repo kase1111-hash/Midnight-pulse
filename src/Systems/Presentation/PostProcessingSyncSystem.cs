@@ -22,11 +22,11 @@ namespace Nightflow.Systems.Presentation
     public partial struct PostProcessingSyncSystem : ISystem
     {
         // Speed effects follow VehicleDynamics.SpeedFeel, which keeps building
-        // with no top speed: blur starts ~80 km/h and is still deepening past
-        // 500 km/h; chromatic fringing creeps in from ~200 km/h
+        // with no top speed: blur starts ~80 km/h and keeps deepening to
+        // ~580 km/h; chromatic fringing creeps in from ~200 km/h
         private const float MotionBlurStartFeel = 0.185f;  // SpeedFeel at ~80 km/h
         private const float ChromaticStartFeel = 0.58f;    // SpeedFeel at ~200 km/h
-        private const float FullEffectFeel = 0.95f;        // SpeedFeel at ~150 m/s
+        private const float FullEffectFeel = 0.95f;        // SpeedFeel at ~160 m/s
         private const float BaseChromatic = 0.01f;
         private const float SpeedChromatic = 0.02f;
 
@@ -265,7 +265,9 @@ namespace Nightflow.Systems.Presentation
             // Update PostProcessState singleton
             foreach (var ppState in SystemAPI.Query<RefRW<PostProcessState>>())
             {
-                ppState.ValueRW.SpeedLevel = VehicleDynamics.SpeedFeel(speed); // 0..1, keeps building (no top speed)
+                // Speed relative to 250 km/h, linear and not clamped (there is no
+                // top speed): PostProcessingController converts it back to km/h
+                ppState.ValueRW.SpeedLevel = speed / 69.4f;
                 ppState.ValueRW.DamageLevel = damage / 100f;
                 ppState.ValueRW.MotionBlurIntensity = motionBlur;
                 ppState.ValueRW.VignetteIntensity = vignette;

@@ -308,6 +308,7 @@ namespace Nightflow.Systems
             steering.CurrentAngle = 0f;
             steering.TargetAngle = 0f;
             steering.ChangingLanes = false;
+            steering.LaneChangeAborting = false;
             steering.LaneChangeTimer = 0f;
             steering.LaneChangeRequested = false;
             steering.LaneChangeDirection = 0;

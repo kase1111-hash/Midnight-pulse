@@ -20,7 +20,6 @@
 // ============================================================================
 
 using Unity.Mathematics;
-using Nightflow.Config;
 
 namespace Nightflow.Systems
 {
@@ -84,7 +83,7 @@ namespace Nightflow.Systems
         // spec 08 "Base Speed increases over time" lives in VehicleDynamics
         // (PaceSpeed): it has no cap, unlike these knobs.
 
-        /// <summary>Traffic never exceeds this fraction of the player's reference speed.</summary>
+        /// <summary>Traffic never exceeds this fraction of the reference fast speed.</summary>
         public const float MaxTrafficSpeedRatio = 0.65f;
 
         /// <summary>
@@ -143,21 +142,13 @@ namespace Nightflow.Systems
         }
 
         /// <summary>
-        /// Keeps traffic slower than the player drives so the top end never
+        /// Keeps traffic well under the reference fast speed so the top end never
         /// turns into an empty road (traffic outrunning you is not "harder").
+        /// With no top speed the player only pulls further ahead as the run builds.
         /// </summary>
-        public static float ClampTrafficSpeed(float trafficSpeed, float playerReferenceSpeed)
+        public static float ClampTrafficSpeed(float trafficSpeed, float referenceSpeed)
         {
-            return math.min(trafficSpeed, playerReferenceSpeed * MaxTrafficSpeedRatio);
-        }
-
-        /// <summary>
-        /// Player speed traffic is tuned against: the reference fast speed early
-        /// in a run, the run's pace once momentum carries the car past it.
-        /// </summary>
-        public static float TrafficSpeedReference(float pace)
-        {
-            return math.max(pace, GameConstants.MaxForwardSpeed);
+            return math.min(trafficSpeed, referenceSpeed * MaxTrafficSpeedRatio);
         }
     }
 }

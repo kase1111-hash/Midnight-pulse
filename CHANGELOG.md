@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Speed keeps building on screen** - FOV, camera pull-back, motion blur, chromatic aberration, speed lines, wind and engine pitch follow one curve (`VehicleDynamics.SpeedFeel`) that keeps rising instead of maxing out at 250 km/h; the engine climbs through a five-ratio gearbox plus an endless top gear; the HUD speed dots span 100-340 km/h
 - **Crash slow motion** - `TimeScaleDriver` (self-instantiating) finally applies the crash flow's time-scale hint: 0.3x on impact easing back to 1x before the fade, never below 0.25x
 - **Collision speed penalty** - Hits cost 30% of the impact speed (spec 10), which the pace then rebuilds
-- `GameFlowLogic.TakeoverIntent`, `AutopilotLogic.EaseTargetSpeed/DetectionRange/SpeedControl`, `SplineUtilities.EvaluateSignedCurvature`, `DifficultyCurve.TrafficSpeedReference`, `GameConstants.MaxPlausibleSpeed`, `CrashReason.LostControl`, `GameState.TakeoverArmed`, `UIState.TractionUsage/TractionWarning`
+- `GameFlowLogic.TakeoverIntent`, `AutopilotLogic.EaseTargetSpeed/DetectionRange/SpeedControl`, `SplineUtilities.EvaluateSignedCurvature`, `GameConstants.MaxPlausibleSpeed`, `CrashReason.LostControl`, `GameState.TakeoverArmed`, `SteeringState.LaneChangeAborting`, `UIState.TractionUsage/TractionWarning`
 
 #### In-Run Difficulty Curve
 - **DifficultyCurve** - One smooth, unit-tested ramp per run drives traffic density and speed, hazard rate and lethality, and emergency frequency. It eases in, hits the spec's full difficulty at 10 km / 5 min, and keeps building on an asymptotic overdrive tail with no steps, kinks or plateaus. Covered by `DifficultyCurveTests`. (Its capped base cruise speed was superseded by the uncapped pace, see Momentum Without Terminal Velocity)
@@ -31,14 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Smooth Play
 - Lane changes crawled: the lateral position step was multiplied by `dt` twice (~0.03 at 60 fps), so a lane change took ~18 s and depended on the frame rate. Lateral motion now integrates properly in fixed sub-steps (identical at 30/60/144 fps) and the lane spring tracks the lane-change blend's velocity, so the car follows it without lag
-- Holding a steering key never moved the car: `m_input = 1 − |steer|` switched the lane spring off at full steer. Analog steering below the lane-change threshold now leans the car inside its lane instead (smoothed, so it hands over to a lane change without a jump)
+- Holding a steering key never moved the car: `m_input = 1 − |steer|` switched the lane spring off at full steer. Steering now leans the car inside its lane instead (up to 0.9 m, holding there when the lane change is blocked or at the road edge; smoothed, so it hands over to a lane change without a jump)
 - The car stayed permanently crooked after every lane change: yaw integrated steering with nothing pulling it back. The tyres now align the nose with the direction of travel; yaw is wrapped, so a full spin settles facing forward
 - The attract-mode autopilot weaved between the two centre lanes forever (it steered against the road centre, past the lane-change threshold). Lane magnetism centres it now; it only leans below the threshold and changes lanes by request
 - Taking the wheel from a fast player, the autopilot stood on the brakes toward its 35 m/s cruise; it now eases down at 4 m/s² from the handed-over speed, looks hazards up 2.5 s ahead instead of a fixed 80 m, and drives with 2x grip so attract mode never slides
-- A lane-change abort snapped the car back (the target jumped to the old lane); the blend now runs backwards from where the car is
+- A lane-change abort snapped the car back (the target jumped to the old lane); the blend now runs backwards from where the car is, and the car's lane never flips to one it didn't reach
 - Traffic lane changes were advanced twice per frame (SteeringSystem and TrafficMovementSystem) and ran at double speed
 - Overpasses launched the car skyward: OverpassSystem added the elevation offset to the car's height every frame (the road surface isn't raised there). It no longer moves the car, and the camera's overpass lift eases to a target instead of drifting up forever
-- The car could drift off the road surface on pitched segments; it now settles onto the road at ride height
+- The car could drift off the road surface on pitched segments; it now settles onto the road at ride height. A sliding wreck stops at the barrier instead of sliding off the road
 - Chase camera: smoothed its world position, so it fell further behind the faster the car went (16 m extra at 80 m/s) and swooped in under braking; it now smooths its offset and follows the direction of travel (no orbiting during spins), all damping is exponential (frame-rate independent), and it cuts to the chase position when the car is reset under the crash fade instead of swooping during the fade-in. CameraSyncBridge no longer double-smooths the FOV
 - Lane changes were refused far too often at speed: the blocked-lane window grew to 1.5 s of closing speed (170 m at 100 m/s) for anything in the target lane; it now covers only the road closed during the change (the same window hazard fairness keeps clear)
 - Traffic and hazards spawned at fixed distances and would pop in under the car's nose at speed; they now spawn at least 1.6 s / 2 s of travel ahead
@@ -85,7 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 #### No Top Speed
-- `GameConstants.MaxForwardSpeed` (80 m/s) is a reference speed, not a cap; traffic is tuned against the larger of it and the run's pace
+- `GameConstants.MaxForwardSpeed` (80 m/s) is a reference speed, not a cap; traffic stays under 65% of it, so the player pulls further ahead of traffic as the run builds
 - `DifficultyCurve` no longer carries the capped base cruise speed (`BaseCruiseSpeed`, `ApplyCruiseAssist`); the uncapped pace in `VehicleDynamics` replaces it. Unused `GameModeSystem.GetSpeedLimit` / `GetRedlineAccelerationModifier` removed
 - Redline: pace climbs 1.3x faster with a 1.6x throttle boost. Freeflow: no pace climb and no brake floor (still no top speed)
 - Lane magnetism edge stiffness 20 → 60 so a sliding car is held on the road

@@ -157,19 +157,6 @@ namespace Nightflow.Tests
             Assert.AreEqual(20f, DifficultyCurve.ClampTrafficSpeed(20f, GameConstants.MaxForwardSpeed));
         }
 
-        [Test]
-        public void TrafficSpeedReference_FollowsPaceAboveTheFloor()
-        {
-            // Early in a run traffic is tuned against the reference fast speed...
-            Assert.AreEqual(GameConstants.MaxForwardSpeed, DifficultyCurve.TrafficSpeedReference(25f), 1e-5f);
-
-            // ...and once the pace passes it, traffic may speed up with the run,
-            // always staying well under the pace
-            Assert.AreEqual(150f, DifficultyCurve.TrafficSpeedReference(150f), 1e-5f);
-            float fastest = DifficultyCurve.ClampTrafficSpeed(500f, DifficultyCurve.TrafficSpeedReference(150f));
-            Assert.Less(fastest, 150f);
-        }
-
         #endregion
     }
 }

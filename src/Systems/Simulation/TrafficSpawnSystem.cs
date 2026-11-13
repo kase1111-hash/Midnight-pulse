@@ -75,11 +75,6 @@ namespace Nightflow.Systems
 
             DifficultyLevels levels = DifficultyCurve.Evaluate(distanceTraveled, timeSurvived);
 
-            // Traffic is tuned against the run's pace once momentum carries the
-            // car past the reference speed, so it keeps up without outrunning it
-            float speedReference = DifficultyCurve.TrafficSpeedReference(
-                VehicleDynamics.PaceSpeed(timeSurvived, distanceTraveled));
-
             // Spawn far enough ahead (in time, at speed) to appear out of the
             // fog rather than pop in under the player's nose
             float spawnAheadMin = math.max(SpawnAheadMin, playerSpeed * SpawnLeadSeconds);
@@ -156,8 +151,8 @@ namespace Nightflow.Systems
                     float spawnZ = playerZ + _random.NextFloat(spawnAheadMin, spawnAheadMax);
                     int spawnLane = _random.NextInt(0, 4); // Lanes 0-3
 
-                    // Don't spawn in player's lane too close
-                    if (spawnLane == playerLane && spawnZ - playerZ < spawnAheadMin * 1.5f)
+                    // Don't spawn in player's lane too close (the near part of the window)
+                    if (spawnLane == playerLane && spawnZ - playerZ < spawnAheadMin + SpawnAheadMin * 0.5f)
                         continue;
 
                     // Find track segment for proper positioning
@@ -203,8 +198,7 @@ namespace Nightflow.Systems
                         continue;
 
                     // Spawn traffic vehicle with adaptive difficulty
-                    SpawnTrafficVehicle(ref ecb, candidatePos, spawnLane, levels.TrafficSpeedBonus,
-                        adaptiveDifficulty, speedReference);
+                    SpawnTrafficVehicle(ref ecb, candidatePos, spawnLane, levels.TrafficSpeedBonus, adaptiveDifficulty);
                     trafficPositions.Add(candidatePos);
                     currentCount++;
                 }
@@ -219,8 +213,7 @@ namespace Nightflow.Systems
             }
         }
 
-        private void SpawnTrafficVehicle(ref EntityCommandBuffer ecb, float3 position, int lane, float speedBonus,
-            float adaptiveDifficulty, float speedReference)
+        private void SpawnTrafficVehicle(ref EntityCommandBuffer ecb, float3 position, int lane, float speedBonus, float adaptiveDifficulty)
         {
             Entity entity = ecb.CreateEntity();
             _spawnCounter++;
@@ -239,7 +232,7 @@ namespace Nightflow.Systems
             targetSpeed *= speedModifier;
 
             // Never let traffic outrun the player: an empty road isn't a hard road
-            targetSpeed = DifficultyCurve.ClampTrafficSpeed(targetSpeed, speedReference);
+            targetSpeed = DifficultyCurve.ClampTrafficSpeed(targetSpeed, GameConstants.MaxForwardSpeed);
 
             // Transform
             ecb.AddComponent(entity, new WorldTransform

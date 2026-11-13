@@ -115,7 +115,7 @@ namespace Nightflow.Systems
                 int myLane = AutopilotLogic.DrivingLane(
                     laneFollower.ValueRO.CurrentLane,
                     laneFollower.ValueRO.TargetLane,
-                    steeringState.ValueRO.ChangingLanes);
+                    steeringState.ValueRO.ChangingLanes && !steeringState.ValueRO.LaneChangeAborting);
 
                 // Look a few seconds ahead, not a fixed distance: at speed the
                 // fixed range would leave no time to react

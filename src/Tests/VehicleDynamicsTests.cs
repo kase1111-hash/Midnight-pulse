@@ -304,6 +304,29 @@ namespace Nightflow.Tests
             Assert.AreEqual(0f, rEnd, 1e-6f);
         }
 
+        [TestCase(0.1f)]
+        [TestCase(0.25f)]
+        [TestCase(0.45f)]
+        public void LaneBlend_AbortCarriesOnFromWhereTheCarIs(float progressAtAbort)
+        {
+            const float duration = 0.8f;
+
+            // Just before the abort, heading for the new lane
+            float before = VehicleDynamics.LaneBlend(progressAtAbort * duration, duration, false, out float rateBefore);
+
+            // SteeringSystem mirrors the timer and flags the abort
+            float mirrored = duration * (1f - progressAtAbort);
+            float after = VehicleDynamics.LaneBlend(mirrored, duration, true, out float rateAfter);
+
+            Assert.AreEqual(before, after, 1e-5f, "lateral target must not jump on an abort");
+            Assert.Greater(rateBefore, 0f);
+            Assert.Less(rateAfter, 0f, "an aborted change heads back to the original lane");
+            Assert.AreEqual(rateBefore, -rateAfter, 1e-4f);
+
+            // ...and finishes exactly back in the original lane
+            Assert.AreEqual(0f, VehicleDynamics.LaneBlend(duration, duration, true, out _), 1e-6f);
+        }
+
         [Test]
         public void EdgeAcceleration_PushesBackOnlyPastSoftEdge()
         {

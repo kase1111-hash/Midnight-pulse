@@ -76,7 +76,7 @@ Where:
   m_damage = 1 - 0.5 x D_side        (side damage reduces magnetism)
 ```
 
-Steering does not weaken the spring (an earlier `m_input = 1 - |steer|` switched it off at full steer, so a held key never moved the car). Instead analog steering below the lane-change threshold **leans** the car inside its lane (up to 0.9 m, smoothed), and the spring tracks the target's velocity as well as its position:
+Steering does not weaken the spring (an earlier `m_input = 1 - |steer|` switched it off at full steer, so a held key never moved the car). Instead steering **leans** the car inside its lane (up to 0.9 m at the lane-change threshold, holding there beyond it when the change is blocked or at the road edge; smoothed), and the spring tracks the target's velocity as well as its position:
 
 ```
 a_lat = m x (-omega^2 x (x - x_target) - 2 x omega x (v_lat - v_target))
@@ -135,7 +135,7 @@ s_effective = s x (1 - lambda)
 
 ### Emergency Abort
 - Counter-steer > 0.7 in opposite direction triggers reversal
-- The lanes swap and progress resets using `Progress = Duration x (1-t)`, so the blend runs backwards from where the car is (smoothstep is symmetric) and the car reverses without snapping
+- Progress resets using `Progress = Duration x (1-t)` and the blend runs backwards (`1 - lambda`) from where the car is (smoothstep is symmetric), so the car reverses without snapping; the lanes are not swapped, so the car's lane never flips to one it didn't reach
 
 ### Blocked Lanes
 A lane change is refused while a car or hazard in the target lane is within `12 m + closing speed x lane-change time` ahead (or `10 m + closing speed x 1.5 s` behind): the road the car would close while the change is under way. It scales with speed but never refuses a change because of something far down the road.

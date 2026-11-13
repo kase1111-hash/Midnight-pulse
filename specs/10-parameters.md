@@ -350,7 +350,7 @@ Run progress = `0.5 × distance / 10 km + 0.5 × time / 5 min`. Intensity eases 
 | Hazard multiplier | 1x | 2.5x | 3.25x |
 | Lethal hazard share | 0.6x | 1x | 1.2x |
 | Emergency multiplier | 1x (every 45 s) | 3x (15 s) | 4x (~11 s) |
-Speed is not on this table: the run's pace (see Momentum above) climbs with no ceiling and is what ends runs. Traffic never spawns faster than 65% of the larger of 80 m/s and the run's pace, traffic and hazards spawn at least 1.6 s / 2 s of travel ahead so they come out of the fog at any speed, and emergency vehicles always drive at least 12 m/s faster than the player.
+Speed is not on this table: the run's pace (see Momentum above) climbs with no ceiling and is what ends runs. Traffic never spawns faster than 65% of the 80 m/s reference speed (52 m/s), so the player only pulls further ahead as the run builds; traffic and hazards spawn at least 1.6 s / 2 s of travel ahead so they come out of the fog at any speed, and emergency vehicles always drive at least 12 m/s faster than the player.
 
 ### Adaptive Difficulty (across runs)
 

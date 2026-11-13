@@ -120,6 +120,13 @@ namespace Nightflow.Components
 
         /// <summary>Requested lane change direction: -1 = left, +1 = right.</summary>
         public int LaneChangeDirection;
+
+        /// <summary>
+        /// True while an aborted lane change runs its blend back to CurrentLane.
+        /// An abort never changes CurrentLane/TargetLane, so lane-based logic
+        /// (risk events, traffic, forks) never sees a lane the car didn't reach.
+        /// </summary>
+        public bool LaneChangeAborting;
     }
 
     /// <summary>
