@@ -46,6 +46,7 @@ namespace Nightflow.Archetypes
                 typeof(SteeringState),
                 typeof(LaneTransition),
                 typeof(DriftState),
+                typeof(TractionState),
                 typeof(SpeedTier),
                 // Lane Following
                 typeof(LaneFollower),
